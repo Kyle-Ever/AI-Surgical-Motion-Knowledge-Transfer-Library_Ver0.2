@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Environments
+venv/
+backend/venv/
+.env
+backend/.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Builds
+dist/
+build/
+
+# App data
+backend/aimotion.db
+backend/data/uploads/
+backend/data/temp/
+data/uploads/
+data/temp/
+
+# Misc
+.claude/
