@@ -68,6 +68,12 @@
 ## テスト/検証
 - 統合試験: ルートの `test_integration.py` を手動実行（別途 `requests` が必要）。
 - 簡易確認: `backend/_import_app.py`（アプリ読込）、`_healthcheck.py`（httpx必要）、`_check_versions.py`（依存版数）。
+- UI E2E（Playwright）:
+  - 事前: `cd frontend && npm ci && npx playwright install --with-deps`
+  - 実行: `npm run test`（ヘッドレス）、`npm run test:ui`（UI）
+  - 設定: `frontend/playwright.config.ts`（`webServer: npm run dev`）
+  - CI: `.github/workflows/e2e.yml`（手動トリガ）
+  - MCP連携（任意）: `docs/testing-ui-playwright-mcp.md` を参照（Playwright MCP を補助ツールとして利用）
 
 ## セキュリティ/データ取扱い
 - アップロードは `.mp4` のみ。保存先は `data/uploads/`。

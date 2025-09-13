@@ -1,0 +1,30 @@
+name: UI E2E (Playwright)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend deps and browsers
+        run: |
+          cd frontend
+          npm ci
+          npx playwright install --with-deps
+
+      - name: Run Playwright tests
+        env:
+          CI: 'true'
+        run: |
+          cd frontend
+          npx playwright test
+
