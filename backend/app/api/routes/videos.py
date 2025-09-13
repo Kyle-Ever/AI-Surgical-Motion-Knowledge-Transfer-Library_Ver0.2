@@ -14,7 +14,16 @@ from app.services.video_service import VideoService
 
 router = APIRouter()
 
-@router.post("/upload", response_model=VideoUploadResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/upload",
+    response_model=VideoUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload a video",
+    responses={
+        400: {"description": "Invalid input or file type not allowed"},
+        413: {"description": "File too large"},
+    },
+)
 async def upload_video(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -113,7 +122,12 @@ async def upload_video(
             file_path.unlink()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-@router.get("/{video_id}", response_model=VideoResponse)
+@router.get(
+    "/{video_id}",
+    response_model=VideoResponse,
+    summary="Get video metadata",
+    responses={404: {"description": "Video not found"}},
+)
 async def get_video(
     video_id: str,
     db: Session = Depends(get_db)
@@ -124,7 +138,11 @@ async def get_video(
         raise HTTPException(status_code=404, detail="Video not found")
     return video
 
-@router.get("/", response_model=list[VideoResponse])
+@router.get(
+    "/",
+    response_model=list[VideoResponse],
+    summary="List videos",
+)
 async def list_videos(
     skip: int = 0,
     limit: int = 100,
