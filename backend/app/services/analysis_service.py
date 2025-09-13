@@ -10,7 +10,8 @@ from datetime import datetime
 import logging
 
 from app.core.websocket import manager
-from app.models.database import AnalysisResult, SessionLocal, AnalysisStatus
+from app.models import SessionLocal
+from app.models.analysis import AnalysisResult, AnalysisStatus
 from app.ai_engine.processors.skeleton_detector import HandSkeletonDetector
 from app.ai_engine.processors.video_analyzer import VideoAnalyzer
 

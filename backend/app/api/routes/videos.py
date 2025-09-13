@@ -14,7 +14,7 @@ from app.services.video_service import VideoService
 
 router = APIRouter()
 
-@router.post("/upload", response_model=VideoUploadResponse)
+@router.post("/upload", response_model=VideoUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_video(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
