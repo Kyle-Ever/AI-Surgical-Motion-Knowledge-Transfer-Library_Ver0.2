@@ -14,6 +14,7 @@ from app.schemas.analysis import (
     ProcessingStep
 )
 from app.services.analysis_service import AnalysisService
+from app.schemas.common import ErrorResponse
 
 router = APIRouter()
 
@@ -25,8 +26,8 @@ processing_tasks: Dict[str, Any] = {}
     response_model=AnalysisResponse,
     summary="Start analysis",
     responses={
-        400: {"description": "Analysis already in progress or invalid input"},
-        404: {"description": "Video not found"},
+        400: {"description": "Analysis already in progress or invalid input", "model": ErrorResponse},
+        404: {"description": "Video not found", "model": ErrorResponse},
     },
 )
 async def start_analysis(
@@ -79,7 +80,7 @@ async def start_analysis(
     "/{analysis_id}/status",
     response_model=AnalysisStatusResponse,
     summary="Get analysis status",
-    responses={404: {"description": "Analysis not found"}},
+    responses={404: {"description": "Analysis not found", "model": ErrorResponse}},
 )
 async def get_analysis_status(
     analysis_id: str,
@@ -193,7 +194,7 @@ async def get_analysis_status(
     "/{analysis_id}",
     response_model=AnalysisResultResponse,
     summary="Get analysis result",
-    responses={404: {"description": "Analysis not found"}},
+    responses={404: {"description": "Analysis not found", "model": ErrorResponse}},
 )
 async def get_analysis_result(
     analysis_id: str,

@@ -9,6 +9,7 @@ from pathlib import Path
 from app.models import get_db
 from app.models.video import Video, VideoType
 from app.schemas.video import VideoResponse, VideoUploadResponse, VideoCreate
+from app.schemas.common import ErrorResponse
 from app.core.config import settings
 from app.services.video_service import VideoService
 
@@ -20,8 +21,8 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
     summary="Upload a video",
     responses={
-        400: {"description": "Invalid input or file type not allowed"},
-        413: {"description": "File too large"},
+        400: {"description": "Invalid input or file type not allowed", "model": ErrorResponse},
+        413: {"description": "File too large", "model": ErrorResponse},
     },
 )
 async def upload_video(
@@ -126,7 +127,7 @@ async def upload_video(
     "/{video_id}",
     response_model=VideoResponse,
     summary="Get video metadata",
-    responses={404: {"description": "Video not found"}},
+    responses={404: {"description": "Video not found", "model": ErrorResponse}},
 )
 async def get_video(
     video_id: str,
