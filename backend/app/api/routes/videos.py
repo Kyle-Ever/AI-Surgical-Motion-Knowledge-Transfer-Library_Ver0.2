@@ -37,7 +37,7 @@ async def upload_video(
 ):
     """Upload a video file"""
     
-    # 繝輔ぃ繧､繝ｫ諡｡蠑ｵ蟄舌メ繧ｧ繝・け
+    # ファイル拡張子チェック
     file_extension = Path(file.filename).suffix.lower()
     if file_extension not in settings.ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type {file_extension} not allowed")
@@ -54,10 +54,10 @@ async def upload_video(
         except Exception:
             pass
     
-    # 繝輔ぃ繧､繝ｫ繧ｵ繧､繧ｺ繝√ぉ繝・け・育ｰ｡譏鍋沿・・    if file.size and file.size > settings.MAX_UPLOAD_SIZE:
+    # ファイルサイズチェック（簡易版）    if file.size and file.size > settings.MAX_UPLOAD_SIZE:
         raise HTTPException(status_code=400, detail="File size exceeds limit")
     
-    # 繝ｦ繝九・繧ｯ縺ｪ繝輔ぃ繧､繝ｫ蜷阪ｒ逕滓・
+    # ユニークなファイル名を生成
     video_id = str(uuid.uuid4())
     filename = f"{video_id}{file_extension}"
     file_path = settings.UPLOAD_DIR / filename
@@ -84,8 +84,8 @@ async def upload_video(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
     
-    # 繝・・繧ｿ繝吶・繧ｹ縺ｫ菫晏ｭ・    try:
-        # 譌･莉倥・繝代・繧ｹ
+    # データベースに保存    try:
+        # 日付のパース
         parsed_date = None
         if surgery_date:
             try:
@@ -109,7 +109,7 @@ async def upload_video(
         db.commit()
         db.refresh(video)
         
-        # 繝舌ャ繧ｯ繧ｰ繝ｩ繧ｦ繝ｳ繝峨〒繝薙ョ繧ｪ繝｡繧ｿ繝・・繧ｿ繧呈歓蜃ｺ・亥ｾ後〒螳溯｣・ｼ・        # background_tasks.add_task(extract_video_metadata, video_id, db)
+        # バックグラウンドでビデオメタデータを抽出（後で実装）        # background_tasks.add_task(extract_video_metadata, video_id, db)
         
         return VideoUploadResponse(
             id=video_id,
@@ -118,7 +118,7 @@ async def upload_video(
         )
         
     except Exception as e:
-        # 繧ｨ繝ｩ繝ｼ譎ゅ・繝輔ぃ繧､繝ｫ繧貞炎髯､
+        # エラー時はファイルを削除
         if file_path.exists():
             file_path.unlink()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

@@ -1,27 +1,27 @@
-﻿from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
 from app.core.config import settings
-from app.api.routes import videos, analysis
+from app.api.routes import videos, analysis, annotation
 from app.models import Base, engine
 
-# 繝ｭ繧ｮ繝ｳ繧ｰ險ｭ螳・
+# ロギング設定
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 襍ｷ蜍墓凾
+    # 起動時
     logger.info("Starting up...")
-    # 繝・・繧ｿ繝吶・繧ｹ繝・・繝悶Ν繧剃ｽ懈・
+    # データベーステーブルを作成
     Base.metadata.create_all(bind=engine)
     yield
-    # 繧ｷ繝｣繝・ヨ繝繧ｦ繝ｳ譎・
+    # シャットダウン時
     logger.info("Shutting down...")
 
-# FastAPI繧｢繝励Μ繧ｱ繝ｼ繧ｷ繝ｧ繝ｳ菴懈・
+# FastAPIアプリケーション作成
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
@@ -29,7 +29,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS險ｭ螳・
+# CORS設定
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
@@ -38,7 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 繝ｫ繝ｼ繧ｿ繝ｼ逋ｻ骭ｲ
+# ルーター登録
 app.include_router(
     videos.router,
     prefix=f"{settings.API_V1_STR}/videos",
@@ -49,17 +49,22 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/analysis",
     tags=["analysis"]
 )
+app.include_router(
+    annotation.router,
+    prefix=f"{settings.API_V1_STR}/annotations",
+    tags=["annotations"]
+)
 
-# 繝ｫ繝ｼ繝医お繝ｳ繝峨・繧､繝ｳ繝・
+# ルートエンドポイント
 @app.get("/", summary="Service info")
 async def root():
     """Basic service information."""
     return {
-        "message": "AI謇区橿繝｢繝ｼ繧ｷ繝ｧ繝ｳ莨晄価繝ｩ繧､繝悶Λ繝ｪ API",
+        "message": "AI手技モーション伝承ライブラリ API",
         "version": settings.VERSION
     }
 
-# 繝倥Ν繧ｹ繝√ぉ繝・け繧ｨ繝ｳ繝峨・繧､繝ｳ繝・
+# ヘルスチェックエンドポイント
 @app.get(f"{settings.API_V1_STR}/health", summary="Health check")
 async def health_check():
     """Health status for monitoring."""
@@ -73,15 +78,15 @@ async def websocket_endpoint(websocket: WebSocket, analysis_id: str):
     await manager.connect(websocket, analysis_id)
     try:
         while True:
-            # 繧ｯ繝ｩ繧､繧｢繝ｳ繝医°繧峨・繝｡繝・そ繝ｼ繧ｸ繧貞ｾ・▽・医く繝ｼ繝励い繝ｩ繧､繝厄ｼ・
+            # クライアントからのメッセージを待つ（キープアライブ）
             data = await websocket.receive_text()
-            
-            # 繝｢繝・け縺ｮ騾ｲ謐励ョ繝ｼ繧ｿ繧帝∽ｿ｡・医ユ繧ｹ繝育畑・・
+
+            # モックの進捗データを送信（テスト用）
             await websocket.send_json({
                 "type": "progress",
                 "step": "processing",
                 "progress": 50,
-                "message": "蜃ｦ逅・ｸｭ..."
+                "message": "処理中..."
             })
     except WebSocketDisconnect:
         manager.disconnect(websocket, analysis_id)
