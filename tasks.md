@@ -1,13 +1,13 @@
 # tasks.md (PRD-001 トレース)
 
 ## フェーズA: 設計・下準備
-- [ ] T-001: PRD-001 合意レビューと不足埋め（未確定の確定）
+- [ ] T-001: PRD-001 合意レビューと不足埋め（未確定の確定・今回反映）
   - Owner: Pair(AI+User)
   - Depends: なし
-  - Estimate: 45m
+  - Estimate: 30m
   - Traces: PRD-001, UC-01..05, FR/NFR 全般
-  - Deliverables: `docs/PRD/PRD-001_aimotion.md` 更新
-  - Acceptance: 未確定箇所が最小化され、承認コメントが付く
+  - Deliverables: `docs/PRD/PRD-001_aimotion.md` 更新（今回分反映済）
+  - Acceptance: 未確定箇所が最小化され、承認コメントが付く（残: NFR細目/AC詳細の最終合意）
   - Verify: 文面レビュー、差分確認
 
 - [ ] T-002: API一覧の確定とOpenAPI整備
@@ -85,8 +85,7 @@
   - Acceptance: 新規環境で15分以内に起動
   - Verify: 手順レビュー
 
-## Top-3 先行タスク提案
-1) T-001 PRD合意レビュー
-2) T-002 API一覧の確定
-3) T-010 動画アップロードAPIの補強
-
+## Top-3 先行タスク提案（更新）
+1) T-002 API一覧の確定（OpenAPI反映）
+2) T-010 動画アップロードAPIの補強（今回の安全化を踏まえてドキュメント整備）
+3) T-011 解析開始API/DB登録の安定化（JSON/Enumの正規化反映）
