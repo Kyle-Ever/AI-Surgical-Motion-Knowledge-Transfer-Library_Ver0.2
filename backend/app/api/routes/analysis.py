@@ -139,6 +139,48 @@ async def get_analysis_status(
             ProcessingStep(name="データ生成", status="pending"),
         ]
     
+
+    # --- unified step mapping (override) ---
+    try:
+        video = db.query(Video).filter(Video.id == analysis.video_id).first()
+        video_type = getattr(video, 'video_type', None) or 'external'
+        LABELS = {
+            'preprocessing': '動画読み込み',
+            'frame_extraction': 'フレーム抽出',
+            'skeleton_detection': '骨格検出',
+            'instrument_detection': '器具追跡',
+            'motion_analysis': 'モーション解析',
+            'scoring': 'スコア計算',
+            'saving': 'データ保存',
+        }
+        steps_order = ['preprocessing', 'frame_extraction']
+        steps_order.append('skeleton_detection' if str(video_type) == 'external' else 'instrument_detection')
+        steps_order += ['motion_analysis', 'scoring', 'saving']
+        p = analysis.progress or 0
+        thresholds = [10,20,40,60,80,90]
+        idx_cur = 0
+        for i,b in enumerate(thresholds):
+            if p >= b:
+                idx_cur = min(i, len(steps_order)-1)
+        steps = []
+        for i, key in enumerate(steps_order):
+            if analysis.status == AnalysisStatus.COMPLETED:
+                steps.append(ProcessingStep(name=LABELS[key], status='completed', progress=100))
+            elif analysis.status == AnalysisStatus.PROCESSING:
+                if i < idx_cur:
+                    steps.append(ProcessingStep(name=LABELS[key], status='completed', progress=100))
+                elif i == idx_cur:
+                    start = thresholds[i] if i < len(thresholds) else 90
+                    end = thresholds[i+1] if i+1 < len(thresholds) else 100
+                    local = 0 if end==start else int(max(0, min(100, (p-start)*100/max(1, end-start))))
+                    steps.append(ProcessingStep(name=LABELS[key], status='processing', progress=local))
+                else:
+                    steps.append(ProcessingStep(name=LABELS[key], status='pending'))
+            else:
+                steps.append(ProcessingStep(name=LABELS[key], status='pending'))
+    except Exception:
+        pass
+    # --- end unified mapping ---
     return AnalysisStatusResponse(
         analysis_id=analysis.id,
         video_id=analysis.video_id,
