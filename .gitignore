@@ -32,6 +32,7 @@ build/
 backend/aimotion.db
 backend/data/uploads/
 backend/data/temp/
+backend/nul
 data/uploads/
 data/temp/
 
