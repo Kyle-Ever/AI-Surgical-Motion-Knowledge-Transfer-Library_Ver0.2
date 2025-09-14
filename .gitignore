@@ -41,3 +41,5 @@ data/temp/
 
 # Misc
 .claude/
+
+backend/_*.py
