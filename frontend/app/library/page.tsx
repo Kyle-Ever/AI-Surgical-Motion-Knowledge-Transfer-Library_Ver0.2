@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Filter, ChevronRight, Trash2 } from 'lucide-react'
+import { Search, Filter, ChevronRight, Trash2, Download } from 'lucide-react'
+import { getCompletedAnalyses, exportAnalysisData } from '@/lib/api'
 
 const mockLibrary = [
   {
@@ -41,26 +42,41 @@ export default function LibraryPage() {
   const fetchLibraryItems = async () => {
     try {
       // 完了した解析結果を取得
-      const response = await fetch('http://localhost:8000/api/v1/analysis/completed')
-      if (response.ok) {
-        const data = await response.json()
+      const data = await getCompletedAnalyses()
+      console.log('Fetched library data:', data)
+      if (data && data.length > 0) {
+
         // ライブラリ用にデータを整形
-        const formattedItems = data.map((item: any) => ({
-          id: item.id,
-          techniqueName: item.video?.surgery_name || '未設定',
-          surgeonName: item.video?.surgeon_name || '未設定',
-          date: item.completed_at ? new Date(item.completed_at).toLocaleDateString('ja-JP') : '-',
-          category: item.video?.video_type === 'internal' ? '内視鏡' : '外部カメラ'
-        }))
+        const formattedItems = data.map((item: any) => {
+          // 手術名と医師名を動画情報から取得、またはファイル名から生成
+          const surgeryName = item.video?.surgery_name ||
+                              item.video?.original_filename?.replace('.mp4', '') ||
+                              `解析_${item.id.substring(0, 8)}`
+          const surgeonName = item.video?.surgeon_name || '未設定'
+
+          return {
+            id: item.id,
+            techniqueName: surgeryName,
+            surgeonName: surgeonName,
+            date: item.completed_at ? new Date(item.completed_at).toLocaleDateString('ja-JP') :
+                  item.created_at ? new Date(item.created_at).toLocaleDateString('ja-JP') : '-',
+            category: item.video?.video_type === 'internal' ? '内視鏡' :
+                     item.video?.video_type === 'external' ? '外部カメラ' : '不明',
+            score: item.scores?.overall || null,
+            status: item.status
+          }
+        })
         setLibraryItems(formattedItems)
+        console.log('Formatted library items:', formattedItems)
       } else {
-        // APIが失敗した場合はモックデータを使用
-        setLibraryItems(mockLibrary)
+        // データがない場合は空配列を設定
+        console.log('No completed analyses found')
+        setLibraryItems([])
       }
     } catch (error) {
       console.error('Failed to fetch library items:', error)
-      // エラー時はモックデータを使用
-      setLibraryItems(mockLibrary)
+      // エラー時は空配列を設定
+      setLibraryItems([])
     } finally {
       setLoading(false)
     }
@@ -70,15 +86,40 @@ export default function LibraryPage() {
     router.push(`/dashboard/${itemId}`)
   }
 
-  const handleDelete = (e: React.MouseEvent, itemId: string) => {
+  const handleDelete = async (e: React.MouseEvent, itemId: string) => {
     e.stopPropagation() // 親要素のクリックイベントを防ぐ
-    
-    if (window.confirm('このアイテムを削除しますか？')) {
-      // ローカルステートから削除
-      setLibraryItems(prev => prev.filter(item => item.id !== itemId))
-      
-      // TODO: APIコールで実際に削除
-      // fetch(`/api/library/${itemId}`, { method: 'DELETE' })
+
+    if (window.confirm('この解析結果を削除しますか？')) {
+      try {
+        // APIコールで実際に削除
+        const response = await fetch(`http://localhost:8000/api/v1/analysis/${itemId}`, {
+          method: 'DELETE'
+        })
+
+        if (response.ok) {
+          // 削除成功後、リストを再取得
+          fetchLibraryItems()
+          console.log(`Successfully deleted analysis: ${itemId}`)
+        } else {
+          console.error('Failed to delete analysis:', response.statusText)
+          alert('削除に失敗しました')
+        }
+      } catch (error) {
+        console.error('Delete error:', error)
+        alert('削除中にエラーが発生しました')
+      }
+    }
+  }
+
+  const handleExport = async (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation() // 親要素のクリックイベントを防ぐ
+
+    try {
+      await exportAnalysisData(itemId)
+      console.log(`Successfully exported analysis: ${itemId}`)
+    } catch (error) {
+      console.error('Export error:', error)
+      alert('エクスポートに失敗しました')
     }
   }
 
@@ -139,6 +180,13 @@ export default function LibraryPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
+                <button
+                  onClick={(e) => handleExport(e, item.id)}
+                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                  title="エクスポート"
+                >
+                  <Download className="w-5 h-5" />
+                </button>
                 <button
                   onClick={(e) => handleDelete(e, item.id)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"

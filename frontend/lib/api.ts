@@ -59,30 +59,87 @@ api.interceptors.response.use(
 export const endpoints = {
   // 動画関連
   videos: {
-    upload: '/videos/upload',
-    get: (id: string) => `/videos/${id}`,
-    list: '/videos',
+    upload: '/api/v1/videos/upload',
+    get: (id: string) => `/api/v1/videos/${id}`,
+    list: '/api/v1/videos',
   },
-  
+
   // 解析関連
   analysis: {
-    start: (videoId: string) => `/analysis/${videoId}/analyze`,
-    status: (analysisId: string) => `/analysis/${analysisId}/status`,
-    result: (analysisId: string) => `/analysis/${analysisId}`,
-    export: (analysisId: string) => `/analysis/${analysisId}/export`,
+    start: (videoId: string) => `/api/v1/analysis/${videoId}/analyze`,
+    status: (analysisId: string) => `/api/v1/analysis/${analysisId}/status`,
+    result: (analysisId: string) => `/api/v1/analysis/${analysisId}`,
+    export: (analysisId: string) => `/api/v1/analysis/${analysisId}/export`,
   },
-  
+
   // ライブラリ関連
   library: {
-    list: '/library',
-    get: (id: string) => `/library/${id}`,
-    save: '/library',
+    list: '/api/v1/library',
+    get: (id: string) => `/api/v1/library/${id}`,
+    save: '/api/v1/library',
   },
 }
 
 // WebSocket URL
-export const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws'
+export const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
 
 export const wsEndpoints = {
-  analysis: (analysisId: string) => `${WS_BASE_URL}/analysis/${analysisId}`,
+  analysis: (analysisId: string) => `${WS_BASE_URL}/ws/analysis/${analysisId}`,
 }
+
+// 型定義
+export interface AnalysisResult {
+  id: string;
+  video_id: string;
+  video_type: string;
+  status: string;
+  skeleton_data?: any;
+  instrument_data?: any;
+  motion_analysis?: any;
+  scores?: any;
+  avg_velocity?: number;
+  max_velocity?: number;
+  total_distance?: number;
+  total_frames?: number;
+  created_at: string;
+  completed_at?: string;
+  video?: {
+    id: string;
+    filename: string;
+    original_filename: string;
+    video_type: string;
+    duration: number;
+    fps: number;
+    width: number;
+    height: number;
+    file_size: number;
+    created_at: string;
+  };
+}
+
+// ライブラリ関連の関数
+export const getCompletedAnalyses = async (): Promise<AnalysisResult[]> => {
+  const response = await fetch(`${API_BASE_URL}/analysis/completed`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch completed analyses');
+  }
+  return response.json();
+};
+
+export const exportAnalysisData = async (analysisId: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/analysis/${analysisId}/export`);
+  if (!response.ok) {
+    throw new Error('Failed to export analysis data');
+  }
+
+  // CSVファイルとしてダウンロード
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `analysis_${analysisId}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+};
