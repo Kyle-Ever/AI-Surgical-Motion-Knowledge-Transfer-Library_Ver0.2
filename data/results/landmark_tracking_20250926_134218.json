@@ -1,0 +1,9 @@
+{
+  "stats": {
+    "total_frames": 563,
+    "left_detection_rate": 0.22735346358792186,
+    "right_detection_rate": 0.31793960923623443,
+    "avg_tracking_quality": 0.8978453706326949
+  },
+  "num_landmarks": 15
+}

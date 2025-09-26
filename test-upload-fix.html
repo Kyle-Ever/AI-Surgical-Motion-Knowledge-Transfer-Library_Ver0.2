@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload Fix Test</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 40px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .dropzone {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            margin: 20px 0;
+            background: #f9f9f9;
+        }
+        .dropzone:hover {
+            border-color: #666;
+            background-color: #f0f0f0;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        #result {
+            margin: 20px 0;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            display: none;
+        }
+        #result.show {
+            display: block;
+        }
+        .success {
+            color: #2e7d32;
+        }
+        .error {
+            color: #c62828;
+        }
+        #testResults {
+            margin-top: 20px;
+            padding: 20px;
+            background: #fff3e0;
+            border-radius: 8px;
+        }
+        .test-item {
+            margin: 10px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+        }
+        .test-pass {
+            color: green;
+        }
+        .test-fail {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ファイルアップロード動作テスト</h1>
+
+        <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" accept="video/mp4" style="display: none;">
+            <p>📹 動画ファイルをドラッグ＆ドロップ</p>
+            <p>または</p>
+            <button class="button" id="selectBtn">ファイルを選択</button>
+            <p style="font-size: 12px; color: #666; margin-top: 15px;">対応形式: MP4（最大2GB）</p>
+        </div>
+
+        <div id="result">
+            <h3>選択されたファイル:</h3>
+            <p id="fileName"></p>
+            <p id="fileSize"></p>
+            <p id="fileType"></p>
+        </div>
+
+        <div id="testResults">
+            <h3>動作テスト結果:</h3>
+            <div id="testList"></div>
+        </div>
+    </div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const selectBtn = document.getElementById('selectBtn');
+        const result = document.getElementById('result');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const fileType = document.getElementById('fileType');
+        const testList = document.getElementById('testList');
+
+        // テスト結果記録
+        const tests = [];
+        function addTest(name, success, detail = '') {
+            tests.push({ name, success, detail });
+            updateTestDisplay();
+        }
+
+        function updateTestDisplay() {
+            testList.innerHTML = tests.map(test => `
+                <div class="test-item">
+                    <span class="${test.success ? 'test-pass' : 'test-fail'}">
+                        ${test.success ? '✅' : '❌'} ${test.name}
+                    </span>
+                    ${test.detail ? `<span style="color: #666; margin-left: 10px;">${test.detail}</span>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 初期化テスト
+        addTest('ページ読み込み', true);
+        addTest('ボタン要素の確認', selectBtn.tagName === 'BUTTON', `タグ: ${selectBtn.tagName}`);
+        addTest('ファイル入力要素の確認', fileInput !== null, fileInput ? 'OK' : 'Not found');
+
+        // ボタンクリックイベント
+        selectBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            console.log('Button clicked - opening file dialog');
+            addTest('ボタンクリックイベント', true, '発火確認');
+            fileInput.click();
+        });
+
+        // ファイル選択時の処理
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('File selected:', file.name);
+                displayFile(file);
+                addTest('ファイル選択', true, file.name);
+            }
+        });
+
+        // ドラッグ&ドロップ処理
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.style.backgroundColor = '#e3f2fd';
+            dropzone.style.borderColor = '#2196f3';
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.style.backgroundColor = '#f9f9f9';
+            dropzone.style.borderColor = '#ccc';
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.style.backgroundColor = '#f9f9f9';
+            dropzone.style.borderColor = '#ccc';
+
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                console.log('File dropped:', file.name);
+                displayFile(file);
+                addTest('ドラッグ&ドロップ', true, file.name);
+            }
+        });
+
+        // ファイル情報表示
+        function displayFile(file) {
+            fileName.textContent = `ファイル名: ${file.name}`;
+            fileSize.textContent = `サイズ: ${formatFileSize(file.size)}`;
+            fileType.textContent = `タイプ: ${file.type || 'unknown'}`;
+            result.classList.add('show');
+
+            // ファイルタイプチェック
+            if (file.type === 'video/mp4' || file.name.endsWith('.mp4')) {
+                fileName.classList.add('success');
+                fileName.classList.remove('error');
+                addTest('ファイルタイプ検証', true, 'MP4 OK');
+            } else {
+                fileName.classList.add('error');
+                fileName.classList.remove('success');
+                addTest('ファイルタイプ検証', false, `${file.type} - MP4ではありません`);
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+            return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+        }
+
+        // デバッグ情報
+        console.log('=== Upload Fix Test Initialized ===');
+        console.log('Button element:', selectBtn);
+        console.log('File input element:', fileInput);
+        console.log('Button type:', selectBtn.type);
+        console.log('Button onclick:', selectBtn.onclick);
+    </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Library Test</title>
+</head>
+<body>
+    <h1>ライブラリ API テスト</h1>
+    <button onclick="testApi()">APIテスト</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function testApi() {
+            const resultEl = document.getElementById('result');
+
+            try {
+                resultEl.textContent = "APIを呼び出し中...\n";
+
+                const response = await fetch('http://localhost:8000/api/v1/analysis/completed');
+                resultEl.textContent += `Status: ${response.status}\n`;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultEl.textContent += `データ件数: ${data.length}\n`;
+
+                    if (data.length > 0) {
+                        resultEl.textContent += "\n最初のアイテム:\n";
+                        resultEl.textContent += JSON.stringify(data[0], null, 2);
+                    }
+                } else {
+                    resultEl.textContent += `エラー: ${response.statusText}\n`;
+                }
+            } catch (error) {
+                resultEl.textContent += `エラー: ${error.message}\n`;
+            }
+        }
+
+        // 自動で実行
+        testApi();
+    </script>
+</body>
+</html>

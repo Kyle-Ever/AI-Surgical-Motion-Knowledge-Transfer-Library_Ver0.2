@@ -2,34 +2,54 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Library Page', () => {
   test.beforeEach(async ({ page }) => {
-    // APIモックを設定
-    await page.route('**/api/v1/videos', async route => {
+    // APIモックを設定 - 実際のエンドポイントに合わせて修正
+    await page.route('**/api/v1/analysis/completed', async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify([
           {
-            id: 'video-1',
-            filename: 'surgery-1.mp4',
-            upload_date: '2025-01-13T10:00:00',
-            duration: 600,
-            status: 'analyzed',
-            analysis: {
-              id: 'analysis-1',
-              status: 'completed',
-              created_at: '2025-01-13T10:30:00'
+            id: 'analysis-1',
+            video_id: 'video-1',
+            status: 'completed',
+            created_at: '2025-01-13T10:30:00',
+            overall_progress: 100,
+            video: {
+              id: 'video-1',
+              filename: 'surgery-1.mp4',
+              surgery_name: '腹腔鏡手術',
+              surgeon_name: '山田医師',
+              surgery_date: '2025-01-13',
+              upload_date: '2025-01-13T10:00:00',
+              duration: 600
+            },
+            scores: {
+              accuracy: 90,
+              efficiency: 85,
+              smoothness: 88,
+              stability: 87
             }
           },
           {
-            id: 'video-2',
-            filename: 'surgery-2.mp4',
-            upload_date: '2025-01-13T11:00:00',
-            duration: 450,
-            status: 'processing',
-            analysis: {
-              id: 'analysis-2',
-              status: 'processing',
-              created_at: '2025-01-13T11:30:00'
+            id: 'analysis-2',
+            video_id: 'video-2',
+            status: 'completed',
+            created_at: '2025-01-13T11:30:00',
+            overall_progress: 100,
+            video: {
+              id: 'video-2',
+              filename: 'surgery-2.mp4',
+              surgery_name: '内視鏡手術',
+              surgeon_name: '佐藤医師',
+              surgery_date: '2025-01-12',
+              upload_date: '2025-01-13T11:00:00',
+              duration: 450
+            },
+            scores: {
+              accuracy: 85,
+              efficiency: 80,
+              smoothness: 82,
+              stability: 83
             }
           }
         ])

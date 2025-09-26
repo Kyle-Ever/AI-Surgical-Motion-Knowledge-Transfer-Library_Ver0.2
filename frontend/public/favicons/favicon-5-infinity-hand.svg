@@ -1,0 +1,93 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="iris-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7f00ff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#e100ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffb700;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="pupil-gradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:1" />
+      <stop offset="60%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0a0e27;stop-opacity:1" />
+    </radialGradient>
+    <linearGradient id="scan-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ff88;stop-opacity:0" />
+      <stop offset="50%" style="stop-color:#00ff88;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00ff88;stop-opacity:0" />
+    </linearGradient>
+    <filter id="bio-glow">
+      <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="32" height="32" fill="#050614" rx="4"/>
+
+  <!-- Iris outer circle -->
+  <circle cx="16" cy="16" r="12" fill="none" stroke="url(#iris-gradient)" stroke-width="1" opacity="0.9" filter="url(#bio-glow)"/>
+
+  <!-- Iris pattern -->
+  <g transform="translate(16, 16)">
+    <!-- Radial iris fibers -->
+    <g stroke="url(#iris-gradient)" stroke-width="0.5" opacity="0.7">
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(0)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(30)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(60)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(90)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(120)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(150)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(180)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(210)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(240)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(270)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(300)"/>
+      <line x1="0" y1="-4" x2="0" y2="-10" transform="rotate(330)"/>
+    </g>
+
+    <!-- Iris rings -->
+    <circle cx="0" cy="0" r="5" fill="none" stroke="url(#iris-gradient)" stroke-width="0.3" opacity="0.5"/>
+    <circle cx="0" cy="0" r="7" fill="none" stroke="url(#iris-gradient)" stroke-width="0.3" opacity="0.5"/>
+    <circle cx="0" cy="0" r="9" fill="none" stroke="url(#iris-gradient)" stroke-width="0.3" opacity="0.5"/>
+
+    <!-- Pupil -->
+    <circle cx="0" cy="0" r="4" fill="url(#pupil-gradient)" filter="url(#bio-glow)"/>
+
+    <!-- Light reflection -->
+    <circle cx="-1" cy="-1" r="1" fill="white" opacity="0.8"/>
+  </g>
+
+  <!-- Biometric scan line -->
+  <line x1="4" y1="16" x2="28" y2="16" stroke="url(#scan-gradient)" stroke-width="2" opacity="0.8">
+    <animate attributeName="y1" values="4;28;4" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="y2" values="4;28;4" dur="3s" repeatCount="indefinite"/>
+  </line>
+
+  <!-- Data points -->
+  <g font-family="monospace" font-size="2" fill="#00ff88" opacity="0.6">
+    <text x="2" y="6">ID:7A3F</text>
+    <text x="22" y="6">98.7%</text>
+  </g>
+
+  <!-- Recognition nodes -->
+  <g fill="#00ff88">
+    <circle cx="4" cy="16" r="0.5" opacity="0.8">
+      <animate attributeName="opacity" values="0;0.8;0" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="28" cy="16" r="0.5" opacity="0.8">
+      <animate attributeName="opacity" values="0;0.8;0" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="16" cy="4" r="0.5" opacity="0.8">
+      <animate attributeName="opacity" values="0;0.8;0" dur="2s" begin="1s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="16" cy="28" r="0.5" opacity="0.8">
+      <animate attributeName="opacity" values="0;0.8;0" dur="2s" begin="1.5s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Biometric indicator -->
+  <text x="2" y="30" font-size="2.5" fill="url(#iris-gradient)" font-family="monospace" font-weight="bold">BIO</text>
+</svg>

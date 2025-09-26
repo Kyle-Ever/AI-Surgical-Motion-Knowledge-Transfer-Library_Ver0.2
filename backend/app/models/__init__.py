@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
 engine = create_engine(
-    settings.DATABASE_URL, 
+    settings.DATABASE_URL,
     connect_args={"check_same_thread": False}  # SQLite用の設定
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -17,3 +17,9 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# Import all models to ensure they are registered
+from app.models.video import Video
+from app.models.analysis import AnalysisResult
+from app.models.reference import ReferenceModel
+from app.models.comparison import ComparisonResult

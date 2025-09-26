@@ -1,0 +1,33 @@
+{
+  "metrics": {
+    "total_frames": 563,
+    "detection_rate": 0,
+    "avg_speed": 32.09274270149703,
+    "max_speed": 332.62892237446823,
+    "smoothness": 0.01979685499630852,
+    "precision": 0.4006103208122248,
+    "consistency": 0.8118361947291355,
+    "path_length": {
+      "left": 7788.381368209602,
+      "right": 21833.2201452722
+    },
+    "jerk": {
+      "left": 25.681059458806462,
+      "right": 33.74117686270544
+    }
+  },
+  "left_hand": {
+    "num_positions": 383,
+    "avg_velocity": 20.388432901072274,
+    "avg_grip": 0.5648587724511995,
+    "path_length": 7788.381368209602,
+    "jerk": 25.681059458806462
+  },
+  "right_hand": {
+    "num_positions": 542,
+    "avg_velocity": 40.357153688118565,
+    "avg_grip": 0.6345982366372743,
+    "path_length": 21833.2201452722,
+    "jerk": 33.74117686270544
+  }
+}

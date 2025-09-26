@@ -68,7 +68,7 @@ async def start_analysis(
     # Start analysis in background
     # In production, use Celery or RQ for task queue
     background_tasks.add_task(
-        process_video_analysis,
+        sync_process_video_analysis,
         analysis_id,
         video_id,  # Pass video_id instead of video object
         analysis_params.instruments,
@@ -305,14 +305,14 @@ async def get_analysis_result(
         logger.error(f"Error creating response for analysis {analysis_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error creating response: {str(e)}")
 
-# Background task
-async def process_video_analysis(
+# Synchronous wrapper for background task
+def sync_process_video_analysis(
     analysis_id: str,
     video_id: str,
     instruments: list,
     sampling_rate: int
 ):
-    """Process video analysis task"""
+    """Process video analysis task (synchronous wrapper)"""
     from app.models import SessionLocal
     import asyncio
     from pathlib import Path
@@ -353,12 +353,8 @@ async def process_video_analysis(
             # Try to use real MediaPipe processing
             try:
                 logger.info(f"[MediaPipe] Starting real video processing...")
-                # Run MediaPipe processing in executor to avoid blocking
-                import asyncio
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(
-                    None,
-                    process_with_mediapipe,
+                # Run MediaPipe processing directly (synchronously)
+                process_with_mediapipe(
                     analysis, video, video_path, instruments, sampling_rate, db
                 )
                 logger.info(f"[MediaPipe] Real processing completed successfully")
@@ -374,9 +370,9 @@ async def process_video_analysis(
             if video_path:
                 logger.warning(f"[MediaPipe] Expected location: {video_path.absolute()}")
 
-        # Fallback to mock processing
+        # Fallback to mock processing (synchronous version)
         logger.info("[MOCK] Using mock processing")
-        await process_with_mock(analysis, instruments, db, video.video_type if video else None)
+        sync_process_with_mock(analysis, instruments, db, video.video_type if video else None)
 
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
@@ -536,6 +532,75 @@ def process_with_mediapipe(
         logger.error(f"[MediaPipe] Traceback: {traceback.format_exc()}")
         raise
 
+
+def sync_process_with_mock(
+    analysis: AnalysisResult,
+    instruments: list,
+    db,
+    video_type=None
+):
+    """Synchronous mock processing for testing"""
+    import time
+    import random
+    import uuid
+    from datetime import datetime
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    # Simulate processing steps
+    steps = [
+        ("preprocessing", 5),
+        ("video_info", 10),
+        ("frame_extraction", 30),
+        ("skeleton_detection" if video_type == 'external' else "instrument_detection", 50),
+        ("motion_analysis", 70),
+        ("score_calculation", 85),
+        ("data_saving", 95),
+    ]
+
+    for step_name, progress in steps:
+        analysis.current_step = step_name
+        analysis.progress = progress
+        db.commit()
+        time.sleep(0.5)  # Simulate processing time
+
+    # Generate mock data
+    mock_skeleton_data = [
+        {
+            "frame": i,
+            "timestamp": i * 0.033,
+            "hands": [
+                {
+                    "hand": "right",
+                    "landmarks": [[random.random(), random.random(), random.random()] for _ in range(21)],
+                    "confidence": random.uniform(0.8, 1.0)
+                }
+            ]
+        } for i in range(10)
+    ]
+
+    mock_scores = {
+        "speed_score": random.uniform(70, 95),
+        "smoothness_score": random.uniform(70, 95),
+        "stability_score": random.uniform(70, 95),
+        "efficiency_score": random.uniform(70, 95),
+        "overall": random.uniform(75, 90)
+    }
+
+    # Update analysis with mock results
+    analysis.skeleton_data = mock_skeleton_data
+    analysis.scores = mock_scores
+    analysis.avg_velocity = random.uniform(50, 150)
+    analysis.max_velocity = random.uniform(200, 400)
+    analysis.total_distance = random.uniform(500, 2000)
+    analysis.total_frames = 300
+    analysis.status = AnalysisStatus.COMPLETED
+    analysis.progress = 100
+    analysis.completed_at = datetime.now()
+    db.commit()
+
+    logger.info(f"[MOCK] Analysis {analysis.id} completed successfully")
 
 async def process_with_mock(
     analysis: AnalysisResult,

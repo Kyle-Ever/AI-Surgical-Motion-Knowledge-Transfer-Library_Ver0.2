@@ -43,15 +43,22 @@ class AnalysisStatusResponse(BaseModel):
 class AnalysisResultResponse(BaseModel):
     id: str
     video_id: str
+    video_type: Optional[str] = None  # Add video type
     status: AnalysisStatus
+    skeleton_data: Optional[List[Dict[str, Any]]] = None
+    instrument_data: Optional[List[Dict[str, Any]]] = None
+    motion_analysis: Optional[Dict[str, Any]] = None  # Add motion analysis
     coordinate_data: Optional[Dict[str, Any]] = None
     velocity_data: Optional[Dict[str, Any]] = None
     angle_data: Optional[Dict[str, Any]] = None
+    scores: Optional[Dict[str, Any]] = None  # Add scores
     avg_velocity: Optional[float] = None
     max_velocity: Optional[float] = None
     total_distance: Optional[float] = None
     total_frames: Optional[int] = None
     created_at: datetime
-    
+    completed_at: Optional[datetime] = None  # Add completed_at
+    video: Optional[Dict[str, Any]] = None  # Add video details
+
     class Config:
         from_attributes = True

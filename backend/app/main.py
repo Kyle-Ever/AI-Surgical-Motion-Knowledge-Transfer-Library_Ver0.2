@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from app.core.config import settings
-from app.api.routes import videos, analysis, annotation
+from app.api.routes import videos, analysis, annotation, library, scoring, instrument_tracking
 from app.models import Base, engine
 
 # ロギング設定
@@ -32,13 +32,19 @@ app = FastAPI(
 # CORS設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=["*"],  # 一時的にすべてのオリジンを許可
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ルーター登録
+# 注意: libraryルーターを最初に登録（特定のパスを優先）
+app.include_router(
+    library.router,
+    prefix=f"{settings.API_V1_STR}/library",
+    tags=["library"]
+)
 app.include_router(
     videos.router,
     prefix=f"{settings.API_V1_STR}/videos",
@@ -54,13 +60,23 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/annotations",
     tags=["annotations"]
 )
+app.include_router(
+    scoring.router,
+    prefix=f"{settings.API_V1_STR}/scoring",
+    tags=["scoring"]
+)
+app.include_router(
+    instrument_tracking.router,
+    prefix=f"{settings.API_V1_STR}/instrument-tracking",
+    tags=["instrument-tracking"]
+)
 
 # ルートエンドポイント
 @app.get("/", summary="Service info")
 async def root():
     """Basic service information."""
     return {
-        "message": "AI手技モーション伝承ライブラリ API",
+        "message": "AI Surgical Motion Knowledge Transfer Library API",
         "version": settings.VERSION
     }
 

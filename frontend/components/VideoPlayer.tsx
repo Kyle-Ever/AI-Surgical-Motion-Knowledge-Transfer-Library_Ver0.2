@@ -48,13 +48,14 @@ export default function VideoPlayer({
   videoType,
   onTimeUpdate
 }: VideoPlayerProps) {
-  // Check if instrument data exists and video type is internal
-  const hasInstrumentData = videoType === 'internal' &&
+  // Check if instrument data exists and video type supports instruments
+  const hasInstrumentData = (videoType === 'internal' ||
+    videoType === 'external_with_instruments') &&
     toolData && toolData.length > 0 &&
     toolData.some(frame => frame.detections && frame.detections.length > 0)
 
-  // Disable instrument overlay for external camera
-  const isExternalCamera = videoType === 'external'
+  // Disable instrument overlay for external camera without instruments
+  const isExternalCamera = videoType === 'external' || videoType === 'external_no_instruments'
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -360,11 +361,28 @@ export default function VideoPlayer({
   // 動画のエラーハンドリング
   const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
     const video = e.currentTarget
-    console.error('Video loading error:', {
-      error: video.error,
+    const errorDetails = {
+      errorCode: video.error?.code,
+      errorMessage: video.error?.message,
+      networkState: video.networkState,
+      readyState: video.readyState,
       src: video.src,
-      videoUrl
-    })
+      videoUrl,
+      currentSrc: video.currentSrc
+    }
+    console.error('Video loading error:', errorDetails)
+
+    // エラーコードの意味を表示
+    const errorMessages: {[key: number]: string} = {
+      1: 'MEDIA_ERR_ABORTED - 動画の読み込みが中断されました',
+      2: 'MEDIA_ERR_NETWORK - ネットワークエラーが発生しました',
+      3: 'MEDIA_ERR_DECODE - 動画のデコードに失敗しました',
+      4: 'MEDIA_ERR_SRC_NOT_SUPPORTED - 動画形式がサポートされていません'
+    }
+
+    if (video.error?.code) {
+      console.error('Error type:', errorMessages[video.error.code] || 'Unknown error')
+    }
   }
 
   return (
@@ -378,6 +396,8 @@ export default function VideoPlayer({
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             onError={handleVideoError}
+            onCanPlay={(e) => console.log('Video can play:', e.currentTarget.src)}
+            onLoadStart={(e) => console.log('Video load started:', e.currentTarget.src)}
             autoPlay={autoPlay}
             className="absolute top-0 left-0 w-full h-full bg-black object-contain"
             controls={false}
@@ -469,11 +489,11 @@ export default function VideoPlayer({
               type="checkbox"
               checked={showInstruments}
               onChange={(e) => setShowInstruments(e.target.checked)}
-              disabled={!hasInstrumentData || isExternalCamera}
+              disabled={!hasInstrumentData}
             />
-            <span className={!hasInstrumentData || isExternalCamera ? 'text-gray-400' : ''}>
+            <span className={!hasInstrumentData ? 'text-gray-400' : ''}>
               器具検出表示
-              {isExternalCamera ? ' (外部カメラ)' : !hasInstrumentData ? ' (未登録)' : ''}
+              {!hasInstrumentData ? ' (データなし)' : ''}
             </span>
           </label>
           <label className="flex items-center space-x-2">

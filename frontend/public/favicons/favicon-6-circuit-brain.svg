@@ -1,0 +1,112 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="nano-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c0c0c0;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#e0e0e0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00d2ff;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="blood-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#d32f2f;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff6659;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="circuit-gradient-nano" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ff88;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00d2ff;stop-opacity:1" />
+    </linearGradient>
+    <filter id="nano-glow">
+      <feGaussianBlur stdDeviation="0.8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="32" height="32" fill="#050614" rx="4"/>
+
+  <!-- Blood vessel network -->
+  <g opacity="0.4">
+    <path d="M 8 4 Q 12 8, 8 12 T 8 20 Q 12 24, 8 28"
+          stroke="url(#blood-gradient)"
+          stroke-width="2"
+          fill="none"/>
+    <path d="M 24 4 Q 20 8, 24 12 T 24 20 Q 20 24, 24 28"
+          stroke="url(#blood-gradient)"
+          stroke-width="2"
+          fill="none"/>
+    <path d="M 8 16 Q 16 14, 24 16"
+          stroke="url(#blood-gradient)"
+          stroke-width="1.5"
+          fill="none"/>
+  </g>
+
+  <!-- Central nanobot -->
+  <g transform="translate(16, 16)">
+    <!-- Robot body -->
+    <rect x="-4" y="-4" width="8" height="8" fill="url(#nano-gradient)" rx="1" filter="url(#nano-glow)"/>
+
+    <!-- Robot arms/tools -->
+    <g stroke="url(#nano-gradient)" stroke-width="0.8" fill="none">
+      <!-- Top-left arm -->
+      <path d="M -4 -4 L -6 -6 L -8 -6"/>
+      <circle cx="-8" cy="-6" r="1" fill="#e0e0e0"/>
+      <!-- Top-right arm -->
+      <path d="M 4 -4 L 6 -6 L 8 -6"/>
+      <circle cx="8" cy="-6" r="1" fill="#e0e0e0"/>
+      <!-- Bottom-left arm -->
+      <path d="M -4 4 L -6 6 L -8 6"/>
+      <circle cx="-8" cy="6" r="1" fill="#e0e0e0"/>
+      <!-- Bottom-right arm -->
+      <path d="M 4 4 L 6 6 L 8 6"/>
+      <circle cx="8" cy="6" r="1" fill="#e0e0e0"/>
+    </g>
+
+    <!-- Core processor -->
+    <circle cx="0" cy="0" r="2" fill="url(#circuit-gradient-nano)" opacity="0.9"/>
+    <circle cx="0" cy="0" r="1" fill="white" opacity="0.9">
+      <animate attributeName="opacity" values="0.9;0.3;0.9" dur="1s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Additional nanobots -->
+  <g opacity="0.6">
+    <!-- Top-left bot -->
+    <rect x="6" y="6" width="3" height="3" fill="url(#nano-gradient)" rx="0.5"/>
+    <circle cx="7.5" cy="7.5" r="0.5" fill="#00ff88"/>
+
+    <!-- Top-right bot -->
+    <rect x="23" y="6" width="3" height="3" fill="url(#nano-gradient)" rx="0.5"/>
+    <circle cx="24.5" cy="7.5" r="0.5" fill="#00ff88"/>
+
+    <!-- Bottom-left bot -->
+    <rect x="6" y="23" width="3" height="3" fill="url(#nano-gradient)" rx="0.5"/>
+    <circle cx="7.5" cy="24.5" r="0.5" fill="#00ff88"/>
+
+    <!-- Bottom-right bot -->
+    <rect x="23" y="23" width="3" height="3" fill="url(#nano-gradient)" rx="0.5"/>
+    <circle cx="24.5" cy="24.5" r="0.5" fill="#00ff88"/>
+  </g>
+
+  <!-- Circuit/data connections -->
+  <g stroke="url(#circuit-gradient-nano)" stroke-width="0.3" opacity="0.5">
+    <line x1="7.5" y1="7.5" x2="16" y2="16"/>
+    <line x1="24.5" y1="7.5" x2="16" y2="16"/>
+    <line x1="7.5" y1="24.5" x2="16" y2="16"/>
+    <line x1="24.5" y1="24.5" x2="16" y2="16"/>
+  </g>
+
+  <!-- Blood cells -->
+  <g fill="url(#blood-gradient)" opacity="0.6">
+    <ellipse cx="10" cy="10" rx="2" ry="1.5" transform="rotate(45 10 10)">
+      <animate attributeName="cy" values="10;22;10" dur="6s" repeatCount="indefinite"/>
+    </ellipse>
+    <ellipse cx="22" cy="22" rx="2" ry="1.5" transform="rotate(-45 22 22)">
+      <animate attributeName="cy" values="22;10;22" dur="6s" repeatCount="indefinite"/>
+    </ellipse>
+  </g>
+
+  <!-- Data readout -->
+  <text x="2" y="30" font-size="2.5" fill="url(#circuit-gradient-nano)" font-family="monospace" font-weight="bold">NANO</text>
+  <text x="22" y="30" font-size="2" fill="#00ff88" font-family="monospace">10nm</text>
+</svg>

@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
 
     # CORS設定
-    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:8000"]
+    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001", "http://localhost:8000"]
 
     # データベース
     DATABASE_URL: str = "sqlite:///./aimotion.db"
@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     YOLO_MODEL: str = "yolov8n.pt"
     MEDIAPIPE_MIN_DETECTION_CONFIDENCE: float = 0.8
     MEDIAPIPE_MIN_TRACKING_CONFIDENCE: float = 0.8
+
+    # 手袋検出設定
+    USE_ADVANCED_GLOVE_DETECTION: bool = False  # 高性能な手袋検出器を使用するか（デフォルト無効で後方互換性維持）
     
     # 開発設定
     DEBUG: bool = True

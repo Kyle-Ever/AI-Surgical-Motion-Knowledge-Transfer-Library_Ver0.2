@@ -43,3 +43,13 @@ data/temp/
 .claude/
 
 backend/_*.py
+nul
+frontend/nul
+# Large model files
+backend/sam_b.pt
+backend/yolov8n.pt
+backend/yolov8n-pose.pt
+*.pt
+*.mp4
+*.jpg
+*.png

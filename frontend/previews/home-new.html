@@ -1,0 +1,134 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>新デザインプレビュー</title>
+    <link rel="stylesheet" href="medical-dashboard-design-system.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-inner">
+        <div class="brand">AI手技モーション伝承ライブラリ</div>
+        <button class="btn-primary" type="button">
+          <span>設定</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09A1.65 1.65 0 0 0 11 4.6V4a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <nav class="nav-section">
+          <a class="nav-link active" href="#">ホーム</a>
+          <a class="nav-link" href="#">新規解析</a>
+          <a class="nav-link" href="#">ライブラリ</a>
+          <a class="nav-link" href="#">採点モード</a>
+          <a class="nav-link" href="#">履歴</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <section class="page-header">
+          <span class="badge">ダッシュボード</span>
+          <h1>AI手技モーション伝承ライブラリ</h1>
+          <p>医療現場に合わせたブルー基調のデザインで、解析状況と学習フローを直感的に把握できます。</p>
+        </section>
+
+        <section class="card-grid">
+          <article class="card">
+            <div class="card-icon">?</div>
+            <h2>新規解析</h2>
+            <p>手術動画をアップロードし、モーション解析を開始します。</p>
+          </article>
+          <article class="card">
+            <div class="card-icon">??</div>
+            <h2>ライブラリ</h2>
+            <p>保存済みの解析データをフィルタリングして確認できます。</p>
+          </article>
+          <article class="card">
+            <div class="card-icon">??</div>
+            <h2>採点モード</h2>
+            <p>指導医スコアと比較しながら改善ポイントを把握しましょう。</p>
+          </article>
+          <article class="card">
+            <div class="card-icon">???</div>
+            <h2>履歴</h2>
+            <p>過去の解析フローと結果を時系列で振り返ります。</p>
+          </article>
+        </section>
+
+        <section class="metric-grid">
+          <div class="metric-card">
+            <h3>本日の解析ジョブ</h3>
+            <div class="metric-value">12</div>
+            <div class="metric-trend">▲ 18% vs 昨日</div>
+          </div>
+          <div class="metric-card">
+            <h3>平均スコア</h3>
+            <div class="metric-value">82.6</div>
+            <div class="metric-trend">▲ 5.2pt 改善</div>
+          </div>
+          <div class="metric-card">
+            <h3>レビュー待ち</h3>
+            <div class="metric-value">3件</div>
+            <div class="metric-trend" style="color: var(--color-warning-dark);">▼ 教員アサイン予定</div>
+          </div>
+        </section>
+
+        <section class="cta-panel">
+          <h2>クイックスタート</h2>
+          <div class="cta-steps">
+            <div class="step">
+              <div class="step-number">1</div>
+              <p>動画をアップロードし、撮影タイプと器具情報を登録します。</p>
+            </div>
+            <div class="step">
+              <div class="step-number">2</div>
+              <p>AI解析がフレームごとの骨格・器具モーションを抽出します。</p>
+            </div>
+            <div class="step">
+              <div class="step-number">3</div>
+              <p>ダッシュボードでスコアと動作指標を確認し、フィードバックを共有します。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="table-preview">
+          <table>
+            <thead>
+              <tr>
+                <th>動画ID</th>
+                <th>術式</th>
+                <th>進捗</th>
+                <th>最終更新</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>VID-2034</td>
+                <td>腹腔鏡下胆嚢摘出</td>
+                <td><span class="table-status success">完了</span></td>
+                <td>2025-09-17 09:20</td>
+              </tr>
+              <tr>
+                <td>VID-2035</td>
+                <td>冠動脈バイパス</td>
+                <td><span class="table-status warning">解析中</span></td>
+                <td>2025-09-17 09:05</td>
+              </tr>
+              <tr>
+                <td>VID-2036</td>
+                <td>腹腔鏡下結腸切除</td>
+                <td><span class="table-status error">エラー</span></td>
+                <td>2025-09-17 08:47</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <p class="footer-note">※ プレビューはデザインシステム適用時のレイアウト検証用です。実装時はコンポーネントへ段階的に反映してください。</p>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "total_frames": 563,
+  "initial_detections": {
+    "left": 1,
+    "right": 2
+  },
+  "tracking_statistics": {
+    "left": {
+      "initial_detections": 1,
+      "optical_flow_frames": 488,
+      "total_tracked": 563,
+      "tracking_rate": 1.0
+    },
+    "right": {
+      "initial_detections": 2,
+      "optical_flow_frames": 451,
+      "total_tracked": 562,
+      "tracking_rate": 0.9982238010657194
+    }
+  }
+}

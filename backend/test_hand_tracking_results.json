@@ -1,0 +1,258 @@
+[
+  {
+    "frame": 0,
+    "timestamp": 0.0,
+    "hand_type": "Right",
+    "confidence": 0.8765223622322083,
+    "num_landmarks": 21,
+    "hand_openness": 1.6918739953649433
+  },
+  {
+    "frame": 2,
+    "timestamp": 0.08,
+    "hand_type": "Right",
+    "confidence": 0.7927464842796326,
+    "num_landmarks": 21,
+    "hand_openness": 6.647787260371682
+  },
+  {
+    "frame": 4,
+    "timestamp": 0.16,
+    "hand_type": "Right",
+    "confidence": 0.582738995552063,
+    "num_landmarks": 21,
+    "hand_openness": 10.524164658481864
+  },
+  {
+    "frame": 6,
+    "timestamp": 0.24,
+    "hand_type": "Right",
+    "confidence": 0.8384984731674194,
+    "num_landmarks": 21,
+    "hand_openness": 13.12481714147326
+  },
+  {
+    "frame": 8,
+    "timestamp": 0.32,
+    "hand_type": "Right",
+    "confidence": 0.9927007555961609,
+    "num_landmarks": 21,
+    "hand_openness": 7.328175009532945
+  },
+  {
+    "frame": 10,
+    "timestamp": 0.4,
+    "hand_type": "Right",
+    "confidence": 0.8980230689048767,
+    "num_landmarks": 21,
+    "hand_openness": 14.38529673023713
+  },
+  {
+    "frame": 12,
+    "timestamp": 0.48,
+    "hand_type": "Right",
+    "confidence": 0.9829602837562561,
+    "num_landmarks": 21,
+    "hand_openness": 11.18498899281349
+  },
+  {
+    "frame": 14,
+    "timestamp": 0.56,
+    "hand_type": "Right",
+    "confidence": 0.9844152927398682,
+    "num_landmarks": 21,
+    "hand_openness": 12.18164030176611
+  },
+  {
+    "frame": 16,
+    "timestamp": 0.64,
+    "hand_type": "Right",
+    "confidence": 0.9908515810966492,
+    "num_landmarks": 21,
+    "hand_openness": 10.005870374807255
+  },
+  {
+    "frame": 56,
+    "timestamp": 2.24,
+    "hand_type": "Right",
+    "confidence": 0.997908890247345,
+    "num_landmarks": 21,
+    "hand_openness": 5.8659736727447305
+  },
+  {
+    "frame": 58,
+    "timestamp": 2.32,
+    "hand_type": "Right",
+    "confidence": 0.9957305192947388,
+    "num_landmarks": 21,
+    "hand_openness": 12.826577136364492
+  },
+  {
+    "frame": 60,
+    "timestamp": 2.4,
+    "hand_type": "Right",
+    "confidence": 0.9886825680732727,
+    "num_landmarks": 21,
+    "hand_openness": 59.14411553674063
+  },
+  {
+    "frame": 62,
+    "timestamp": 2.48,
+    "hand_type": "Right",
+    "confidence": 0.9887464046478271,
+    "num_landmarks": 21,
+    "hand_openness": 29.375144079476424
+  },
+  {
+    "frame": 64,
+    "timestamp": 2.56,
+    "hand_type": "Right",
+    "confidence": 0.9810444116592407,
+    "num_landmarks": 21,
+    "hand_openness": 66.40143482987074
+  },
+  {
+    "frame": 66,
+    "timestamp": 2.64,
+    "hand_type": "Right",
+    "confidence": 0.9750407338142395,
+    "num_landmarks": 21,
+    "hand_openness": 61.568204552394924
+  },
+  {
+    "frame": 68,
+    "timestamp": 2.72,
+    "hand_type": "Right",
+    "confidence": 0.9687445163726807,
+    "num_landmarks": 21,
+    "hand_openness": 71.77407031137528
+  },
+  {
+    "frame": 70,
+    "timestamp": 2.8,
+    "hand_type": "Right",
+    "confidence": 0.9700265526771545,
+    "num_landmarks": 21,
+    "hand_openness": 68.6316736211588
+  },
+  {
+    "frame": 72,
+    "timestamp": 2.88,
+    "hand_type": "Right",
+    "confidence": 0.9681445360183716,
+    "num_landmarks": 21,
+    "hand_openness": 68.66750575449228
+  },
+  {
+    "frame": 74,
+    "timestamp": 2.96,
+    "hand_type": "Right",
+    "confidence": 0.9851741790771484,
+    "num_landmarks": 21,
+    "hand_openness": 59.310439595611456
+  },
+  {
+    "frame": 76,
+    "timestamp": 3.04,
+    "hand_type": "Right",
+    "confidence": 0.9757326245307922,
+    "num_landmarks": 21,
+    "hand_openness": 68.64474619345941
+  },
+  {
+    "frame": 78,
+    "timestamp": 3.12,
+    "hand_type": "Right",
+    "confidence": 0.99224853515625,
+    "num_landmarks": 21,
+    "hand_openness": 71.39529747309045
+  },
+  {
+    "frame": 80,
+    "timestamp": 3.2,
+    "hand_type": "Right",
+    "confidence": 0.9931862354278564,
+    "num_landmarks": 21,
+    "hand_openness": 69.32692610868608
+  },
+  {
+    "frame": 82,
+    "timestamp": 3.28,
+    "hand_type": "Right",
+    "confidence": 0.9827311635017395,
+    "num_landmarks": 21,
+    "hand_openness": 75.52116461424558
+  },
+  {
+    "frame": 84,
+    "timestamp": 3.36,
+    "hand_type": "Right",
+    "confidence": 0.8198422193527222,
+    "num_landmarks": 21,
+    "hand_openness": 50.10847998464104
+  },
+  {
+    "frame": 86,
+    "timestamp": 3.44,
+    "hand_type": "Left",
+    "confidence": 0.5281434059143066,
+    "num_landmarks": 21,
+    "hand_openness": 30.82621739656969
+  },
+  {
+    "frame": 88,
+    "timestamp": 3.52,
+    "hand_type": "Right",
+    "confidence": 0.9908774495124817,
+    "num_landmarks": 21,
+    "hand_openness": 26.230039506166126
+  },
+  {
+    "frame": 88,
+    "timestamp": 3.52,
+    "hand_type": "Right",
+    "confidence": 0.97198486328125,
+    "num_landmarks": 21,
+    "hand_openness": 20.691856035238025
+  },
+  {
+    "frame": 90,
+    "timestamp": 3.6,
+    "hand_type": "Right",
+    "confidence": 0.9965125322341919,
+    "num_landmarks": 21,
+    "hand_openness": 62.63088338382512
+  },
+  {
+    "frame": 92,
+    "timestamp": 3.68,
+    "hand_type": "Right",
+    "confidence": 0.996066689491272,
+    "num_landmarks": 21,
+    "hand_openness": 22.91524590678086
+  },
+  {
+    "frame": 94,
+    "timestamp": 3.76,
+    "hand_type": "Right",
+    "confidence": 0.9925116300582886,
+    "num_landmarks": 21,
+    "hand_openness": 14.653363679126235
+  },
+  {
+    "frame": 96,
+    "timestamp": 3.84,
+    "hand_type": "Right",
+    "confidence": 0.9957602620124817,
+    "num_landmarks": 21,
+    "hand_openness": 62.33072505249834
+  },
+  {
+    "frame": 98,
+    "timestamp": 3.92,
+    "hand_type": "Right",
+    "confidence": 0.9960340261459351,
+    "num_landmarks": 21,
+    "hand_openness": 57.57153262473164
+  }
+]

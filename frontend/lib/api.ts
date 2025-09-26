@@ -59,24 +59,24 @@ api.interceptors.response.use(
 export const endpoints = {
   // 動画関連
   videos: {
-    upload: '/api/v1/videos/upload',
-    get: (id: string) => `/api/v1/videos/${id}`,
-    list: '/api/v1/videos',
+    upload: '/videos/upload',
+    get: (id: string) => `/videos/${id}`,
+    list: '/videos',
   },
 
   // 解析関連
   analysis: {
-    start: (videoId: string) => `/api/v1/analysis/${videoId}/analyze`,
-    status: (analysisId: string) => `/api/v1/analysis/${analysisId}/status`,
-    result: (analysisId: string) => `/api/v1/analysis/${analysisId}`,
-    export: (analysisId: string) => `/api/v1/analysis/${analysisId}/export`,
+    start: (videoId: string) => `/analysis/${videoId}/analyze`,
+    status: (analysisId: string) => `/analysis/${analysisId}/status`,
+    result: (analysisId: string) => `/analysis/${analysisId}`,
+    export: (analysisId: string) => `/analysis/${analysisId}/export`,
   },
 
   // ライブラリ関連
   library: {
-    list: '/api/v1/library',
-    get: (id: string) => `/api/v1/library/${id}`,
-    save: '/api/v1/library',
+    list: '/library',
+    get: (id: string) => `/library/${id}`,
+    save: '/library',
   },
 }
 

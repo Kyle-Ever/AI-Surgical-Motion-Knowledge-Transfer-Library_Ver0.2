@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favicon Preview - AI Surgical Motion Knowledge Transfer Library</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            text-align: center;
+            margin-bottom: 3rem;
+            font-size: 1.2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .favicon-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .favicon-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 60px rgba(0,0,0,0.2);
+        }
+
+        .favicon-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 12px;
+        }
+
+        .size-display {
+            text-align: center;
+        }
+
+        .size-display img {
+            display: block;
+            margin: 0 auto 0.5rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            background: white;
+            padding: 4px;
+        }
+
+        .size-label {
+            font-size: 0.85rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .favicon-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .favicon-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .feature-tag {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .select-button {
+            width: 100%;
+            padding: 0.8rem;
+            margin-top: 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+
+        .select-button:hover {
+            opacity: 0.9;
+        }
+
+        .browser-preview {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #f0f0f0;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .browser-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tab-title {
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Favicon Gallery</h1>
+        <p class="subtitle">AI Surgical Motion Knowledge Transfer Library - ファビコンデザイン候補</p>
+
+        <div class="grid">
+            <!-- 1. AI脳波解析 -->
+            <div class="favicon-card">
+                <div class="browser-preview">
+                    <div class="browser-tab">
+                        <img src="favicons/favicon-1-ai-surgery.svg" width="16" height="16" alt="Favicon">
+                        <span class="tab-title">Neural Analytics</span>
+                    </div>
+                </div>
+                <div class="favicon-display">
+                    <div class="size-display">
+                        <img src="favicons/favicon-1-ai-surgery.svg" width="16" height="16" alt="16x16">
+                        <span class="size-label">16×16</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-1-ai-surgery.svg" width="32" height="32" alt="32x32">
+                        <span class="size-label">32×32</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-1-ai-surgery.svg" width="64" height="64" alt="64x64">
+                        <span class="size-label">64×64</span>
+                    </div>
+                </div>
+                <h3 class="favicon-title">AI脳波解析</h3>
+                <p class="favicon-description">ニューラルネットワークと脳波パターンの融合。ブルー〜シアンのグラデーションで先進的なAI解析を表現。</p>
+                <div class="features">
+                    <span class="feature-tag">ニューラル</span>
+                    <span class="feature-tag">脳波パターン</span>
+                    <span class="feature-tag">AI解析</span>
+                </div>
+                <button class="select-button" onclick="selectFavicon('favicon-1-ai-surgery.svg')">このデザインを選択</button>
+            </div>
+
+            <!-- 2. DNA二重螺旋 + デジタル -->
+            <div class="favicon-card">
+                <div class="browser-preview">
+                    <div class="browser-tab">
+                        <img src="favicons/favicon-2-motion-track.svg" width="16" height="16" alt="Favicon">
+                        <span class="tab-title">Gene Analysis</span>
+                    </div>
+                </div>
+                <div class="favicon-display">
+                    <div class="size-display">
+                        <img src="favicons/favicon-2-motion-track.svg" width="16" height="16" alt="16x16">
+                        <span class="size-label">16×16</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-2-motion-track.svg" width="32" height="32" alt="32x32">
+                        <span class="size-label">32×32</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-2-motion-track.svg" width="64" height="64" alt="64x64">
+                        <span class="size-label">64×64</span>
+                    </div>
+                </div>
+                <h3 class="favicon-title">デジタルDNA解析</h3>
+                <p class="favicon-description">DNA二重螺旋とバイナリコードの組み合わせ。遺伝子解析と精密医療を表現。グリーン〜ブルーの生命感あるグラデーション。</p>
+                <div class="features">
+                    <span class="feature-tag">DNA螺旋</span>
+                    <span class="feature-tag">デジタル</span>
+                    <span class="feature-tag">遺伝子解析</span>
+                </div>
+                <button class="select-button" onclick="selectFavicon('favicon-2-motion-track.svg')">このデザインを選択</button>
+            </div>
+
+            <!-- 3. ホログラフィック心臓 -->
+            <div class="favicon-card">
+                <div class="browser-preview">
+                    <div class="browser-tab">
+                        <img src="favicons/favicon-3-hexagon-pulse.svg" width="16" height="16" alt="Favicon">
+                        <span class="tab-title">3D Heart Model</span>
+                    </div>
+                </div>
+                <div class="favicon-display">
+                    <div class="size-display">
+                        <img src="favicons/favicon-3-hexagon-pulse.svg" width="16" height="16" alt="16x16">
+                        <span class="size-label">16×16</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-3-hexagon-pulse.svg" width="32" height="32" alt="32x32">
+                        <span class="size-label">32×32</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-3-hexagon-pulse.svg" width="64" height="64" alt="64x64">
+                        <span class="size-label">64×64</span>
+                    </div>
+                </div>
+                <h3 class="favicon-title">ホログラフィック心臓</h3>
+                <p class="favicon-description">3D心臓モデルのワイヤーフレーム。レッド〜ピンクのグラデーションと拍動アニメーションで生体データを可視化。</p>
+                <div class="features">
+                    <span class="feature-tag">3Dモデル</span>
+                    <span class="feature-tag">拍動アニメ</span>
+                    <span class="feature-tag">ECG波形</span>
+                </div>
+                <button class="select-button" onclick="selectFavicon('favicon-3-hexagon-pulse.svg')">このデザインを選択</button>
+            </div>
+
+            <!-- 4. 量子医療クロス -->
+            <div class="favicon-card">
+                <div class="browser-preview">
+                    <div class="browser-tab">
+                        <img src="favicons/favicon-4-diamond-grid.svg" width="16" height="16" alt="Favicon">
+                        <span class="tab-title">Quantum Medicine</span>
+                    </div>
+                </div>
+                <div class="favicon-display">
+                    <div class="size-display">
+                        <img src="favicons/favicon-4-diamond-grid.svg" width="16" height="16" alt="16x16">
+                        <span class="size-label">16×16</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-4-diamond-grid.svg" width="32" height="32" alt="32x32">
+                        <span class="size-label">32×32</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-4-diamond-grid.svg" width="64" height="64" alt="64x64">
+                        <span class="size-label">64×64</span>
+                    </div>
+                </div>
+                <h3 class="favicon-title">量子医療クロス</h3>
+                <p class="favicon-description">医療十字と量子ドットの組み合わせ。ホワイト〜ライトブルーで粒子の流れをアニメーション。</p>
+                <div class="features">
+                    <span class="feature-tag">量子粒子</span>
+                    <span class="feature-tag">医療十字</span>
+                    <span class="feature-tag">エネルギーフロー</span>
+                </div>
+                <button class="select-button" onclick="selectFavicon('favicon-4-diamond-grid.svg')">このデザインを選択</button>
+            </div>
+
+            <!-- 5. バイオメトリックアイ -->
+            <div class="favicon-card">
+                <div class="browser-preview">
+                    <div class="browser-tab">
+                        <img src="favicons/favicon-5-infinity-hand.svg" width="16" height="16" alt="Favicon">
+                        <span class="tab-title">Biometric Scan</span>
+                    </div>
+                </div>
+                <div class="favicon-display">
+                    <div class="size-display">
+                        <img src="favicons/favicon-5-infinity-hand.svg" width="16" height="16" alt="16x16">
+                        <span class="size-label">16×16</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-5-infinity-hand.svg" width="32" height="32" alt="32x32">
+                        <span class="size-label">32×32</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-5-infinity-hand.svg" width="64" height="64" alt="64x64">
+                        <span class="size-label">64×64</span>
+                    </div>
+                </div>
+                <h3 class="favicon-title">バイオメトリックアイ</h3>
+                <p class="favicon-description">虹彩認証パターンとデータ解析。パープル〜ゴールドのグラデーションとスキャニングアニメーション。</p>
+                <div class="features">
+                    <span class="feature-tag">虹彩認証</span>
+                    <span class="feature-tag">スキャン</span>
+                    <span class="feature-tag">生体認証</span>
+                </div>
+                <button class="select-button" onclick="selectFavicon('favicon-5-infinity-hand.svg')">このデザインを選択</button>
+            </div>
+
+            <!-- 6. ナノロボット医療 -->
+            <div class="favicon-card">
+                <div class="browser-preview">
+                    <div class="browser-tab">
+                        <img src="favicons/favicon-6-circuit-brain.svg" width="16" height="16" alt="Favicon">
+                        <span class="tab-title">Nanobot Medicine</span>
+                    </div>
+                </div>
+                <div class="favicon-display">
+                    <div class="size-display">
+                        <img src="favicons/favicon-6-circuit-brain.svg" width="16" height="16" alt="16x16">
+                        <span class="size-label">16×16</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-6-circuit-brain.svg" width="32" height="32" alt="32x32">
+                        <span class="size-label">32×32</span>
+                    </div>
+                    <div class="size-display">
+                        <img src="favicons/favicon-6-circuit-brain.svg" width="64" height="64" alt="64x64">
+                        <span class="size-label">64×64</span>
+                    </div>
+                </div>
+                <h3 class="favicon-title">ナノロボット医療</h3>
+                <p class="favicon-description">マイクロロボットと血管ネットワーク。メタリックシルバー〜ブルーで循環アニメーション。</p>
+                <div class="features">
+                    <span class="feature-tag">ナノテク</span>
+                    <span class="feature-tag">血管内</span>
+                    <span class="feature-tag">10nm精度</span>
+                </div>
+                <button class="select-button" onclick="selectFavicon('favicon-6-circuit-brain.svg')">このデザインを選択</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function selectFavicon(filename) {
+            alert(`選択されたファビコン: ${filename}\n\nこのファビコンを適用するには:\n1. frontend/public/favicons/${filename} をコピー\n2. frontend/app/favicon.ico に置き換え\n3. ブラウザをリフレッシュ`);
+
+            // ファビコンを動的に変更（プレビュー用）
+            const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+            link.type = 'image/svg+xml';
+            link.rel = 'icon';
+            link.href = `favicons/${filename}`;
+            document.getElementsByTagName('head')[0].appendChild(link);
+        }
+
+        // ページロード時にランダムにファビコンを設定
+        window.onload = function() {
+            const favicons = [
+                'favicon-1-ai-surgery.svg',
+                'favicon-2-motion-track.svg',
+                'favicon-3-hexagon-pulse.svg',
+                'favicon-4-diamond-grid.svg',
+                'favicon-5-infinity-hand.svg',
+                'favicon-6-circuit-brain.svg'
+            ];
+            const randomFavicon = favicons[Math.floor(Math.random() * favicons.length)];
+            const link = document.createElement('link');
+            link.type = 'image/svg+xml';
+            link.rel = 'icon';
+            link.href = `favicons/${randomFavicon}`;
+            document.getElementsByTagName('head')[0].appendChild(link);
+        }
+    </script>
+</body>
+</html>

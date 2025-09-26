@@ -1,0 +1,31 @@
+{
+  "metrics": {
+    "total_frames": 563,
+    "detection_success": {
+      "left": 493,
+      "right": 570
+    },
+    "avg_length": {
+      "left": 1326.5050913759173,
+      "right": 1214.6251196342996
+    },
+    "stability": {
+      "left": 0.9406136048849688,
+      "right": 0.8014674515939156
+    }
+  },
+  "tracking_summary": {
+    "left": {
+      "num_frames": 493,
+      "avg_length": 1326.5050913759173,
+      "stability": 0.9406136048849688,
+      "success_rate": 0.8756660746003553
+    },
+    "right": {
+      "num_frames": 570,
+      "avg_length": 1214.6251196342996,
+      "stability": 0.8014674515939156,
+      "success_rate": 1.0124333925399644
+    }
+  }
+}

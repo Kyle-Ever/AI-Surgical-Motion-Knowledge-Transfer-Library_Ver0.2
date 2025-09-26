@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Skeleton Overlay Test</title>
+    <style>
+        body { margin: 20px; font-family: Arial; }
+        #container { position: relative; width: 640px; height: 360px; background: #000; }
+        #video { width: 100%; height: 100%; }
+        #canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        button { margin: 10px 5px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Skeleton Overlay Test</h1>
+    <div id="container">
+        <video id="video" controls></video>
+        <canvas id="canvas" width="640" height="360"></canvas>
+    </div>
+    <div>
+        <button onclick="loadData()">Load Analysis Data</button>
+        <button onclick="toggleOverlay()">Toggle Overlay</button>
+        <button onclick="playVideo()">Play/Pause</button>
+    </div>
+    <div id="status"></div>
+
+    <script>
+        let analysisData = null;
+        let overlayEnabled = true;
+        let animationId = null;
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('status');
+
+        // Test with a specific analysis ID
+        const analysisId = '5b7e2130-1172-4b9e-8f73-636ca4395b17';
+
+        async function loadData() {
+            try {
+                status.textContent = 'Loading analysis data...';
+                const response = await fetch(`http://localhost:8000/api/v1/analysis/${analysisId}`);
+                analysisData = await response.json();
+
+                if (analysisData.video_id) {
+                    video.src = `http://localhost:8000/api/v1/videos/${analysisData.video_id}/stream`;
+                }
+
+                status.textContent = `Loaded! Skeleton frames: ${analysisData.skeleton_data?.length || 0}, Tool frames: ${analysisData.instrument_data?.length || 0}`;
+                console.log('Analysis data:', analysisData);
+            } catch (err) {
+                status.textContent = 'Error loading data: ' + err.message;
+            }
+        }
+
+        function getCurrentData(timestamp) {
+            if (!analysisData) return { skeleton: null, tools: null };
+
+            const skeleton = analysisData.skeleton_data?.find(
+                data => Math.abs(data.timestamp - timestamp) < 0.05
+            );
+            const tools = analysisData.instrument_data?.find(
+                data => Math.abs(data.timestamp - timestamp) < 0.05
+            );
+
+            return { skeleton, tools };
+        }
+
+        function drawOverlay() {
+            if (!overlayEnabled) {
+                if (animationId) cancelAnimationFrame(animationId);
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Test overlay
+            ctx.strokeStyle = 'rgba(255, 255, 0, 0.5)';
+            ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Arial';
+            ctx.fillText(`Time: ${video.currentTime.toFixed(2)}s`, 10, 30);
+
+            const { skeleton, tools } = getCurrentData(video.currentTime);
+
+            // Draw skeleton
+            if (skeleton?.landmarks) {
+                ctx.fillStyle = 'lime';
+                ctx.strokeStyle = 'lime';
+                ctx.lineWidth = 2;
+
+                // Draw all points
+                Object.entries(skeleton.landmarks).forEach(([key, point]) => {
+                    if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+                        ctx.beginPath();
+                        ctx.arc(point.x * canvas.width, point.y * canvas.height, 5, 0, 2 * Math.PI);
+                        ctx.fill();
+
+                        // Draw point number
+                        ctx.fillStyle = 'white';
+                        ctx.font = '10px Arial';
+                        ctx.fillText(key.replace('point_', ''), point.x * canvas.width + 7, point.y * canvas.height - 7);
+                        ctx.fillStyle = 'lime';
+                    }
+                });
+
+                ctx.fillText(`Skeleton found: ${Object.keys(skeleton.landmarks).length} points`, 10, 50);
+            } else {
+                ctx.fillStyle = 'red';
+                ctx.fillText('No skeleton data', 10, 50);
+            }
+
+            // Draw tools
+            if (tools?.detections) {
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 2;
+                tools.detections.forEach(det => {
+                    const [x1, y1, x2, y2] = det.bbox;
+                    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                });
+                ctx.fillText(`Tools: ${tools.detections.length}`, 10, 70);
+            }
+
+            animationId = requestAnimationFrame(drawOverlay);
+        }
+
+        function toggleOverlay() {
+            overlayEnabled = !overlayEnabled;
+            if (overlayEnabled) drawOverlay();
+            else ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function playVideo() {
+            if (video.paused) {
+                video.play();
+                drawOverlay();
+            } else {
+                video.pause();
+            }
+        }
+
+        video.addEventListener('timeupdate', () => {
+            if (overlayEnabled && !animationId) drawOverlay();
+        });
+
+        video.addEventListener('play', () => {
+            if (overlayEnabled) drawOverlay();
+        });
+
+        video.addEventListener('pause', () => {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        });
+
+        // Auto-load on page load
+        window.addEventListener('load', loadData);
+    </script>
+</body>
+</html>

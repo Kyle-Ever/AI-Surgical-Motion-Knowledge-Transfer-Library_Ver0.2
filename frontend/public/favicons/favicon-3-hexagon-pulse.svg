@@ -1,0 +1,93 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="heart-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff006e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c0196e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="holo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d2ff;stop-opacity:1" />
+      <stop offset="33%" style="stop-color:#3a47d5;stop-opacity:1" />
+      <stop offset="66%" style="stop-color:#d300d2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00d2ff;stop-opacity:1" />
+    </linearGradient>
+    <filter id="hologram">
+      <feGaussianBlur stdDeviation="0.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="32" height="32" fill="#050614" rx="4"/>
+
+  <!-- Holographic grid background -->
+  <g opacity="0.2">
+    <line x1="8" y1="0" x2="8" y2="32" stroke="url(#holo-gradient)" stroke-width="0.5"/>
+    <line x1="16" y1="0" x2="16" y2="32" stroke="url(#holo-gradient)" stroke-width="0.5"/>
+    <line x1="24" y1="0" x2="24" y2="32" stroke="url(#holo-gradient)" stroke-width="0.5"/>
+    <line x1="0" y1="8" x2="32" y2="8" stroke="url(#holo-gradient)" stroke-width="0.5"/>
+    <line x1="0" y1="16" x2="32" y2="16" stroke="url(#holo-gradient)" stroke-width="0.5"/>
+    <line x1="0" y1="24" x2="32" y2="24" stroke="url(#holo-gradient)" stroke-width="0.5"/>
+  </g>
+
+  <!-- 3D Heart wireframe -->
+  <g transform="translate(16, 16)">
+    <!-- Heart base shape -->
+    <path d="M 0 -6 C -6 -12, -12 -6, -6 0 L 0 8 L 6 0 C 12 -6, 6 -12, 0 -6 Z"
+          fill="none"
+          stroke="url(#holo-gradient)"
+          stroke-width="1"
+          opacity="0.9"
+          filter="url(#hologram)"/>
+
+    <!-- Wireframe lines -->
+    <g stroke="url(#holo-gradient)" stroke-width="0.5" opacity="0.7">
+      <!-- Vertical lines -->
+      <line x1="-3" y1="-8" x2="-3" y2="5"/>
+      <line x1="0" y1="-6" x2="0" y2="8"/>
+      <line x1="3" y1="-8" x2="3" y2="5"/>
+
+      <!-- Horizontal lines -->
+      <line x1="-6" y1="-3" x2="6" y2="-3"/>
+      <line x1="-5" y1="0" x2="5" y2="0"/>
+      <line x1="-4" y1="3" x2="4" y2="3"/>
+
+      <!-- Diagonal lines -->
+      <line x1="-6" y1="0" x2="0" y2="-6"/>
+      <line x1="6" y1="0" x2="0" y2="-6"/>
+      <line x1="-4" y1="3" x2="0" y2="8"/>
+      <line x1="4" y1="3" x2="0" y2="8"/>
+    </g>
+
+    <!-- Heart core with gradient fill -->
+    <circle cx="0" cy="-2" r="3" fill="url(#heart-gradient)" opacity="0.6"/>
+
+    <!-- Pulse points -->
+    <circle cx="0" cy="-2" r="1" fill="#ff006e" opacity="0.9">
+      <animate attributeName="r" values="1;2;1" dur="1s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.9;0.4;0.9" dur="1s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- ECG wave -->
+  <path d="M 2 20 L 6 20 L 8 16 L 10 24 L 12 12 L 14 28 L 16 4 L 18 28 L 20 12 L 22 24 L 24 16 L 26 20 L 30 20"
+        stroke="#ff006e"
+        stroke-width="0.8"
+        fill="none"
+        opacity="0.8">
+    <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1s" repeatCount="indefinite"/>
+  </path>
+
+  <!-- Data visualization nodes -->
+  <g fill="url(#holo-gradient)">
+    <circle cx="8" cy="8" r="1" opacity="0.6"/>
+    <circle cx="24" cy="8" r="1" opacity="0.6"/>
+    <circle cx="8" cy="24" r="1" opacity="0.6"/>
+    <circle cx="24" cy="24" r="1" opacity="0.6"/>
+  </g>
+
+  <!-- Heartbeat indicator -->
+  <text x="2" y="30" font-size="2.5" fill="#ff006e" font-family="monospace" font-weight="bold">♥ BPM</text>
+</svg>

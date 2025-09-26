@@ -1,98 +1,22 @@
-# 開発エージェント運用ルール（本リポジトリ専用）
+# Repository Guidelines
 
-この AGENTS.md は本リポジトリ配下すべてに適用されます。開発・コーディング時は必ず最新のルール/構成/手順をここで確認してください。
+## Project Structure & Module Organization
+The FastAPI backend lives in `backend/`; entrypoint `app/main.py`, routers under `app/api/routes/`, shared helpers in `app/core/`, and models split between `app/models/` and Pydantic schemas in `app/schemas/`. ML workflows stay in `ai_engine/processors/`. The Next.js frontend sits in `frontend/` with routes in `app/`, shared React code in `components/` and `hooks/`, utilities in `lib/`, and static assets in `public/`. Long-lived assets belong in `data/` (`data/uploads/` for uploads, `data/temp/` for scratch), while process docs are in `docs/`.
 
-参照ルール（常時遵守）
-- PRD作成: `docs/Rules/01_prd_generation_rules.md`
-- タスク化: `docs/Rules/02_task_generation_rules.md`
-- 実行手順: `docs/Rules/03_task_execution_rules.md`
+## Build, Test, and Development Commands
+Run `start_backend.bat` to provision Python 3.11, install `backend/requirements.txt`, and launch FastAPI at `http://localhost:8000`. Use `start_frontend.bat` or `cd frontend && npm install && npm run dev` to serve the UI on port 3000; `start_both.bat` brings up both tiers. With the backend active, execute `python test_integration.py` for API coverage. For UI regression, run `cd frontend && npm ci && npx playwright install --with-deps && npm run test`.
 
-小さな修正（明確なバグ修正、コメント微調整、CI微修正など）を除き、「PRD → タスク化 → 実行」の順に進めます。
+## Coding Style & Naming Conventions
+Python modules use snake_case filenames, four-space indentation, full type hints, and PascalCase classes; keep shared logic in `app/core/`. JavaScript/TypeScript files use two-space indentation, React components in PascalCase, hooks camelCase (`useExample`), and Tailwind utility classes for styling. Respect formatter and lint configs; run `npm run lint` in `frontend/` before committing UI code.
 
-## プロジェクト概要
-- 目的: 手術動画から骨格/器具の動作を抽出・解析し、教育/評価に活用できる API/UI を提供。
-- サブプロジェクト: Backend(FastAPI) / Frontend(Next.js) / Docs(PRD/設計/Rules)。
-- 現行PRD: `docs/PRD/PRD-001_aimotion.md`（随時更新）。タスク一覧: `tasks.md`。
+## Testing Guidelines
+Backend unit or ad-hoc tests live beside their modules as `backend/test_*.py`. Start the API before running Playwright suites (`npm run test`) or `python test_integration.py`. Favor selectors tied to stable UI copy to avoid flaky frontend tests, and add focused coverage whenever behavior changes.
 
-## リポジトリ構成（主要）
-- `backend/` バックエンド（Python 3.11 / FastAPI）
-  - `app/main.py` エントリ、ルータ登録、CORS、WS。
-  - `app/api/routes/` `videos.py`, `analysis.py` 等のAPI群。
-  - `app/core/` `config.py`（設定）, `websocket.py`（接続管理）。
-  - `app/models/` `video.py`, `analysis.py`, `database.py`（SQLAlchemy）。
-  - `app/schemas/` Pydantic v2 スキーマ。
-  - `ai_engine/processors/` 骨格/器具/動画解析のユーティリティ。
-  - `_check_versions.py`, `_import_app.py`, `_healthcheck.py` 検証補助。
-  - `requirements.txt` 依存（OpenCV/MediaPipe/Ultralytics 等）。
-- `frontend/` フロントエンド（Next.js 15 / React 19 / TypeScript）
-  - `package.json`（scripts: `dev/build/start/lint`）。
-  - `app/`, `components/`, `hooks/`, `lib/`, `public/`, `types/`。
-- `docs/` 仕様/設計/ルール
-  - `Rules/01..03_*.md` 運用ルール。
-  - `PRD/PRD-001_aimotion.md` 現行PRD。
-- ルートスクリプト: `start_backend.bat`, `start_frontend.bat`, `start_both.bat`。
+## Commit & Pull Request Guidelines
+Write commit messages in imperative prefixes such as `feat: add kinematics processor` or `Frontend: update layout`. Pull requests should describe the change, link issues, attach UI screenshots or recordings when visuals shift, list executed test commands with results, and note rollback considerations.
 
-## バックエンド（詳細）
-- 実行環境: Python 3.11 固定（`start_backend.bat` が 3.11 venv を作成）。
-- 依存: `numpy<2` を維持（OpenCV/MediaPipe互換）、`uvicorn`, `fastapi`, `sqlalchemy`, `pydantic v2` 等。
-- 設定: `app/core/config.py`
-  - `UPLOAD_DIR=./data/uploads`, `TEMP_DIR=./data/temp`
-  - `MAX_UPLOAD_SIZE=2GB`, `ALLOWED_EXTENSIONS={.mp4}`
-  - `DATABASE_URL=sqlite:///./aimotion.db`
-- API概略
-  - `GET /` 情報、`GET /api/v1/health` ヘルス。
-  - `POST /api/v1/videos/upload` mp4アップロード（2GBまで）。
-  - `GET /api/v1/videos/{video_id}` 取得、`GET /api/v1/videos/` 一覧。
-  - `POST /api/v1/analysis/{video_id}/analyze` 解析開始。
-  - `GET /api/v1/analysis/{analysis_id}/status` 進捗、`GET /api/v1/analysis/{analysis_id}` 結果。
-  - `GET /api/v1/analysis/completed` 完了一覧。
-  - `WS /ws/analysis/{analysis_id}` 進捗イベント。
-- モデル・スキーマ
-  - Video: `id, filename, original_filename, video_type(internal|external), ...`
-  - AnalysisResult: `status(pending|processing|completed|failed), progress, scores/json など`
-  - Pydanticスキーマは `app/schemas/` を参照。
-- サービス
-  - `VideoService` メタ情報抽出/フレーム抽出。
-  - `AnalysisService` フレーム抽出→骨格/器具検出→モーション解析→スコア→保存（WS進捗送信）。
+## Security & Configuration Tips
+Do not commit secrets or `.env` files. Keep dependencies within the `numpy<2` boundary to preserve OpenCV and MediaPipe support. Target `http://localhost:8000` for API calls, where CORS is preconfigured, and keep SQLite data local-only.
 
-## フロントエンド（詳細）
-- スタック: Next.js 15, React 19, TypeScript, Tailwind4, ESLint9。
-- 実行: `cd frontend && npm install && npm run dev`（ポート: 3000）。
-- API 先: `http://localhost:8000`（CORS許可済み）。
-
-## 起動手順（開発）
-- Backend: ルートで `start_backend.bat` 実行（初回は venv/依存導入）。
-- Frontend: ルートで `start_frontend.bat` 実行（npm install→dev）。
-- 両方: `start_both.bat`。
-
-## テスト/検証
-- 統合試験: ルートの `test_integration.py` を手動実行（別途 `requests` が必要）。
-- 簡易確認: `backend/_import_app.py`（アプリ読込）、`_healthcheck.py`（httpx必要）、`_check_versions.py`（依存版数）。
-- UI E2E（Playwright）:
-  - 事前: `cd frontend && npm ci && npx playwright install --with-deps`
-  - 実行: `npm run test`（ヘッドレス）、`npm run test:ui`（UI）
-  - 設定: `frontend/playwright.config.ts`（`webServer: npm run dev`）
-  - CI: `.github/workflows/e2e.yml`（手動トリガ）
-  - MCP連携（任意）: `docs/testing-ui-playwright-mcp.md` を参照（Playwright MCP を補助ツールとして利用）
-
-## セキュリティ/データ取扱い
-- アップロードは `.mp4` のみ。保存先は `data/uploads/`。
-- `.env` は機微を含むためコミット禁止。環境変数で上書き可能。
-- SQLite `aimotion.db` はローカル動作専用。配布/共有は避ける。
-
-## コーディング/運用規約
-- 既存の構成・命名を尊重。無関係な修正は別タスク化。
-- 文字コードは UTF-8 推奨。ログ/UI文言は既存の表記に合わせる。
-- Git 対象外: `venv/`, `.env`, `aimotion.db`, `data/uploads`, `data/temp`, `backend/nul`（Windows予約名）。
-
-## 既知の注意点
-- Windows 予約名 `nul` に由来する `backend/nul` は Git のインデックスで問題となるため、追跡しない。
-- `app/models/__init__.py` と `app/models/database.py` に類似の定義がある。参照先は統一し、循環参照を避ける。
-- Python 3.13 では MediaPipe/OpenCV に未対応の版があるため使用しない。
-
-## 作業フロー（厳守）
-1) PRD作成/更新: `docs/PRD/PRD-001_aimotion.md` を更新し、未確定は明示/仮説提示。
-2) タスク分解: `tasks.md` にトレース（UC/FR/NFR/API/AC）付きで追記。
-3) 実行: One-Task-At-A-Time。Plan/Files/Test/Risk を提示→承認後、最小差分で実装→検証→AC確認。
-
-この AGENTS.md は常に最新情報を反映します。更新があれば本ファイルを先に修正してから作業を続行してください。
+## Agent-Specific Workflow
+For multi-step contributions, update `docs/PRD/PRD-001_aimotion.md` and `tasks.md`, record Plan/Files/Test/Risk before coding, implement the minimal diff, and validate acceptance criteria before handoff.

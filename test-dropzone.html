@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Dropzone Test</title>
+    <style>
+        .dropzone {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            margin: 20px;
+        }
+        .dropzone:hover {
+            border-color: #666;
+            background-color: #f0f0f0;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        #result {
+            margin: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>ファイル選択テスト</h1>
+
+    <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept="video/mp4" style="display: none;">
+        <p>ファイルをドラッグ＆ドロップ</p>
+        <p>または</p>
+        <button class="button" id="selectBtn">ファイルを選択</button>
+    </div>
+
+    <div id="result">
+        <h3>結果:</h3>
+        <p id="fileName">ファイルが選択されていません</p>
+    </div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const selectBtn = document.getElementById('selectBtn');
+        const fileName = document.getElementById('fileName');
+
+        // ボタンクリック
+        selectBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log('Button clicked');
+            fileInput.click();
+        });
+
+        // ドロップゾーンクリック
+        dropzone.addEventListener('click', () => {
+            console.log('Dropzone clicked');
+            fileInput.click();
+        });
+
+        // ファイル選択時
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('File selected:', file.name);
+                fileName.textContent = `選択されたファイル: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            }
+        });
+
+        // ドラッグ&ドロップ
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.style.backgroundColor = '#e0e0e0';
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.style.backgroundColor = '';
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.style.backgroundColor = '';
+
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                console.log('File dropped:', file.name);
+                fileName.textContent = `選択されたファイル: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            }
+        });
+    </script>
+</body>
+</html>

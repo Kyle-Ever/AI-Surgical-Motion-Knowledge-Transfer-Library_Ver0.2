@@ -109,8 +109,10 @@ export function useWebSocket(
       }
 
       ws.current.onerror = (event) => {
-        console.error('WebSocket error:', event)
-        setError(new Error('WebSocket connection error'))
+        const errorMessage = `WebSocket connection error at ${fullUrl}`
+        // Don't log the event object as it causes serialization issues
+        console.error(errorMessage)
+        setError(new Error(errorMessage))
         onError?.(event)
       }
 
@@ -201,8 +203,9 @@ export function useAnalysisWebSocket(analysisId: string | null) {
   const [currentStep, setCurrentStep] = useState<string>('')
   const [message, setMessage] = useState<string>('')
 
+  // Use backend URL (port 8000) for WebSocket
   const wsUrl = analysisId
-    ? `${process.env.NEXT_PUBLIC_WS_URL || ''}/ws/analysis/${analysisId}`
+    ? `ws://localhost:8000/ws/analysis/${analysisId}`
     : null
 
   const { isConnected, lastMessage, error } = useWebSocket(wsUrl, {

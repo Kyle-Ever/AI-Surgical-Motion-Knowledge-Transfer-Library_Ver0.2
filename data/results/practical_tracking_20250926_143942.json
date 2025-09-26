@@ -1,0 +1,19 @@
+{
+  "total_frames": 563,
+  "tracking_performance": {
+    "left": {
+      "initial_detections": 1,
+      "redetections": 0,
+      "optical_flow_success": 482,
+      "total_tracked": 483,
+      "tracking_rate": 0.8579040852575488
+    },
+    "right": {
+      "initial_detections": 1,
+      "redetections": 0,
+      "optical_flow_success": 567,
+      "total_tracked": 568,
+      "tracking_rate": 1.0088809946714032
+    }
+  }
+}

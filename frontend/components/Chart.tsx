@@ -37,9 +37,8 @@ const options = {
 }
 
 interface ChartProps {
-  type: 'line'
   data: {
-    labels: number[]
+    labels: string[] | number[]
     datasets: {
       label: string
       data: number[]

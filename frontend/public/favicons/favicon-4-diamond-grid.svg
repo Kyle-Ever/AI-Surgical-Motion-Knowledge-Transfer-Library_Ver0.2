@@ -1,0 +1,88 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="quantum-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#00d2ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="cross-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e8f4f8;stop-opacity:1" />
+    </linearGradient>
+    <filter id="quantum-glow">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="32" height="32" fill="#050614" rx="4"/>
+
+  <!-- Quantum field background -->
+  <g opacity="0.3">
+    <circle cx="8" cy="8" r="2" fill="none" stroke="url(#quantum-gradient)" stroke-width="0.5"/>
+    <circle cx="24" cy="8" r="2" fill="none" stroke="url(#quantum-gradient)" stroke-width="0.5"/>
+    <circle cx="8" cy="24" r="2" fill="none" stroke="url(#quantum-gradient)" stroke-width="0.5"/>
+    <circle cx="24" cy="24" r="2" fill="none" stroke="url(#quantum-gradient)" stroke-width="0.5"/>
+  </g>
+
+  <!-- Medical cross -->
+  <g transform="translate(16, 16)">
+    <!-- Horizontal bar -->
+    <rect x="-10" y="-3" width="20" height="6" fill="url(#cross-gradient)" opacity="0.9" filter="url(#quantum-glow)"/>
+    <!-- Vertical bar -->
+    <rect x="-3" y="-10" width="6" height="20" fill="url(#cross-gradient)" opacity="0.9" filter="url(#quantum-glow)"/>
+  </g>
+
+  <!-- Quantum particles orbiting -->
+  <g>
+    <!-- Orbital paths -->
+    <ellipse cx="16" cy="16" rx="10" ry="5" fill="none" stroke="url(#quantum-gradient)" stroke-width="0.5" opacity="0.4" transform="rotate(45 16 16)"/>
+    <ellipse cx="16" cy="16" rx="10" ry="5" fill="none" stroke="url(#quantum-gradient)" stroke-width="0.5" opacity="0.4" transform="rotate(-45 16 16)"/>
+    <ellipse cx="16" cy="16" rx="10" ry="5" fill="none" stroke="url(#quantum-gradient)" stroke-width="0.5" opacity="0.4" transform="rotate(0 16 16)"/>
+
+    <!-- Quantum dots -->
+    <circle cx="16" cy="6" r="1.5" fill="#00d2ff" filter="url(#quantum-glow)">
+      <animateTransform attributeName="transform" type="rotate" from="0 16 16" to="360 16 16" dur="6s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="26" cy="16" r="1.5" fill="#00d2ff" filter="url(#quantum-glow)">
+      <animateTransform attributeName="transform" type="rotate" from="90 16 16" to="450 16 16" dur="6s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="16" cy="26" r="1.5" fill="#00d2ff" filter="url(#quantum-glow)">
+      <animateTransform attributeName="transform" type="rotate" from="180 16 16" to="540 16 16" dur="6s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="6" cy="16" r="1.5" fill="#00d2ff" filter="url(#quantum-glow)">
+      <animateTransform attributeName="transform" type="rotate" from="270 16 16" to="630 16 16" dur="6s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- Secondary particles -->
+    <circle cx="22" cy="10" r="1" fill="#ffffff" opacity="0.8">
+      <animateTransform attributeName="transform" type="rotate" from="45 16 16" to="-315 16 16" dur="8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="10" cy="22" r="1" fill="#ffffff" opacity="0.8">
+      <animateTransform attributeName="transform" type="rotate" from="225 16 16" to="-135 16 16" dur="8s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Energy core -->
+  <circle cx="16" cy="16" r="3" fill="url(#quantum-gradient)" opacity="0.8" filter="url(#quantum-glow)">
+    <animate attributeName="r" values="3;4;3" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.8;0.4;0.8" dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Quantum entanglement lines -->
+  <g stroke="url(#quantum-gradient)" stroke-width="0.3" opacity="0.5">
+    <line x1="8" y1="8" x2="24" y2="24">
+      <animate attributeName="opacity" values="0;0.5;0" dur="3s" repeatCount="indefinite"/>
+    </line>
+    <line x1="24" y1="8" x2="8" y2="24">
+      <animate attributeName="opacity" values="0;0.5;0" dur="3s" begin="1.5s" repeatCount="indefinite"/>
+    </line>
+  </g>
+
+  <!-- Quantum indicator -->
+  <text x="2" y="30" font-size="2.5" fill="#00d2ff" font-family="monospace" font-weight="bold">Q+</text>
+</svg>

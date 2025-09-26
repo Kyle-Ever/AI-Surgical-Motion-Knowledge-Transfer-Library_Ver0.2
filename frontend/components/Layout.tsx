@@ -1,74 +1,61 @@
-'use client'
+﻿"use client"
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Home, FileVideo, Library, Award, History, Settings } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { Home, FileVideo, Library, Award, History, Settings } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+const navItems = [
+  { href: "/", label: "ホーム", icon: Home },
+  { href: "/upload", label: "新規解析", icon: FileVideo },
+  { href: "/library", label: "ライブラリ", icon: Library },
+  { href: "/scoring", label: "採点モード", icon: Award },
+  { href: "/history", label: "履歴", icon: History },
+]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
-  const navItems = [
-    { href: '/', label: 'ホーム', icon: Home },
-    { href: '/upload', label: '新規解析', icon: FileVideo },
-    { href: '/library', label: 'ライブラリ', icon: Library },
-    { href: '/scoring', label: '採点モード', icon: Award },
-    { href: '/history', label: '履歴', icon: History },
-  ]
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ヘッダー */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-blue-600">
-                AI手技モーション伝承ライブラリ
-              </h1>
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-header__inner">
+          <div className="app-brand" aria-label="AI手技モーション伝承ライブラリ">
+            <span className="app-brand__symbol">AI</span>
+            <div className="app-brand__copy">
+              <span className="app-brand__title">AI手技モーション伝承ライブラリ</span>
+              <span className="app-brand__subtitle">Surgical Motion Intelligence Hub</span>
             </div>
-            <button className="p-2 rounded-md hover:bg-gray-100">
-              <Settings className="w-5 h-5 text-gray-600" />
-            </button>
           </div>
+          <button className="app-settings-button" type="button" aria-label="設定">
+            <Settings className="w-5 h-5" />
+          </button>
         </div>
       </header>
 
-      <div className="flex">
-        {/* サイドバー */}
-        <nav className="w-64 bg-white border-r border-gray-200 min-h-screen">
-          <div className="p-4">
-            <ul className="space-y-2">
-              {navItems.map((item) => {
-                const Icon = item.icon
-                const isActive = pathname === item.href || 
-                               (item.href !== '/' && pathname.startsWith(item.href))
-                
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
-                        isActive
-                          ? "bg-blue-50 text-blue-600"
-                          : "text-gray-700 hover:bg-gray-100"
-                      )}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span className="font-medium">{item.label}</span>
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        </nav>
+      <div className="app-layout">
+        <aside className="app-sidebar">
+          <nav className="app-sidebar__nav">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              const isActive =
+                pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href))
 
-        {/* メインコンテンツ */}
-        <main className="flex-1 p-8">
-          {children}
-        </main>
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn("app-nav-link", isActive && "app-nav-link--active")}
+                >
+                  <Icon className="app-nav-link__icon" />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
+          </nav>
+        </aside>
+
+        <main className="app-main">{children}</main>
       </div>
     </div>
   )

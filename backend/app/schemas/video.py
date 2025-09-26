@@ -5,7 +5,9 @@ from enum import Enum
 
 class VideoType(str, Enum):
     internal = "internal"
-    external = "external"
+    external = "external"  # 後方互換性のため残す
+    external_no_instruments = "external_no_instruments"  # 外部器具なし
+    external_with_instruments = "external_with_instruments"  # 外部器具あり
 
 class VideoBase(BaseModel):
     surgery_name: Optional[str] = None
@@ -29,6 +31,6 @@ class VideoResponse(VideoBase):
         from_attributes = True
 
 class VideoUploadResponse(BaseModel):
-    id: str
+    video_id: str
     filename: str
     message: str = "Upload successful"

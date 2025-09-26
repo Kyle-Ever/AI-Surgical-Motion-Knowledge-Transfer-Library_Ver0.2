@@ -6,7 +6,9 @@ import enum
 
 class VideoType(str, enum.Enum):
     INTERNAL = "internal"
-    EXTERNAL = "external"
+    EXTERNAL = "external"  # 外部器具なし（後方互換性のため残す）
+    EXTERNAL_NO_INSTRUMENTS = "external_no_instruments"  # 外部器具なし
+    EXTERNAL_WITH_INSTRUMENTS = "external_with_instruments"  # 外部器具あり
 
 class Video(Base):
     __tablename__ = "videos"
