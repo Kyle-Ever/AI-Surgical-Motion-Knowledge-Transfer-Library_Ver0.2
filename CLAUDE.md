@@ -2,29 +2,82 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## SuperClaude Framework Integration
+This project uses the SuperClaude framework for enhanced AI capabilities.
+
+**Framework Components** (loaded from ~/.claude/):
+- Core: @FLAGS.md, @PRINCIPLES.md, @RULES.md, @RESEARCH_CONFIG.md
+- Modes: @MODE_Brainstorming.md, @MODE_Business_Panel.md, @MODE_DeepResearch.md, @MODE_Introspection.md, @MODE_Orchestration.md, @MODE_Task_Management.md, @MODE_Token_Efficiency.md
+- MCP Integration: @MCP_Context7.md, @MCP_Magic.md, @MCP_Morphllm.md, @MCP_Playwright.md, @MCP_Sequential.md, @MCP_Serena.md, @MCP_Tavily.md
+- Business: @BUSINESS_PANEL_EXAMPLES.md, @BUSINESS_SYMBOLS.md
+
+**Available Commands**: `/sc:task`, `/sc:analyze`, `/sc:troubleshoot`, `/sc:test`, `/sc:implement`, `/sc:research`, `/sc:design`, `/sc:document`, `/sc:improve`, `/sc:git`, `/sc:build`, `/sc:cleanup`, `/sc:help`
+
 ## Language Preference
 **日本語で応答してください** - Please respond in Japanese unless explicitly requested otherwise.
+
+## Project Type
+**AI Surgical Motion Knowledge Transfer Library** - A web-based video analysis platform for surgical training that tracks hand and instrument movements, calculates motion metrics, and provides performance feedback.
+
+## 📚 Project Documentation
+**重要な設計ドキュメントを必ず参照してください**
+
+### 必読ドキュメント（設計の基本）
+- **[プロジェクト概要](docs/00_overview/00_project_overview.md)** - まずはここから。ドキュメント全体の構成と使い方
+- **[アーキテクチャ設計](docs/01_architecture/01_architecture_design.md)** - システム設計とレイヤー責任。「このコードはどこに書くべき？」の答え
+- **[データベース設計](docs/02_database/02_database_design.md)** - テーブル構造、命名規則、リレーション
+- **[API設計](docs/03_api/03_api_design.md)** - RESTful API仕様、エラー形式、エンドポイント命名
+- **[フロントエンド設計](docs/04_frontend/04_frontend_design.md)** - コンポーネント設計、状態管理、型定義
+- **[開発環境セットアップ](docs/06_development/06_development_setup.md)** - 環境構築手順、トラブルシューティング
+
+### 追加ドキュメント
+- **[要求仕様書](docs/requirements-doc.md)** - システム要件と機能仕様
+- **[AI処理フロー](docs/ai-processing-flow-doc.md)** - AI解析パイプラインの詳細
+- **[UI/UX設計](docs/ui-ux-design-doc.md)** - ユーザーインターフェース設計
+- **[基本設計](docs/basic-design-doc.md)** - システム基本設計書
+- **[Playwright MCP テスト](docs/testing-ui-playwright-mcp.md)** - E2Eテスト戦略
+- **[POST MORTEM: ファイルアップロードボタン](docs/POST_MORTEM_FILE_UPLOAD_BUTTON.md)** - 過去の重大バグと教訓
+
+### 設計原則の適用例
+```
+新機能追加時:
+1. アーキテクチャ設計 → レイヤー配置を確認
+2. データベース設計 → 必要なテーブル変更
+3. API設計 → エンドポイント規約に従う
+4. フロントエンド設計 → コンポーネント配置
+
+バグ修正時:
+1. 該当レイヤーの設計書を確認
+2. 設計原則に違反していないか確認
+3. 修正後も原則を維持
+```
 
 ## Critical Environment Requirements
 
 ### Python 3.11 MANDATORY
-**MUST use Python 3.11** - Python 3.13 breaks MediaPipe/OpenCV compatibility
+**MUST use Python 3.11** - Python 3.12+ breaks MediaPipe/OpenCV compatibility
+- **DO NOT use Python 3.13**: Completely incompatible with MediaPipe/OpenCV
 - Virtual environment: `backend\venv311\`
 - Always use: `./venv311/Scripts/python.exe` for backend operations
 - Check version: `./venv311/Scripts/python.exe --version` should show 3.11.x
+- If venv311 doesn't exist: Run `start_backend_py311.bat` to auto-create with Python 3.11
+- Required Python 3.11 installation path: `C:\Users\ajksk\AppData\Local\Programs\Python\Python311`
 
 ### CORS Configuration (Development)
-**Upload feature requires these settings:**
-- Backend: `allow_origins=["*"]` in `backend/app/main.py`
-- Frontend: `.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1`
-- Backend `.env`: `BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","http://localhost:8000"]`
+**🚨 CRITICAL: Upload feature requires these settings to work**
+- **Backend**: `allow_origins=["*"]` in `backend/app/main.py` (line 96)
+  - This is ALREADY configured correctly in the current codebase
+  - DO NOT change this setting unless deploying to production
+- **Frontend**: `.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1`
+- **Backend** `.env`: `BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","http://localhost:8000"]`
+- **Common Issue**: If uploads fail with CORS errors, verify these settings first
 
 ### Environment Variables
 **Backend (.env)**
 ```
 DATABASE_URL=sqlite:///./aimotion.db
 UPLOAD_DIR=data/uploads
-MAX_UPLOAD_SIZE=2147483648  # 2GB in bytes
+MAX_UPLOAD_SIZE=1073741824  # 1GB in bytes
 BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","http://localhost:8000"]
 ```
 
@@ -38,108 +91,91 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8000
 
 ### Quick Start
 ```bash
-# Both servers (recommended)
-start_both.bat
+# Both servers (recommended) - Windows
+start_both.bat      # Kills existing processes, starts both servers
 
-# Backend only
+# Backend only - Windows
+start_backend_py311.bat  # Auto-creates venv311, installs deps, starts server
+# OR manually:
 cd backend && ./venv311/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
 
 # Frontend only
-cd frontend && npm install && npm run dev
-```
-
-### Dependencies Installation
-```bash
-# Backend dependencies
-cd backend
-./venv311/Scripts/python.exe -m pip install -r requirements.txt
-
-# Frontend dependencies
 cd frontend
-npm install
+npm install         # First time only
+npm run dev         # Start development server
 ```
 
 ### Testing
 ```bash
 # Frontend E2E (Playwright)
 cd frontend
-npm run test              # Headless
-npm run test:ui           # Interactive UI
-npm run test:headed       # Browser visible
-npm run test:report       # View test report
+npm run test              # Headless mode - all tests
+npm run test:headed       # With browser window
+npm run test:ui           # Interactive UI mode
+npm run test:debug        # Debug mode with Playwright Inspector
+npm run test:report       # Show last test results HTML report
 npx playwright test upload.spec.ts  # Single file
-npx playwright test --grep "upload"  # Pattern matching
+npx playwright test --grep "upload"  # Tests matching pattern
+npx playwright test tests/e2e-v2-upload.spec.ts  # Specific test file
 
-# Frontend type check & lint
-cd frontend
+# Frontend lint & type check
 npm run lint              # ESLint check
-npx tsc --noEmit         # TypeScript check
+npm run build            # Full build with type check
+npx tsc --noEmit         # TypeScript check only
 
 # Backend API tests
 cd backend
-./venv311/Scripts/python.exe test_api.py
-./venv311/Scripts/python.exe test_mediapipe_integration.py
-./venv311/Scripts/python.exe test_analysis_processing.py
-./venv311/Scripts/python.exe tests/test_integration.py
+./venv311/Scripts/python.exe test_api.py           # Basic API functionality
+./venv311/Scripts/python.exe test_mediapipe_integration.py  # MediaPipe detection
+./venv311/Scripts/python.exe tests/test_integration.py      # Full integration
+./venv311/Scripts/python.exe test_analysis_direct.py        # Analysis pipeline
+./venv311/Scripts/python.exe test_sam_direct.py             # SAM tracker
 
-# Backend database check
-./venv311/Scripts/python.exe check_db.py
-```
-
-### Development Commands
-```bash
-# Frontend
-npm run build             # Production build
-npm run lint              # ESLint v9
-npm run test:debug        # Debug Playwright tests
-
-# Backend database
-cd backend
-sqlite3 aimotion.db ".tables"  # Direct SQL access
-sqlite3 aimotion.db ".schema videos"  # Table schema
+# Database operations
+./venv311/Scripts/python.exe check_db.py           # View database contents
+./venv311/Scripts/python.exe check_analysis_data.py # Check analysis results
+sqlite3 aimotion.db ".tables"                      # Direct SQLite access
 ```
 
 ## High-Level Architecture
 
 ### Processing Pipeline
-1. **Upload**: Video → `backend/data/uploads/` (2GB max, .mp4 only)
+1. **Upload**: Video → `backend/data/uploads/` (1GB max, .mp4 only)
 2. **Analysis**: Frame extraction → AI detection → Score calculation
 3. **Detection Types**:
-   - `external` videos: MediaPipe skeleton detection (hand tracking)
-   - `internal` videos: YOLOv8 instrument detection + SAM tracker
+   - `external`: MediaPipe skeleton detection (hand tracking)
+   - `internal`: YOLOv8 instrument detection + SAM tracker
 4. **Real-time Updates**: WebSocket progress at `/ws/analysis/{analysis_id}`
 
 ### Key API Endpoints
-- `POST /api/v1/videos/upload` - Upload video (2GB limit)
+- `POST /api/v1/videos/upload` - Upload video (1GB limit)
 - `POST /api/v1/analysis/{video_id}/analyze` - Start analysis
 - `GET /api/v1/analysis/{analysis_id}/status` - Check progress
-- `GET /api/v1/videos` - List all videos with pagination
+- `GET /api/v1/videos` - List all videos
 - `GET /api/v1/analysis/{analysis_id}` - Get analysis results
-- `POST /api/v1/scoring/compare` - Compare analysis with reference
+- `POST /api/v1/scoring/compare` - Compare with reference
 - `GET /api/v1/library/references` - Get reference videos
 - `POST /api/v1/instrument-tracking/{video_id}/track` - Start instrument tracking
 - `WS /ws/analysis/{analysis_id}` - Real-time progress
 
 ### Core Services Architecture
-- **AnalysisService** (`backend/app/services/analysis_service.py`): Orchestrates entire processing pipeline with step-based progress tracking
-- **ScoringService** (`backend/app/services/scoring_service.py`): Calculates motion metrics and comparison scores
-- **InstrumentTrackingService** (`backend/app/services/instrument_tracking_service.py`): Handles surgical instrument detection and tracking
-- **MetricsCalculator** (`backend/app/services/metrics_calculator.py`): Computes motion metrics from tracking data
-- **WebSocket Manager** (`backend/app/core/websocket.py`): Manages real-time client connections
-- **AI Processors** (`backend/app/ai_engine/processors/`): Modular detection components
+- **AnalysisService** (`backend/app/services/analysis_service_v2.py`): Orchestrates processing pipeline
+- **ScoringService** (`backend/app/services/scoring_service.py`): Calculates motion metrics
+- **InstrumentTrackingService** (`backend/app/services/instrument_tracking_service.py`): Instrument detection/tracking
+- **MetricsCalculator** (`backend/app/services/metrics_calculator.py`): Computes motion metrics
+- **WebSocket Manager** (`backend/app/core/websocket.py`): Real-time client connections
+- **AI Processors** (`backend/app/ai_engine/processors/`):
   - `skeleton_detector.py`: MediaPipe hand/body tracking
   - `sam_tracker.py`: Segment Anything Model for instruments
-  - `hybrid_hand_detector.py`: Combined detection approach
-  - `glove_hand_detector.py`: White surgical glove detection
   - `enhanced_hand_detector.py`: Improved detection accuracy
-- **Frontend State**: Zustand for global state, custom hooks for WebSocket connections
+- **Frontend State**: Zustand for global state, custom hooks for WebSocket
 
 ### Database Schema
 SQLite at `backend/aimotion.db` with SQLAlchemy ORM:
 - `videos`: Video metadata and upload info
 - `analyses`: Analysis sessions and results
 - `reference_videos`: Gold standard references
-- `comparisons`: Score comparisons between videos
+- `comparisons`: Score comparisons
 
 ## Implementation Patterns
 
@@ -162,7 +198,6 @@ await manager.send_update(analysis_id, {
 
 ### Frontend State Management (Zustand)
 ```typescript
-// stores/useVideoStore.ts
 import { create } from 'zustand'
 
 const useVideoStore = create((set) => ({
@@ -174,249 +209,338 @@ const useVideoStore = create((set) => ({
 }))
 ```
 
-### Custom Hooks Pattern
-```typescript
-// hooks/useWebSocket.ts
-export function useWebSocket(analysisId: string) {
-  const [progress, setProgress] = useState(0)
+## Key Constraints & Technology Stack
 
-  useEffect(() => {
-    const ws = new WebSocket(`ws://localhost:8000/ws/analysis/${analysisId}`)
-    ws.onmessage = (e) => setProgress(JSON.parse(e.data).progress)
-    return () => ws.close()
-  }, [analysisId])
+### Backend
+- **Python**: 3.11 ONLY (3.12+ breaks MediaPipe/OpenCV)
+- **Framework**: FastAPI with async/await, SQLAlchemy ORM
+- **AI Libraries**: MediaPipe (hand tracking), YOLOv8 (instrument detection), SAM (segmentation)
+- **Critical Dependencies**: `numpy<2`, `ultralytics==8.0.200`, `mediapipe>=0.10.0`
+- **Database**: SQLite with migrations via Alembic
 
-  return { progress }
-}
-```
+### Frontend
+- **Framework**: Next.js 15.5.2 with App Router
+- **Language**: TypeScript 5
+- **Styling**: Tailwind CSS v4
+- **State Management**: Zustand v5.0.8
+- **Charts**: Chart.js v4.5.0, recharts v3.2.1
+- **3D Rendering**: Three.js with @react-three/fiber
+- **HTTP Client**: Axios v1.11.0
 
-## Key Constraints
-- **Python Version**: Python 3.11.9 ONLY (3.13 breaks MediaPipe/OpenCV)
-- **Dependencies**: `numpy<2`, `ultralytics==8.0.200`, `mediapipe>=0.10.0` (fixed versions)
-- **File Limits**: 2GB uploads, .mp4 only
+### Infrastructure
 - **Ports**: Backend 8000, Frontend 3000
-- **Frontend**: Next.js 15.5.2 with Turbopack, TypeScript, Tailwind CSS v4
-- **State Management**: Zustand v5.0.8 for global state
-- **Charts**: Chart.js v4.5.0, react-chartjs-2 v5.3.0, recharts v3.2.1
-- **3D Rendering**: Three.js with @react-three/fiber for 3D visualizations
-- **Testing**: Playwright v1.55.0 expects Japanese UI text
-- **Batch Files**: Use Windows batch files (`start_both.bat`, etc.) for consistent environment
+- **File Limits**: 1GB max upload, .mp4 format only
+- **WebSocket**: Real-time progress updates during analysis
+- **Testing**: Playwright v1.55.0 (expects Japanese UI text)
 
-## Development Process
-For non-trivial changes, follow `docs/Rules/`:
-1. **PRD Creation** (`01_prd_generation_rules.md`)
-2. **Task Decomposition** (`02_task_generation_rules.md`) - 15-90 min tasks
-3. **Execution** (`03_task_execution_rules.md`) - One task at a time
+## Git Commit Guidelines
+**Large File Exclusion**
+- Exclude: `*.pt` (models 100MB+), `*.mp4`, `*.jpg`, `*.png`
+- Already in `.gitignore`
+- Commit with: `git add --all -- . ":!*.pt" ":!*.mp4" ":!*.jpg" ":!*.png"`
+- GitHub limit: 100MB per file
 
-## 🚨 Troubleshooting Guide
+## 🚨 Critical Troubleshooting
 
-### ⚠️ **コード変更が反映されない場合**
-**原因**: 古いプロセスがキャッシュされたコードを実行している
-
-**診断手順**:
-1. ブラウザで変更が反映されているか確認
-2. 開発者ツールのConsoleでエラー確認
-3. 別のポートで起動して比較
-   ```bash
-   # ポート3000で問題がある場合、3002で試す
-   npm run dev -- --port 3002
-   ```
-
-**解決方法**:
+### Process Management (Windows)
 ```bash
-# 1. 現在のポート使用状況を確認
-netstat -ano | findstr :3000
+# Find processes on ports
+netstat -ano | findstr :3000    # Frontend
+netstat -ano | findstr :8000    # Backend
 
-# 2. 古いプロセスを強制終了
+# Kill specific process
 taskkill /PID <process_id> /F
-# または全Node.jsプロセスを終了
+
+# Kill all Node.js/Python
 taskkill /F /IM node.exe
+taskkill /F /IM python.exe
 
-# 3. .nextキャッシュをクリア（必要な場合）
-cd frontend
-rmdir /s /q .next
+# Clear frontend cache after code changes
+cd frontend && rmdir /s /q .next
 npm run dev
-
-# 4. ブラウザキャッシュもクリア
-# Ctrl+Shift+R でハードリロード
 ```
 
-**予防策**:
-- 大きな変更（HTML要素の変更等）後は必ずサーバー再起動
-- 長時間実行している開発サーバーは定期的に再起動
-- `git diff`で変更内容を確認してから実行
+### Common Errors
+| エラー | 解決方法 |
+|--------|----------|
+| CORS error | Backend: `allow_origins=["*"]` in `app/main.py` line 96 |
+| Import errors | Use `./venv311/Scripts/python.exe` |
+| WebSocket disconnects | Run `start_both.bat` to restart both servers |
+| WebSocket connection refused | Backend not running or port 8000 blocked |
+| Upload failures | 1GB max, .mp4 only |
+| MediaPipe errors | Switch to Python 3.11 (NOT 3.12 or 3.13) |
+| Button not clickable | Must be `<button>`, not `<span>` |
+| `.next` cache issues | Delete `.next` folder: `rmdir /s /q .next` |
 
-### 🔴 **Runtime TypeErrors (null/undefined参照)**
-**症状**: `Cannot read properties of null (reading 'xxx')`
-
-**主な発生箇所**:
-- ScoreComparison: `result?.efficiency_score`
-- FeedbackPanel: `result?.feedback`
-- MotionAnalysisPanel: `analysisData?.skeleton_data`
-
-**解決方法**:
-```typescript
-// ❌ Bad - null参照エラーの可能性
-{result.efficiency_score}
-
-// ✅ Good - Optional chaining + fallback
-{result?.efficiency_score ?? '--'}
-
-// ✅ Good - モックデータフォールバック
-const data = result?.metrics || mockMetrics
-```
-
-### 🟡 **Enum Validation Errors**
-**症状**: `422 Unprocessable Entity` - Pydantic validation error
-
-**原因**: Backend model と schema の enum 定義不一致
-
-**解決方法**:
-```python
-# backend/app/schemas/video.py
-class VideoType(str, Enum):
-    internal = "internal"
-    external = "external"  # 後方互換性
-    external_no_instruments = "external_no_instruments"
-    external_with_instruments = "external_with_instruments"
-```
-
-### 🔵 **Module Not Found Errors**
-**症状**: `Module not found: Can't resolve 'tailwind-merge'`
-
-**解決方法**:
-```bash
-# 依存関係を再インストール
-cd frontend
-npm install tailwind-merge
-# または全体的に再インストール
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### 🟢 **WebSocket Connection Issues**
-**症状**: 解析進捗が更新されない
-
-**チェックリスト**:
-1. Backend起動確認: `http://localhost:8000/docs`
-2. WebSocket URL確認: `ws://localhost:8000/ws/analysis/{id}`
-3. CORS設定確認: Backend `allow_origins=["*"]`
-4. ブラウザコンソールでWebSocket接続確認
-
-### 🟠 **File Upload Issues**
-**症状**: ファイル選択ボタンが反応しない
-
-**根本原因**: Button要素がspan/divに変更されている
-
-**確認方法**:
-```bash
-# 要素の確認
-cd frontend
-grep -n "ファイルを選択" app/upload/page.tsx
-```
-
-**修正**:
-```tsx
-// ❌ Bad - クリックイベントが動作しない
-<span className="...">ファイルを選択</span>
-
-// ✅ Good - 正しいbutton要素
-<button
-  type="button"
-  onClick={() => open()}
-  className="..."
->
-  ファイルを選択
-</button>
-```
-
-### 🔴 **Python Version Issues**
-**症状**: `ModuleNotFoundError: No module named 'mediapipe'`
-
-**原因**: Python 3.13でMediaPipeが動作しない
-
-**解決方法**:
-```bash
-# 必ずPython 3.11を使用
-cd backend
-./venv311/Scripts/python.exe --version  # 3.11.x確認
-./venv311/Scripts/python.exe -m pip install mediapipe
-```
-
-### Common Error Patterns & Quick Fixes
-
-| エラー | 原因 | 解決方法 |
-|--------|------|----------|
-| CORS error | Backend設定不備 | `allow_origins=["*"]` 設定 |
-| Import errors | Python version | `./venv311/Scripts/python.exe` 使用 |
-| WebSocket disconnects | サーバー未起動 | `start_both.bat` 実行 |
-| Upload failures | サイズ制限 | 2GB以下の.mp4のみ |
-| MediaPipe errors | Python 3.13使用 | Python 3.11に変更 |
-| Detection failures | video_type誤り | external/internal確認 |
-| Frontend 404 | ENV設定漏れ | `.env.local` 確認 |
-| Async blocks | 同期処理 | `run_in_executor` 使用 |
-
-## ⚠️ Critical UI Elements - DO NOT MODIFY
-**These elements must remain as specific HTML tags for functionality:**
+### Critical UI Elements - DO NOT MODIFY
 - Upload button: Must be `<button>`, not `<span>` or `<div>`
 - Form inputs: Must be `<input>`, not styled divs
-- Dropzone: Requires proper `useDropzone` hook configuration
-- File input: Must have `type="file"` attribute
 - Video player: Must be `<video>` element
-- Canvas overlays: Must maintain proper z-index
+- Test after changes: `npx playwright test button-regression.spec.ts`
 
-**Testing critical UI elements:**
+## Debug Commands
 ```bash
-# Run regression tests after any UI changes
-cd frontend
-npx playwright test button-regression.spec.ts
-npx playwright test upload.spec.ts
-```
-
-## 🔧 Debug Commands
-
-```bash
-# プロセス確認
+# Process check
 netstat -ano | findstr :3000
-netstat -ano | findstr :8000
 tasklist | findstr node
-tasklist | findstr python
 
-# キャッシュクリア
-cd frontend && rmdir /s /q .next
-cd backend && del /s /q __pycache__
-
-# ログ確認
-cd backend && type uvicorn.log
-cd frontend && npm run dev 2>&1 | tee dev.log
-
-# データベース確認
+# Database check
 cd backend
 sqlite3 aimotion.db "SELECT * FROM videos;"
 sqlite3 aimotion.db "SELECT * FROM analyses WHERE status='failed';"
-sqlite3 aimotion.db "SELECT * FROM reference_videos;"
-sqlite3 aimotion.db "SELECT * FROM comparisons;"
 
-# API健全性チェック
+# API health
 curl http://localhost:8000/api/v1/health
-curl http://localhost:8000/docs
 ```
 
 ## Project-Specific Notes
 
 ### AI Surgical Motion Knowledge Transfer Library
-This system analyzes surgical procedure videos to:
+Analyzes surgical procedure videos to:
 1. Track hand and instrument movements
 2. Calculate motion efficiency metrics
-3. Compare performance against reference videos
+3. Compare performance against references
 4. Provide feedback for skill improvement
 
 ### Video Processing Modes
-- **external/external_no_instruments**: Hand-only tracking using MediaPipe
-- **external_with_instruments/internal**: Instrument tracking using YOLOv8 + SAM
-- Detection accuracy varies with surgical glove color (white gloves require enhanced detection)
+- **external/external_no_instruments**: Hand tracking (MediaPipe)
+- **external_with_instruments/internal**: Instrument tracking (YOLOv8 + SAM)
+- White surgical gloves require enhanced detection
 
-### Model Files Required
-- `backend/yolov8n.pt`: YOLOv8 nano model for instrument detection
-- `backend/yolov8n-pose.pt`: YOLOv8 pose model
-- `backend/sam_b.pt`: Segment Anything Model (base)
+### Required Model Files (Auto-downloaded if missing)
+- `backend/yolov8n.pt`: Instrument detection (~6MB)
+- `backend/yolov8n-pose.pt`: Pose model (~6MB)
+- `backend/sam_b.pt`: Segment Anything Model (~375MB)
+
+### File Structure
+```
+backend/
+  app/
+    api/routes/         # API endpoint handlers
+    ai_engine/          # AI processing (MediaPipe, YOLOv8, SAM)
+      processors/       # skeleton_detector.py, sam_tracker.py
+    services/           # Business logic (analysis, scoring, instrument tracking)
+    models/             # SQLAlchemy ORM models
+    schemas/            # Pydantic schemas for validation
+    core/               # Config, WebSocket, error handlers
+  venv311/              # Python 3.11 virtual environment (REQUIRED)
+  data/uploads/         # Video upload directory
+  aimotion.db           # SQLite database
+
+frontend/
+  app/                  # Next.js App Router pages
+  components/           # React components
+  lib/                  # Utilities and API client
+  hooks/                # Custom React hooks (useScoring, useAnalysisAPI, etc.)
+  store/                # Zustand state management
+  tests/                # Playwright E2E tests
+
+docs/                   # Design documentation (Japanese)
+  00_overview/          # Project overview
+  01_architecture/      # Architecture design
+  02_database/          # Database schema
+  03_api/               # API specifications
+  04_frontend/          # Frontend design
+  06_development/       # Development setup
+```
+
+## 🛡️ データパイプライン品質保証
+
+### Fail Fast原則（必須）
+**データの存在を仮定せず、早期に大きく失敗する**
+
+❌ **悪い例（サイレント失敗）**:
+```python
+frame_idx = result.get('frame_index', 0)  # デフォルト値で問題を隠蔽
+```
+
+✅ **良い例（Fail Fast）**:
+```python
+if 'frame_index' not in result:
+    logger.error(f"Missing required field: {result}")
+    raise ValueError("frame_index is required")
+frame_idx = result['frame_index']
+```
+
+### 必須バリデーションパターン
+
+#### パターン1: 上流依存の検証
+新しいコードが既存関数のデータに依存する場合:
+```python
+# 1. まず上流の出力を確認
+upstream_output = existing_function()
+logger.debug(f"Upstream output keys: {upstream_output.keys()}")
+
+# 2. 必須フィールドを検証
+required_fields = ['field1', 'field2']
+missing = [f for f in required_fields if f not in upstream_output]
+if missing:
+    raise ValueError(f"Missing required fields: {missing}")
+```
+
+#### パターン2: データ構造の妥当性検証
+```python
+# フレームデータの例
+if len(frames_dict) < expected_minimum:
+    raise ValueError(f"Insufficient frames: {len(frames_dict)} < {expected_minimum}")
+
+for frame_num, hands in frames_dict.items():
+    if len(hands) > 10:  # 異常な手の数
+        logger.warning(f"Frame {frame_num} has {len(hands)} hands (expected 1-4)")
+```
+
+### 3層テスト戦略（必須）
+
+#### レベル1: ユニットテスト
+- **いつ**: 関数を新規作成・修正したとき
+- **何を**: エッジケース、異常系、欠損データ
+- **場所**: `tests/unit/test_<module_name>.py`
+
+```python
+# 例: frame_index欠損時のエラーハンドリング検証
+def test_format_without_frame_index_fails():
+    raw_results = [{'detected': True, 'hands': [...]}]  # frame_index なし
+    with pytest.raises(ValueError) as exc_info:
+        service._format_skeleton_data(raw_results)
+    assert "frame_index" in str(exc_info.value)
+```
+
+#### レベル2: 統合テスト
+- **いつ**: データパイプラインを変更したとき
+- **何を**: **新規データで新コードパスを実行**
+- **重要**: 既存データのテストだけでは不十分！
+
+```python
+# ❌ 悪い例: 古いデータをテスト
+def test_analysis():
+    old_analysis_id = "existing-id"
+    verify(old_analysis_id)  # 新コードを実行していない
+
+# ✅ 良い例: 新規解析を実行
+def test_analysis():
+    video_id = upload_test_video()
+    analysis_id = start_new_analysis(video_id)  # 新コード実行
+    verify(analysis_id)
+```
+
+#### レベル3: E2Eテスト
+- **いつ**: フロントエンド連携があるとき
+- **何を**: データ構造の妥当性も検証
+
+```typescript
+// ❌ 不十分: キーの存在のみ
+expect(data).toHaveProperty('skeleton_data')
+
+// ✅ 完全: 構造の妥当性も
+expect(data.skeleton_data.length).toBeGreaterThan(100)
+expect(data.skeleton_data[0].hands.length).toBeLessThan(5)
+```
+
+### 新規コードパス検証義務
+**データ処理ロジックを変更した場合、必ず新規データで検証すること**
+
+チェックリスト:
+- [ ] ユニットテストで異常系・欠損データをカバー
+- [ ] 統合テストで新規解析を実行（既存データのみ✗）
+- [ ] E2Eテストでデータ構造の妥当性を検証
+- [ ] 実際のUIで動作確認
+
+### 過去の重大バグ
+- [POST_MORTEM: ファイルアップロードボタン](docs/POST_MORTEM_FILE_UPLOAD_BUTTON.md)
+- [POST_MORTEM: 骨格検出フレームインデックス](docs/POST_MORTEM_SKELETON_FRAME_INDEX.md)
+
+---
+
+## 🔄 サーバー再起動検証プロトコル
+
+### バックエンドコード変更時の検証手順
+
+**問題**: Uvicornの `--reload` が時々ファイル変更を検知しない
+
+**解決手順**:
+
+1. **コード変更後の必須確認**:
+```bash
+# バックエンドサーバーのログを確認
+# "Reloading..." または "Application startup complete" が表示されるか確認
+```
+
+2. **リロードが検知されない場合**:
+```bash
+# 専用スクリプトで明示的に再起動
+./restart_backend.bat
+```
+
+3. **再起動後の検証**:
+```bash
+# verify_fix.py で最新データをチェック
+backend/venv311/Scripts/python.exe verify_fix.py
+
+# または手動でAPIヘルスチェック
+curl http://localhost:8000/api/v1/health
+```
+
+4. **新規解析を実行して検証**:
+```
+- フロントエンドから新しい動画をアップロード
+- 解析を実行
+- データベースで結果を確認
+- UIで表示を確認
+```
+
+### 検証チェックリスト
+
+コード変更後、必ず以下を確認:
+
+- [ ] バックエンドログに "Reloading..." が表示された
+- [ ] 新規解析を実行（既存データのテストは不十分）
+- [ ] データベースで新形式データを確認
+- [ ] UIで期待通りの表示を確認
+- [ ] ブラウザのコンソールにエラーがないことを確認
+
+### トラブルシューティング
+
+| 症状 | 原因 | 解決方法 |
+|------|------|----------|
+| 変更が反映されない | WatchFilesが検知していない | `restart_backend.bat` 実行 |
+| "古いコード"が動作 | フロントエンドキャッシュ | `.next` フォルダを削除 |
+| 新データでもバグ再現 | 変更が保存されていない | ファイル保存を確認、エディタをチェック |
+
+---
+
+## 🚨 よくある落とし穴
+
+### 落とし穴1: デフォルト値による隠蔽
+```python
+# ❌ 問題を隠す
+value = data.get('key', default_value)
+
+# ✅ 問題を表面化
+if 'key' not in data:
+    raise ValueError("Required key missing")
+value = data['key']
+```
+
+### 落とし穴2: 古いデータでのテスト
+```python
+# ❌ 新コードをテストしていない
+existing_analysis = get_analysis("old-id")
+assert existing_analysis['status'] == 'completed'
+
+# ✅ 新コードを実行
+new_analysis_id = create_new_analysis()
+verify_new_code_path(new_analysis_id)
+```
+
+### 落とし穴3: フォーマットのみの検証
+```typescript
+// ❌ 構造が壊れていても気づかない
+expect(data).toHaveProperty('results')
+
+// ✅ データの妥当性も確認
+expect(data.results.length).toBeGreaterThan(0)
+expect(data.results[0]).toMatchObject({
+  id: expect.any(String),
+  value: expect.any(Number)
+})
+```

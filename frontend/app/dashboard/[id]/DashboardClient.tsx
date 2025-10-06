@@ -165,11 +165,37 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
     }
   }
 
-  // 検出率を計算するヘルパー関数
+  // 検出率を計算するヘルパー関数（新形式・旧形式両対応）
   const calculateDetectionRate = (skeletonData: any[]) => {
-    const leftCount = skeletonData.filter(d => d.hand_type === 'Left').length
-    const rightCount = skeletonData.filter(d => d.hand_type === 'Right').length
-    const maxFrames = Math.max(...skeletonData.map(d => d.frame_number || 0))
+    if (!skeletonData || skeletonData.length === 0) {
+      return { left: 0, right: 0 }
+    }
+
+    let leftCount = 0
+    let rightCount = 0
+    let maxFrames = 0
+
+    // データ形式を判定
+    const firstItem = skeletonData[0]
+    const isNewFormat = firstItem && 'hands' in firstItem && Array.isArray(firstItem.hands)
+
+    if (isNewFormat) {
+      // 新形式: 1フレーム = 1レコード（複数の手を含む）
+      skeletonData.forEach(frame => {
+        if (frame.hands && Array.isArray(frame.hands)) {
+          frame.hands.forEach((hand: any) => {
+            if (hand.hand_type === 'Left') leftCount++
+            if (hand.hand_type === 'Right') rightCount++
+          })
+        }
+      })
+      maxFrames = skeletonData.length
+    } else {
+      // 旧形式: 1手 = 1レコード
+      leftCount = skeletonData.filter(d => d.hand_type === 'Left').length
+      rightCount = skeletonData.filter(d => d.hand_type === 'Right').length
+      maxFrames = Math.max(...skeletonData.map(d => d.frame_number || 0), 0)
+    }
 
     return {
       left: maxFrames > 0 ? leftCount / maxFrames : 0,
@@ -240,7 +266,10 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
           </h1>
           {videoInfo && (
             <p className="text-gray-600 mt-1">
-              {videoInfo.original_filename} - {videoInfo.video_type === 'external' ? '外部視点' : '内部視点'}
+              {videoInfo.original_filename} -
+              {analysisData?.video_type === 'external' && '外部視点'}
+              {analysisData?.video_type === 'external_with_instruments' && '外部視点（器具あり）'}
+              {analysisData?.video_type === 'internal' && '内部視点'}
             </p>
           )}
         </div>
@@ -292,8 +321,8 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
       </div>
 
 
-      {/* 器具の動きセクション（internal videoのみ） */}
-      {analysisData?.video_type === 'internal' && (
+      {/* 器具の動きセクション - 器具ありの場合のみ表示、外部分析では完全に非表示 */}
+      {(analysisData?.video_type === 'internal' || analysisData?.video_type === 'external_with_instruments') && (
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-4 flex items-center">
             <Wrench className="w-5 h-5 mr-2" />
@@ -314,6 +343,20 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
                     <div className="text-sm text-gray-600">総フレーム数</div>
                     <div className="text-2xl font-semibold text-gray-700">
                       {analysisData.total_frames || '--'}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="text-sm text-gray-600">検出タイプ</div>
+                    <div className="text-xl font-semibold text-purple-600">
+                      {analysisData.video_type === 'external_with_instruments' ? '外部カメラ' : '内部カメラ'}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="text-sm text-gray-600">検出精度</div>
+                    <div className="text-2xl font-semibold text-green-600">
+                      {analysisData.instrument_data[0]?.detections?.[0]?.confidence
+                        ? `${(analysisData.instrument_data[0].detections[0].confidence * 100).toFixed(0)}%`
+                        : '--'}
                     </div>
                   </div>
                 </div>
@@ -368,7 +411,9 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
           <div className="text-center">
             <div className="text-sm text-gray-600">動画タイプ</div>
             <div className="text-xl font-semibold">
-              {analysisData?.video_type === 'external' ? '外部視点' : '内部視点'}
+              {analysisData?.video_type === 'external' && '外部視点'}
+              {analysisData?.video_type === 'external_with_instruments' && '外部視点（器具あり）'}
+              {analysisData?.video_type === 'internal' && '内部視点'}
             </div>
           </div>
         </div>

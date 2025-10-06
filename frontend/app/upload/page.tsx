@@ -150,7 +150,7 @@ export default function UploadPage() {
         setUploadedVideoId(videoId)
       }
 
-      // Prepare instruments data for analysis
+      // Prepare and save instruments data
       let instruments: any[] = []
       if (videoType === 'internal' || videoType === 'external_with_instruments') {
         if (instrumentSelectionMode === 'sam' && samSelectedInstruments.length > 0) {
@@ -161,16 +161,40 @@ export default function UploadPage() {
             bbox: inst.bbox
           }))
         } else if (selectedInstruments.length > 0) {
-          // Use checkbox-selected instruments
+          // Use checkbox-selected instruments (create dummy masks for them)
           instruments = selectedInstruments.map(id => {
             const instrument = availableInstruments.find(i => i.id === id)
-            return { name: instrument?.name || id }
+            return {
+              name: instrument?.name || id,
+              mask: '',  // Empty mask for checkbox selection
+              bbox: [0, 0, 100, 100],  // Default bbox
+              frame_number: 0
+            }
           })
+        }
+
+        // Save instruments to backend if any were selected
+        if (instruments.length > 0) {
+          const instrumentsResponse = await fetch(
+            `http://localhost:8000/api/v1/videos/${videoId}/instruments`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ instruments })
+            }
+          )
+
+          if (!instrumentsResponse.ok) {
+            console.error('Failed to save instruments')
+            // Continue anyway - the analysis can still work with mock detection
+          } else {
+            console.log('Instruments saved successfully')
+          }
         }
       }
 
-      // Start analysis with instruments
-      const analysisResponse = await startAnalysis(videoId, instruments)
+      // Start analysis (instruments are already saved to file)
+      const analysisResponse = await startAnalysis(videoId)
       router.push(`/analysis/${analysisResponse.id}`)
     } catch (e: any) {
       console.error(e)
@@ -229,10 +253,15 @@ export default function UploadPage() {
                     e.preventDefault()
                     e.stopPropagation()
                     console.log('Button clicked, calling open()', open)
-                    if (open) {
+                    if (open && typeof open === 'function') {
                       open()
                     } else {
-                      console.error('open function not available')
+                      console.error('open function not available, using fallback')
+                      // Fallback: trigger file input directly
+                      const input = document.querySelector('input[type="file"]') as HTMLInputElement
+                      if (input) {
+                        input.click()
+                      }
                     }
                   }}
                   className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"

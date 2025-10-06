@@ -10,10 +10,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 import base64
-from io import BytesIO
-from PIL import Image
 import json
 import os
+import logging
 
 from app.models import get_db
 from app.models.video import Video, VideoType
@@ -24,6 +23,7 @@ from app.services.video_service import VideoService
 from app.ai_engine.processors.sam_tracker import SAMTracker
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post(
     "/upload",
@@ -165,6 +165,126 @@ async def list_videos(
     """List videos"""
     videos = db.query(Video).offset(skip).limit(limit).all()
     return videos
+
+@router.get(
+    "/stream/{video_id}",
+    summary="Stream video file (sample or database)",
+    responses={404: {"description": "Video not found"}},
+)
+async def stream_video_or_sample(
+    video_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Stream video file for playback with Range support (handles sample videos)"""
+
+    # Check if it's a sample video request
+    if video_id in ["sample_reference", "sample_evaluation"]:
+        # Use first available video from database as sample
+        videos = db.query(Video).limit(2).all()
+        if not videos:
+            # If no videos in database, return a 404
+            raise HTTPException(status_code=404, detail="No sample videos available")
+
+        # Use first video as reference, second as evaluation (or same if only one)
+        if video_id == "sample_reference":
+            video = videos[0]
+        else:
+            video = videos[1] if len(videos) > 1 else videos[0]
+    else:
+        # Regular video lookup by ID
+        video = db.query(Video).filter(Video.id == video_id).first()
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+
+    # Convert to absolute path if relative
+    video_path = Path(video.file_path)
+    if not video_path.is_absolute():
+        video_path = Path.cwd() / video_path
+
+    if not video_path.exists():
+        raise HTTPException(status_code=404, detail=f"Video file not found at {video_path}")
+
+    # Get file size
+    file_size = video_path.stat().st_size
+
+    # Parse Range header
+    range_header = request.headers.get('range')
+
+    # Handle filename encoding for Content-Disposition header
+    import urllib.parse
+    safe_filename = video.original_filename if hasattr(video, 'original_filename') else "video.mp4"
+    try:
+        safe_filename.encode('ascii')
+        content_disposition = f'inline; filename="{safe_filename}"'
+    except UnicodeEncodeError:
+        encoded_filename = urllib.parse.quote(safe_filename)
+        content_disposition = f"inline; filename*=UTF-8''{encoded_filename}"
+
+    # If no range header, return the entire file
+    if not range_header:
+        return FileResponse(
+            path=str(video_path),
+            media_type="video/mp4",
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Disposition": content_disposition,
+                "Content-Length": str(file_size),
+            }
+        )
+
+    # Parse range header
+    try:
+        # Format: "bytes=start-end"
+        range_str = range_header.replace('bytes=', '')
+        range_parts = range_str.split('-')
+
+        start = int(range_parts[0]) if range_parts[0] else 0
+        end = int(range_parts[1]) if range_parts[1] else file_size - 1
+
+        # Ensure valid range
+        start = max(0, min(start, file_size - 1))
+        end = max(start, min(end, file_size - 1))
+
+        # Calculate content length
+        content_length = end - start + 1
+
+        # Create generator for streaming
+        def iterfile(file_path: Path, start: int, end: int):
+            with open(file_path, 'rb') as file:
+                file.seek(start)
+                remaining = end - start + 1
+                while remaining:
+                    chunk_size = min(8192, remaining)
+                    data = file.read(chunk_size)
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    yield data
+
+        # Return partial content
+        return StreamingResponse(
+            iterfile(video_path, start, end),
+            status_code=206,
+            media_type="video/mp4",
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Content-Length": str(content_length),
+                "Content-Disposition": content_disposition,
+            }
+        )
+    except Exception as e:
+        # If range parsing fails, return the entire file
+        return FileResponse(
+            path=str(video_path),
+            media_type="video/mp4",
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Disposition": content_disposition,
+                "Content-Length": str(file_size),
+            }
+        )
 
 @router.get(
     "/{video_id}/stream",
@@ -349,6 +469,8 @@ async def segment_instrument(
     - For point prompt: coordinates = [[x1, y1], [x2, y2], ...]
     - For box prompt: coordinates = [[x1, y1, x2, y2]]
     """
+    logger.info(f"Segment request: type={prompt_type}, coords={coordinates}, labels={labels}")
+
     video = db.query(Video).filter(Video.id == video_id).first()
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
@@ -366,6 +488,10 @@ async def segment_instrument(
 
         if not ret:
             raise HTTPException(status_code=400, detail=f"Failed to extract frame {frame_number}")
+
+        # Resize frame to 640x480 (same as thumbnail)
+        frame = cv2.resize(frame, (640, 480))
+        logger.info(f"Frame shape after resize: {frame.shape}")
 
         # Initialize SAM tracker
         tracker = get_sam_tracker()

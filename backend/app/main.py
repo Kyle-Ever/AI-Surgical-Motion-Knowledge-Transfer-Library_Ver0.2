@@ -2,8 +2,12 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+import sys
+import os
+from pathlib import Path
 
 from app.core.config import settings
+from app.core.error_handler import setup_exception_handlers
 from app.api.routes import videos, analysis, annotation, library, scoring, instrument_tracking
 from app.models import Base, engine
 
@@ -11,15 +15,69 @@ from app.models import Base, engine
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# サーバーロックファイルのパス
+LOCK_FILE = Path(__file__).parent.parent / ".server.lock"
+
+def acquire_server_lock():
+    """サーバーロックを取得（既に起動中なら終了）"""
+    try:
+        if LOCK_FILE.exists():
+            # 既存のロックファイルをチェック
+            with open(LOCK_FILE, 'r') as f:
+                old_pid = f.read().strip()
+
+            # プロセスが生きているか確認（Windows互換）
+            try:
+                old_pid_int = int(old_pid)
+                # Windowsではtasklist確認
+                import subprocess
+                result = subprocess.run(
+                    ['tasklist', '/FI', f'PID eq {old_pid_int}'],
+                    capture_output=True,
+                    text=True
+                )
+                if str(old_pid_int) in result.stdout:
+                    logger.error(f"❌ Backend already running (PID: {old_pid})")
+                    logger.error(f"   Port 8000 is in use by another instance")
+                    logger.error(f"   Please stop the existing server first")
+                    sys.exit(1)
+                else:
+                    # プロセスが死んでいる → 古いロック削除
+                    logger.warning(f"Removing stale lock file (dead process PID: {old_pid})")
+                    LOCK_FILE.unlink()
+            except (ValueError, subprocess.SubprocessError) as e:
+                logger.warning(f"Lock file check failed: {e}, removing lock")
+                LOCK_FILE.unlink()
+
+        # 新しいロック作成
+        with open(LOCK_FILE, 'w') as f:
+            f.write(str(os.getpid()))
+
+        logger.info(f"✅ Server lock acquired (PID: {os.getpid()})")
+
+    except Exception as e:
+        logger.error(f"⚠️ Lock acquisition failed: {e}")
+
+def release_server_lock():
+    """サーバーロック解放"""
+    try:
+        if LOCK_FILE.exists():
+            LOCK_FILE.unlink()
+            logger.info("🔓 Server lock released")
+    except Exception as e:
+        logger.warning(f"Failed to release lock: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 起動時
+    acquire_server_lock()  # ロック取得
     logger.info("Starting up...")
     # データベーステーブルを作成
     Base.metadata.create_all(bind=engine)
     yield
     # シャットダウン時
     logger.info("Shutting down...")
+    release_server_lock()  # ロック解放
 
 # FastAPIアプリケーション作成
 app = FastAPI(
@@ -28,6 +86,9 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     lifespan=lifespan
 )
+
+# エラーハンドラー設定
+setup_exception_handlers(app)
 
 # CORS設定
 app.add_middleware(
@@ -70,6 +131,13 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/instrument-tracking",
     tags=["instrument-tracking"]
 )
+
+# V2 APIルーター（新しいクリーンアーキテクチャ実装）
+# from app.api.routes import analysis_v2
+# app.include_router(
+#     analysis_v2.router,
+#     tags=["analysis_v2"]
+# )
 
 # ルートエンドポイント
 @app.get("/", summary="Service info")

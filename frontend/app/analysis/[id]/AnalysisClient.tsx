@@ -35,45 +35,70 @@ export default function AnalysisClient({ analysisId }: AnalysisClientProps) {
     }
   }, [status, analysisId, router])
 
-  // WebSocketメッセージを処理
+  // WebSocketメッセージを処理（強化版）
   useEffect(() => {
     if (lastMessage) {
       console.log('WebSocket message:', lastMessage)
-      // 追加の進捗更新処理をここに実装可能
-    }
-  }, [lastMessage])
 
-  // 処理ステップの定義
+      // WebSocketから進捗情報を取得して反映
+      if (lastMessage.type === 'status_update') {
+        // 進捗を更新
+        if (lastMessage.progress !== undefined) {
+          setOverallProgress(lastMessage.progress)
+        }
+
+        // 現在のステップを更新（stepsの再計算をトリガー）
+        if (lastMessage.current_step) {
+          // current_stepの変更はstatusを通じて反映される
+          console.log('Current step updated:', lastMessage.current_step)
+        }
+
+        // メッセージがあれば表示（オプション）
+        if (lastMessage.message) {
+          console.log('Step message:', lastMessage.message)
+        }
+
+        // 完了したらダッシュボードへ遷移
+        if (lastMessage.progress >= 100 || lastMessage.status === 'completed') {
+          setTimeout(() => {
+            router.push(`/dashboard/${analysisId}`)
+          }, 1500)
+        }
+      }
+    }
+  }, [lastMessage, analysisId, router])
+
+  // 処理ステップの定義（改善版）
   const steps: ProcessingStep[] = [
     {
       name: '動画読み込み',
-      status: status?.current_step === 'initialization' ? 'processing' :
-             status && status.overall_progress > 0 ? 'completed' : 'pending'
+      status: status?.current_step === 'initialization' || lastMessage?.current_step === 'initialization' ? 'processing' :
+             (status && status.overall_progress >= 10) || overallProgress >= 10 ? 'completed' : 'pending'
     },
     {
       name: 'フレーム抽出',
-      status: status?.current_step === 'frame_extraction' ? 'processing' :
-             status && status.overall_progress > 20 ? 'completed' : 'pending'
+      status: status?.current_step === 'frame_extraction' || lastMessage?.current_step === 'frame_extraction' ? 'processing' :
+             (status && status.overall_progress >= 30) || overallProgress >= 30 ? 'completed' : 'pending'
     },
     {
       name: '骨格検出',
-      status: status?.current_step === 'skeleton_detection' ? 'processing' :
-             status && status.overall_progress > 40 ? 'completed' : 'pending'
+      status: status?.current_step === 'skeleton_detection' || lastMessage?.current_step === 'skeleton_detection' ? 'processing' :
+             (status && status.overall_progress >= 50) || overallProgress >= 50 ? 'completed' : 'pending'
     },
     {
       name: '器具認識',
-      status: status?.current_step === 'instrument_detection' ? 'processing' :
-             status && status.overall_progress > 60 ? 'completed' : 'pending'
+      status: status?.current_step === 'instrument_detection' || lastMessage?.current_step === 'instrument_detection' ? 'processing' :
+             (status && status.overall_progress >= 70) || overallProgress >= 70 ? 'completed' : 'pending'
     },
     {
       name: 'モーション解析',
-      status: status?.current_step === 'motion_analysis' ? 'processing' :
-             status && status.overall_progress > 80 ? 'completed' : 'pending'
+      status: status?.current_step === 'motion_analysis' || lastMessage?.current_step === 'motion_analysis' ? 'processing' :
+             (status && status.overall_progress >= 85) || overallProgress >= 85 ? 'completed' : 'pending'
     },
     {
       name: 'レポート生成',
-      status: status?.current_step === 'report_generation' ? 'processing' :
-             status && status.overall_progress >= 100 ? 'completed' : 'pending'
+      status: status?.current_step === 'report_generation' || lastMessage?.current_step === 'report_generation' ? 'processing' :
+             (status && status.overall_progress >= 100) || overallProgress >= 100 ? 'completed' : 'pending'
     },
   ]
 

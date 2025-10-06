@@ -62,6 +62,13 @@ export default function InstrumentSelector({
         const img = new Image()
         img.onload = () => {
           imageRef.current = img
+          console.log('Image loaded:', {
+            naturalWidth: img.naturalWidth,
+            naturalHeight: img.naturalHeight,
+            width: img.width,
+            height: img.height,
+            src: img.src.substring(0, 50) + '...'
+          })
           drawCanvas()
           setIsLoading(false)
         }
@@ -141,10 +148,25 @@ export default function InstrumentSelector({
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
 
-    return {
-      x: Math.round((e.clientX - rect.left) * scaleX),
-      y: Math.round((e.clientY - rect.top) * scaleY)
-    }
+    const x = Math.round((e.clientX - rect.left) * scaleX)
+    const y = Math.round((e.clientY - rect.top) * scaleY)
+
+    console.log('Canvas click debug:', {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      rectLeft: rect.left,
+      rectTop: rect.top,
+      rectWidth: rect.width,
+      rectHeight: rect.height,
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      scaleX,
+      scaleY,
+      resultX: x,
+      resultY: y
+    })
+
+    return { x, y }
   }
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -195,26 +217,32 @@ export default function InstrumentSelector({
     setError(null)
 
     try {
-      // Canvas座標を実際の画像座標にスケーリング
-      // キャンバスは640x480、実際の画像サイズは異なる可能性がある
+      // サムネイルは既にバックエンドで640x480にリサイズされているため、
+      // スケーリングは不要（1:1マッピング）
       const canvas = canvasRef.current
-      const img = imageRef.current
-      if (!canvas || !img) return
+      if (!canvas) return
 
-      const scaleX = img.naturalWidth / canvas.width
-      const scaleY = img.naturalHeight / canvas.height
+      // デバッグログ
+      console.log('Canvas dimensions:', canvas.width, 'x', canvas.height)
+      console.log('Selection mode:', selectionMode)
+      if (selectionMode === 'point') {
+        console.log('Points:', points)
+      } else {
+        console.log('Box:', box)
+      }
 
       const requestBody = {
         prompt_type: selectionMode,
         coordinates: selectionMode === 'point'
-          ? points.map(p => [Math.round(p.x * scaleX), Math.round(p.y * scaleY)])
-          : [[Math.round(box[0] * scaleX), Math.round(box[1] * scaleY),
-              Math.round(box[2] * scaleX), Math.round(box[3] * scaleY)]],
+          ? points.map(p => [p.x, p.y])  // スケーリング不要
+          : [[box[0], box[1], box[2], box[3]]],  // スケーリング不要
         labels: selectionMode === 'point'
           ? points.map(p => p.label)
           : undefined,
         frame_number: 0
       }
+
+      console.log('Sending segmentation request:', JSON.stringify(requestBody, null, 2))
 
       const response = await fetch(
         `http://localhost:8000/api/v1/videos/${videoId}/segment`,
@@ -230,8 +258,20 @@ export default function InstrumentSelector({
       }
 
       const result = await response.json()
+      console.log('Segmentation result:', {
+        bbox: result.bbox,
+        score: result.score,
+        area: result.area,
+        prompt_type: result.prompt_type,
+        hasVisualization: !!result.visualization
+      })
       setCurrentMask(result.mask)
       setCurrentVisualization(result.visualization)
+
+      // SAMの結果からbboxを取得して設定
+      if (result.bbox && Array.isArray(result.bbox) && result.bbox.length === 4) {
+        setBox(result.bbox as [number, number, number, number])
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Segmentation failed')
     } finally {
@@ -242,11 +282,16 @@ export default function InstrumentSelector({
   const addInstrument = () => {
     if (!currentMask || !instrumentName.trim()) return
 
-    const bbox = box || [0, 0, 100, 100] // Use box or default
+    // bboxが存在しない場合はエラー（セグメンテーションが失敗している）
+    if (!box) {
+      setError('器具の位置を検出できませんでした。もう一度選択してください。')
+      return
+    }
+
     const newInstrument: SelectedInstrument = {
       name: instrumentName.trim(),
       mask: currentMask,
-      bbox: bbox as [number, number, number, number],
+      bbox: box as [number, number, number, number],
       frameNumber: 0
     }
 
@@ -350,12 +395,13 @@ export default function InstrumentSelector({
         </div>
 
         {/* Canvas for selection */}
-        <div className="relative border-2 border-gray-300 rounded-lg overflow-hidden">
+        <div className="relative border-2 border-gray-300 rounded-lg overflow-hidden inline-block">
           <canvas
             ref={canvasRef}
             width={640}
             height={480}
-            className="w-full cursor-crosshair"
+            style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
+            className="cursor-crosshair"
             onClick={selectionMode === 'point' ? handleCanvasClick : undefined}
             onMouseDown={selectionMode === 'box' ? handleMouseDown : undefined}
             onMouseMove={selectionMode === 'box' ? handleMouseMove : undefined}

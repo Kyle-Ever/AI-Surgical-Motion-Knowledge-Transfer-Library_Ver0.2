@@ -39,7 +39,12 @@ class AnalysisResult(Base):
     progress = Column(Integer, default=0)
     current_step = Column(String(100), nullable=True)
     error_message = Column(Text, nullable=True)
-    
+
+    # トラッキング詳細情報（Phase 2.1追加）
+    tracking_stats = Column(JSON, nullable=True)  # {"instrument_0": {"lost_frames": 10, "re_detections": 2}, ...}
+    last_error_frame = Column(Integer, nullable=True)  # 最後にエラーが発生したフレーム番号
+    warnings = Column(JSON, nullable=True)  # [{"frame": 100, "message": "..."}, ...]
+
     created_at = Column(DateTime, server_default=func.now())
     completed_at = Column(DateTime, nullable=True)
     

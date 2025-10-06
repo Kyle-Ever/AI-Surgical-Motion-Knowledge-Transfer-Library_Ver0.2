@@ -229,10 +229,23 @@ class ScoringService:
             return 0.0, {}
 
     def _extract_trajectory(self, skeleton_data: List[Dict]) -> np.ndarray:
-        """スケルトンデータから軌跡を抽出"""
+        """スケルトンデータから軌跡を抽出（V2形式対応）"""
         trajectory = []
+
+        # V2形式とV1形式の両方に対応
         for frame in skeleton_data:
-            if frame.get("hands") and len(frame["hands"]) > 0:
+            # V2形式: landmarksフィールドに手のポイントが直接格納
+            if frame.get("landmarks"):
+                # 手首（point_0）または手の中心を使用
+                if "point_0" in frame["landmarks"]:
+                    wrist = frame["landmarks"]["point_0"]
+                    trajectory.append([wrist["x"], wrist["y"]])
+                elif "point_9" in frame["landmarks"]:
+                    # point_9は手の中心に近い位置
+                    center = frame["landmarks"]["point_9"]
+                    trajectory.append([center["x"], center["y"]])
+            # V1形式: handsフィールド
+            elif frame.get("hands") and len(frame["hands"]) > 0:
                 hand = frame["hands"][0]
                 if hand and "palm_center" in hand:
                     center = hand["palm_center"]

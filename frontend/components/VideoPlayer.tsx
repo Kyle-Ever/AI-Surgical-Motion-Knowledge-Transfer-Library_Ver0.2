@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 
 interface Coordinate {
   x: number
@@ -8,14 +8,26 @@ interface Coordinate {
   z?: number
 }
 
+interface HandData {
+  hand_type: string
+  landmarks: any[]  // Array of 21 landmarks
+  palm_center?: { x: number; y: number }
+  finger_angles?: Record<string, number>
+  hand_openness?: number
+}
+
 interface SkeletonData {
+  frame: number
   frame_number: number
   timestamp: number
-  landmarks?: Record<string, Coordinate>
+  hands: HandData[]
 }
 
 interface ToolDetection {
   bbox: [number, number, number, number]
+  rotated_bbox?: [[number, number], [number, number], [number, number], [number, number]]  // Phase 2.5
+  rotation_angle?: number  // Phase 2.5
+  area_reduction?: number  // Phase 2.5
   confidence: number
   class_name: string
   track_id?: number
@@ -54,8 +66,8 @@ export default function VideoPlayer({
     toolData && toolData.length > 0 &&
     toolData.some(frame => frame.detections && frame.detections.length > 0)
 
-  // Disable instrument overlay for external camera without instruments
-  const isExternalCamera = videoType === 'external' || videoType === 'external_no_instruments'
+  // Enable instrument display for external_with_instruments
+  const canShowInstruments = videoType === 'internal' || videoType === 'external_with_instruments'
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -74,52 +86,53 @@ export default function VideoPlayer({
   const [duration, setDuration] = useState(0)
   const [canvasSize, setCanvasSize] = useState({ width: 640, height: 360 })
   const animationFrameRef = useRef<number>()
+  const trajectoryRef = useRef<Map<number, Array<{x: number, y: number, timestamp: number}>>>(new Map())
+  const lastDrawnFrameRef = useRef<number>(-1)
+  const lastCanvasStateRef = useRef<ImageData | null>(null)
+  const frameSkipCountRef = useRef<number>(0)
 
   // オーバーレイ表示設定
   const [showSkeleton, setShowSkeleton] = useState(true)
-  const [showInstruments, setShowInstruments] = useState(true)
+  const [showInstruments, setShowInstruments] = useState(hasInstrumentData)
   const [showTrajectory, setShowTrajectory] = useState(false)
 
-  // 現在のフレームに対応するデータを取得
+  // 現在のフレームに対応するデータを取得（新形式対応）
   const getCurrentData = (timestamp: number) => {
-    // より柔軟なタイムスタンプマッチング
-    // 複数の手（両手）のデータを取得
-    let currentSkeletons = skeletonData.filter(
-      data => Math.abs(data.timestamp - timestamp) < 0.05  // 0.1から0.05に変更
-    )
-    let currentTools = toolData.find(
-      data => Math.abs(data.timestamp - timestamp) < 0.05
-    )
+    // タイムスタンプのわずかな調整（同期改善のため）
+    const adjustedTimestamp = timestamp + 0.02
 
-    // データが見つからない場合、最も近いフレームを使用
-    if (currentSkeletons.length === 0 && skeletonData.length > 0) {
-      // 最も近いタイムスタンプを見つける
-      const nearestTimestamp = skeletonData.reduce((prev, curr) =>
-        Math.abs(curr.timestamp - timestamp) < Math.abs(prev.timestamp - timestamp) ? curr : prev
-      ).timestamp
-
-      // そのタイムスタンプの全ての手のデータを取得
-      currentSkeletons = skeletonData.filter(
-        data => Math.abs(data.timestamp - nearestTimestamp) < 0.01
+    // 最も近いフレームを探す（新形式: 1フレーム = 1レコード）
+    let currentSkeletonFrame: SkeletonData | undefined
+    if (skeletonData.length > 0) {
+      currentSkeletonFrame = skeletonData.find(
+        data => Math.abs(data.timestamp - adjustedTimestamp) < 0.04
       )
 
-      if (currentSkeletons.length > 0) {
-        console.log('Using nearest skeleton frames:', currentSkeletons.map(s => s.frame_number), 'for timestamp:', timestamp)
+      // 見つからない場合は最近傍
+      if (!currentSkeletonFrame) {
+        currentSkeletonFrame = skeletonData.reduce((prev, curr) => {
+          const prevDiff = Math.abs(prev.timestamp - adjustedTimestamp)
+          const currDiff = Math.abs(curr.timestamp - adjustedTimestamp)
+          return currDiff < prevDiff ? curr : prev
+        })
       }
     }
+
+    let currentTools = toolData.find(
+      data => Math.abs(data.timestamp - adjustedTimestamp) < 0.04
+    )
 
     if (!currentTools && toolData.length > 0) {
       currentTools = toolData.reduce((prev, curr) =>
         Math.abs(curr.timestamp - timestamp) < Math.abs(prev.timestamp - timestamp) ? curr : prev
       )
-      console.log('Using nearest tool frame:', currentTools.frame_number, 'for timestamp:', timestamp)
     }
 
-    return { skeletons: currentSkeletons, tools: currentTools }
+    return { skeletonFrame: currentSkeletonFrame, tools: currentTools }
   }
 
-  // オーバーレイを描画
-  const drawOverlay = () => {
+  // オーバーレイを描画（最適化版）
+  const drawOverlay = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return
 
     const canvas = canvasRef.current
@@ -129,28 +142,45 @@ export default function VideoPlayer({
     const video = videoRef.current
     const currentTimestamp = video.currentTime
 
+    // フレームスキップ最適化（同じフレームを再描画しない）
+    const currentFrame = Math.floor(currentTimestamp * 30) // 30fpsと仮定
+    if (currentFrame === lastDrawnFrameRef.current && !isPlaying) {
+      return
+    }
+
+    // フレームスキップを削除してリアルタイム性を向上
+    // 全フレームを描画することでより滑らかな追従を実現
+
+    lastDrawnFrameRef.current = currentFrame
+
     // キャンバスサイズを動画サイズに合わせる
     if (video.videoWidth && video.videoHeight) {
       if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth
         canvas.height = video.videoHeight
         setCanvasSize({ width: video.videoWidth, height: video.videoHeight })
-        console.log('Canvas resized to:', video.videoWidth, 'x', video.videoHeight)
       }
     }
 
-    // キャンバスをクリア
+    // 差分描画のための前回状態保存（必要時のみ）
+    const saveCanvasState = () => {
+      if (canvas.width > 0 && canvas.height > 0) {
+        lastCanvasStateRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      }
+    }
+
+    // キャンバスをクリア（最適化：必要時のみ全体クリア）
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    const { skeletons, tools } = getCurrentData(currentTimestamp)
+    const { skeletonFrame, tools } = getCurrentData(currentTimestamp)
 
-    // 骨格データを描画（複数の手に対応）
-    if (showSkeleton && skeletons.length > 0) {
-      skeletons.forEach((skeleton, handIndex) => {
-        if (!skeleton?.landmarks) return
+    // 骨格データを描画（新形式: frame.hands配列）
+    if (showSkeleton && skeletonFrame?.hands && skeletonFrame.hands.length > 0) {
+      skeletonFrame.hands.forEach((hand, handIndex) => {
+        if (!hand?.landmarks || !Array.isArray(hand.landmarks)) return
 
         // 手ごとに色を変える（左手：青、右手：緑）
-        const isLeftHand = skeleton.hand_type === 'Left'
+        const isLeftHand = hand.hand_type === 'Left'
         const handColor = isLeftHand ? '#00AAFF' : '#00FF00'
         const pointColor = isLeftHand ? '#0088FF' : '#FF0000'
 
@@ -179,50 +209,45 @@ export default function VideoPlayer({
 
         // 線を描画
         connections.forEach(([start, end]) => {
-          const startPoint = skeleton.landmarks[`point_${start}`]
-          const endPoint = skeleton.landmarks[`point_${end}`]
+          const startPoint = hand.landmarks[start]
+          const endPoint = hand.landmarks[end]
 
           if (startPoint && endPoint) {
             ctx.beginPath()
-            ctx.moveTo(startPoint.x * canvas.width, startPoint.y * canvas.height)
-            ctx.lineTo(endPoint.x * canvas.width, endPoint.y * canvas.height)
+            ctx.moveTo(startPoint.x, startPoint.y)
+            ctx.lineTo(endPoint.x, endPoint.y)
             ctx.stroke()
           }
         })
 
         // 点を描画（より大きく、目立つように）
         ctx.fillStyle = pointColor
-        Object.entries(skeleton.landmarks).forEach(([key, point]: [string, any]) => {
+        hand.landmarks.forEach((point: any, index: number) => {
           if (point && point.x !== undefined && point.y !== undefined) {
-            // 座標変換（0-1の正規化座標を画面座標に変換）
-            const screenX = point.x * canvas.width
-            const screenY = point.y * canvas.height
-
             ctx.beginPath()
-            ctx.arc(screenX, screenY, 5, 0, 2 * Math.PI)
+            ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI)
             ctx.fill()
 
             // デバッグ用：主要ポイントのみランドマーク番号を表示
-            const keyPoints = ['0', '4', '8', '12', '16', '20'] // 手首と各指先
-            const num = key.replace('point_', '')
-            if (keyPoints.includes(num)) {
+            const keyPoints = [0, 4, 8, 12, 16, 20] // 手首と各指先
+            if (keyPoints.includes(index)) {
               ctx.fillStyle = '#FFFFFF'
               ctx.font = 'bold 12px Arial'
-              ctx.fillText(num, screenX + 8, screenY - 8)
+              ctx.fillText(String(index), point.x + 8, point.y - 8)
               ctx.fillStyle = pointColor
             }
           }
         })
 
         // 手のタイプを表示
-        if (skeleton.landmarks.point_0) {
-          const wristPoint = skeleton.landmarks.point_0
+        if (hand.landmarks[0]) {
+          const wristPoint = hand.landmarks[0]
           ctx.fillStyle = handColor
           ctx.font = 'bold 14px Arial'
           ctx.fillText(
-            skeleton.hand_type || (isLeftHand ? 'Left' : 'Right'),
-            wristPoint.x * canvas.width,
-            wristPoint.y * canvas.height - 20
+            hand.hand_type || (isLeftHand ? 'Left' : 'Right'),
+            wristPoint.x,
+            wristPoint.y - 20
           )
         }
       })
@@ -235,31 +260,118 @@ export default function VideoPlayer({
     if (showInstruments && tools?.detections) {
       tools.detections.forEach((detection) => {
         const [x1, y1, x2, y2] = detection.bbox
-        
-        // バウンディングボックスを描画
-        ctx.strokeStyle = '#FF0000'
-        ctx.lineWidth = 2
-        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
-        
-        // ラベルを描画
-        ctx.fillStyle = '#FF0000'
-        ctx.font = '12px Arial'
+
+        // バウンディングボックスを描画（外部カメラ用の器具は紫色）
+        const isExternalInstrument = videoType === 'external_with_instruments'
+        ctx.strokeStyle = isExternalInstrument ? '#9333EA' : '#FF0000'
+        ctx.lineWidth = 3
+
+        // Phase 2.5: 回転BBoxが存在する場合は回転矩形を描画
+        if (detection.rotated_bbox && detection.rotated_bbox.length === 4) {
+          ctx.beginPath()
+          const [p1, p2, p3, p4] = detection.rotated_bbox
+          ctx.moveTo(p1[0], p1[1])
+          ctx.lineTo(p2[0], p2[1])
+          ctx.lineTo(p3[0], p3[1])
+          ctx.lineTo(p4[0], p4[1])
+          ctx.closePath()
+          ctx.stroke()
+
+          // 従来の矩形BBoxを半透明で表示（比較用）
+          ctx.strokeStyle = isExternalInstrument ? 'rgba(147, 51, 234, 0.3)' : 'rgba(255, 0, 0, 0.3)'
+          ctx.setLineDash([5, 5])
+          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+          ctx.setLineDash([])
+        } else {
+          // 従来の矩形BBox
+          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+        }
+
+        // 背景付きラベルを描画
+        ctx.fillStyle = isExternalInstrument ? '#9333EA' : '#FF0000'
+        ctx.font = 'bold 14px Arial'
         const label = `${detection.class_name} (${(detection.confidence * 100).toFixed(0)}%)`
-        ctx.fillText(label, x1, y1 - 5)
-        
+        const textWidth = ctx.measureText(label).width
+
+        // ラベル背景
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+        ctx.fillRect(x1, y1 - 22, textWidth + 8, 20)
+
+        // ラベルテキスト
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillText(label, x1 + 4, y1 - 6)
+
         // 追跡IDがある場合
         if (detection.track_id !== undefined) {
-          ctx.fillStyle = '#FFFF00'
-          ctx.fillText(`#${detection.track_id}`, x2 - 20, y1 - 5)
+          ctx.fillStyle = 'rgba(255, 255, 0, 0.9)'
+          ctx.font = 'bold 12px Arial'
+          ctx.fillText(`ID: ${detection.track_id}`, x2 - 35, y1 - 6)
+        }
+
+        // Phase 2.5: 面積削減率の表示（回転BBoxがある場合）
+        if (detection.area_reduction !== undefined && detection.area_reduction > 0) {
+          ctx.fillStyle = 'rgba(0, 255, 0, 0.9)'
+          ctx.font = '11px Arial'
+          ctx.fillText(`-${detection.area_reduction.toFixed(1)}%`, x1, y2 + 15)
+        }
+
+        // 中心点マーカー
+        const centerX = (x1 + x2) / 2
+        const centerY = (y1 + y2) / 2
+        ctx.fillStyle = isExternalInstrument ? '#9333EA' : '#FF0000'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, 4, 0, 2 * Math.PI)
+        ctx.fill()
+
+        // 軌跡データの更新と描画
+        if (showTrajectory && detection.track_id !== undefined) {
+          // 軌跡データを更新
+          if (!trajectoryRef.current.has(detection.track_id)) {
+            trajectoryRef.current.set(detection.track_id, [])
+          }
+          const trajectory = trajectoryRef.current.get(detection.track_id)!
+          trajectory.push({ x: centerX, y: centerY, timestamp: currentTimestamp })
+
+          // 古いデータを削除（最大100点保持）
+          if (trajectory.length > 100) {
+            trajectory.shift()
+          }
+
+          // 軌跡を描画
+          if (trajectory.length > 1) {
+            ctx.strokeStyle = isExternalInstrument ? 'rgba(147, 51, 234, 0.5)' : 'rgba(255, 0, 0, 0.5)'
+            ctx.lineWidth = 2
+            ctx.setLineDash([5, 5])
+            ctx.beginPath()
+
+            for (let i = 1; i < trajectory.length; i++) {
+              const prev = trajectory[i - 1]
+              const curr = trajectory[i]
+
+              // 時間による透明度のグラデーション
+              const age = (currentTimestamp - curr.timestamp) / 3 // 3秒でフェードアウト
+              const opacity = Math.max(0, 1 - age)
+              ctx.globalAlpha = opacity * 0.7
+
+              if (i === 1) {
+                ctx.moveTo(prev.x, prev.y)
+              }
+              ctx.lineTo(curr.x, curr.y)
+            }
+
+            ctx.stroke()
+            ctx.setLineDash([])
+            ctx.globalAlpha = 1
+          }
         }
       })
     }
 
-    // 次のフレームで再描画
+    // 次のフレームで再描画（最適化されたRAF）
     if (isPlaying) {
       animationFrameRef.current = requestAnimationFrame(drawOverlay)
     }
-  }
+  }, [isPlaying, showSkeleton, showInstruments, showTrajectory, skeletonData, toolData, videoType])
 
   // 動画の再生/一時停止
   const togglePlay = () => {
@@ -274,17 +386,22 @@ export default function VideoPlayer({
     }
   }
 
-  // 動画の時間更新
-  const handleTimeUpdate = () => {
+  // 動画の時間更新（デバウンス付き）
+  const handleTimeUpdate = useCallback(() => {
     if (!videoRef.current) return
     const time = videoRef.current.currentTime
     setCurrentTime(time)
-    drawOverlay()
+
+    // 描画をスロットル（再生中のみ）
+    if (!isPlaying || Math.abs(time - currentTime) > 0.033) { // 30fps以上の更新を制限
+      drawOverlay()
+    }
+
     // 外部にも通知
     if (onTimeUpdate) {
       onTimeUpdate(time)
     }
-  }
+  }, [currentTime, isPlaying, drawOverlay, onTimeUpdate])
 
   // 動画のメタデータ読み込み完了
   const handleLoadedMetadata = () => {
@@ -296,13 +413,14 @@ export default function VideoPlayer({
   }
 
   // シーク処理
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!videoRef.current) return
     const newTime = parseFloat(e.target.value)
     videoRef.current.currentTime = newTime
     setCurrentTime(newTime)
+    lastDrawnFrameRef.current = -1 // フレームキャッシュをリセット
     drawOverlay()
-  }
+  }, [drawOverlay])
 
   // 再生速度変更
   const handleSpeedChange = (speed: number) => {
@@ -476,12 +594,12 @@ export default function VideoPlayer({
             <span>骨格表示</span>
           </label>
           <label
-            className={`flex items-center space-x-2 ${!hasInstrumentData || isExternalCamera ? 'opacity-50' : ''}`}
+            className={`flex items-center space-x-2 ${!canShowInstruments || !hasInstrumentData ? 'opacity-50' : ''}`}
             title={
-              isExternalCamera
-                ? '外部カメラでは器具検出は利用できません'
+              !canShowInstruments
+                ? '器具検出は内部カメラまたは外部カメラ（器具あり）でのみ利用可能です'
                 : !hasInstrumentData
-                  ? '器具が登録されていません'
+                  ? '器具データが検出されていません'
                   : ''
             }
           >
@@ -489,11 +607,12 @@ export default function VideoPlayer({
               type="checkbox"
               checked={showInstruments}
               onChange={(e) => setShowInstruments(e.target.checked)}
-              disabled={!hasInstrumentData}
+              disabled={!canShowInstruments || !hasInstrumentData}
             />
             <span className={!hasInstrumentData ? 'text-gray-400' : ''}>
               器具検出表示
-              {!hasInstrumentData ? ' (データなし)' : ''}
+              {videoType === 'external_with_instruments' && hasInstrumentData ? ' (外部カメラ)' : ''}
+              {!hasInstrumentData && canShowInstruments ? ' (データなし)' : ''}
             </span>
           </label>
           <label className="flex items-center space-x-2">

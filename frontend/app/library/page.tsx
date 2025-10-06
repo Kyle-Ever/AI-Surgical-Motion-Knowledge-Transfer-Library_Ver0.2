@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Filter, ChevronRight, Trash2, Download, Award } from 'lucide-react'
-import { getCompletedAnalyses, exportAnalysisData } from '@/lib/api'
+import { getCompletedAnalyses, getCompletedComparisons, exportAnalysisData } from '@/lib/api'
 import { useCreateReferenceModel } from '@/hooks/useScoring'
 
 const mockLibrary = [
@@ -52,16 +52,20 @@ export default function LibraryPage() {
 
   const fetchLibraryItems = async () => {
     try {
-      // 完了した解析結果を取得
-      const data = await getCompletedAnalyses()
-      console.log('Fetched library data:', data)
-      console.log('Total items fetched from API:', data?.length || 0)
+      // 完了した解析結果と採点結果を並列で取得
+      const [analysesData, comparisonsData] = await Promise.all([
+        getCompletedAnalyses(),
+        getCompletedComparisons()
+      ])
 
-      if (data && data.length > 0) {
+      console.log('Fetched analyses data:', analysesData)
+      console.log('Fetched comparisons data:', comparisonsData)
 
-        // ライブラリ用にデータを整形
-        const formattedItems = data.map((item: any) => {
-          // 手術名と医師名を動画情報から取得、またはファイル名から生成
+      const allItems = []
+
+      // 解析結果をライブラリ用に整形
+      if (analysesData && analysesData.length > 0) {
+        const formattedAnalyses = analysesData.map((item: any) => {
           const surgeryName = item.video?.surgery_name ||
                               item.video?.original_filename?.replace('.mp4', '') ||
                               `解析_${item.id.substring(0, 8)}`
@@ -78,28 +82,60 @@ export default function LibraryPage() {
                      item.video?.video_type === 'external_with_instruments' ? '外部カメラ（器具あり）' :
                      item.video?.video_type === 'external' ? '外部カメラ' : '不明',
             score: item.scores?.overall || null,
-            status: item.status
+            status: item.status,
+            type: 'analysis',
+            rawDate: item.completed_at || item.created_at // ソート用の生の日付を保持
           }
         })
-
-        // 日付で降順ソート（最新が上）
-        const sortedItems = formattedItems.sort((a: any, b: any) => {
-          // dateは "YYYY-MM-DD" 形式の文字列なので、そのまま比較可能
-          const dateA = a.date || '1970-01-01'
-          const dateB = b.date || '1970-01-01'
-          return dateB.localeCompare(dateA) // 降順
-        })
-
-        setLibraryItems(sortedItems)
-        setFilteredItems(sortedItems) // 初期状態では全アイテムを表示
-        console.log('Formatted library items:', sortedItems)
-        console.log('Total formatted items:', sortedItems.length)
-      } else {
-        // データがない場合は空配列を設定
-        console.log('No completed analyses found')
-        setLibraryItems([])
-        setFilteredItems([])
+        allItems.push(...formattedAnalyses)
       }
+
+      // 採点結果をライブラリ用に整形
+      if (comparisonsData && comparisonsData.length > 0) {
+        const formattedComparisons = comparisonsData.map((item: any) => {
+          const surgeryName = item.learner_analysis?.video?.surgery_name ||
+                             item.learner_analysis?.video?.original_filename?.replace('.mp4', '') ||
+                             `採点_${item.id.substring(0, 8)}`
+          const surgeonName = item.learner_analysis?.video?.surgeon_name || '学習者'
+
+          return {
+            id: item.id,
+            techniqueName: `【採点】${surgeryName}`,
+            surgeonName: surgeonName,
+            date: item.completed_at ? new Date(item.completed_at).toLocaleDateString('ja-JP') :
+                  item.created_at ? new Date(item.created_at).toLocaleDateString('ja-JP') : '-',
+            category: '採点結果',
+            score: item.overall_score || null,
+            status: item.status,
+            type: 'comparison',
+            comparisonId: item.id
+          }
+        })
+        allItems.push(...formattedComparisons)
+      }
+
+      // 日付で降順ソート（最新が上）- rawDateを使用して正確にソート
+      const sortedItems = allItems.sort((a: any, b: any) => {
+        // rawDateがある場合はそれを使用、なければ表示用の日付を使用
+        const getDateValue = (item: any) => {
+          if (item.rawDate) {
+            return new Date(item.rawDate).getTime()
+          }
+          // fallback: 表示用の日付を変換
+          const dateStr = item.date || '1970-01-01'
+          const normalized = dateStr.replace(/\//g, '-')
+          const dateObj = new Date(normalized)
+          return isNaN(dateObj.getTime()) ? 0 : dateObj.getTime()
+        }
+
+        const dateA = getDateValue(a)
+        const dateB = getDateValue(b)
+        return dateB - dateA // 降順（新しいものが上）
+      })
+
+      setLibraryItems(sortedItems)
+      setFilteredItems(sortedItems)
+      console.log('Total library items:', sortedItems.length)
     } catch (error) {
       console.error('Failed to fetch library items:', error)
       // エラー時は空配列を設定
@@ -196,7 +232,11 @@ export default function LibraryPage() {
       }
 
       filtered = filtered.filter(item => {
-        const itemDate = new Date(item.date.replace(/\//g, '-'))
+        // 日付文字列を正規化してDateオブジェクトに変換
+        const normalizedDate = item.date ? item.date.replace(/\//g, '-') : '1970-01-01'
+        const itemDate = new Date(normalizedDate)
+        // 無効な日付の場合は除外しない
+        if (isNaN(itemDate.getTime())) return true
         return itemDate >= filterDate
       })
     }

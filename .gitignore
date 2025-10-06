@@ -50,6 +50,7 @@ backend/sam_b.pt
 backend/yolov8n.pt
 backend/yolov8n-pose.pt
 *.pt
+*.pth
 *.mp4
 *.jpg
 *.png

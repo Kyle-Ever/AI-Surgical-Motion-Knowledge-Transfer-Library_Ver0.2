@@ -118,10 +118,22 @@ export interface AnalysisResult {
 }
 
 // ライブラリ関連の関数
-export const getCompletedAnalyses = async (): Promise<AnalysisResult[]> => {
-  const response = await fetch(`${API_BASE_URL}/analysis/completed`);
+export const getCompletedAnalyses = async (limit: number = 200): Promise<AnalysisResult[]> => {
+  // 開発中はFAILED状態も表示するため、include_failed=trueを設定
+  // limit を200に増やして、より多くの最新結果を取得（最新順にソート済み）
+  const response = await fetch(`${API_BASE_URL}/analysis/completed?include_failed=true&limit=${limit}`);
   if (!response.ok) {
     throw new Error('Failed to fetch completed analyses');
+  }
+  return response.json();
+};
+
+// 採点結果を取得
+export const getCompletedComparisons = async (): Promise<any[]> => {
+  const response = await fetch(`${API_BASE_URL}/scoring/comparisons/completed`);
+  if (!response.ok) {
+    // エラーが発生しても空配列を返す
+    return [];
   }
   return response.json();
 };

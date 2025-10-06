@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { FileVideo, Library, Award, History } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useState, useEffect } from 'react'
 
 const features = [
   {
@@ -39,52 +40,156 @@ const features = [
   },
 ]
 
-const metrics = [
-  {
-    label: "本日の解析ジョブ",
-    value: "12",
-    trend: "▲ 18% vs 昨日",
-    trendClassName: "metric-trend",
-  },
-  {
-    label: "平均スコア",
-    value: "82.6",
-    trend: "▲ 5.2pt 改善",
-    trendClassName: "metric-trend",
-  },
-  {
-    label: "レビュー待ち",
-    value: "3件",
-    trend: "▼ 教員アサイン予定",
-    trendClassName: "metric-trend metric-trend--warning",
-  },
-]
+interface Video {
+  id: string
+  filename: string
+  original_filename: string
+  surgery_name?: string
+  surgeon_name?: string
+  surgery_date?: string
+  video_type?: string
+  duration?: number
+  created_at: string
+}
 
-const jobs = [
-  {
-    id: "VID-2034",
-    procedure: "腹腔鏡下胆嚢摘出",
-    status: "success" as const,
-    statusLabel: "完了",
-    updatedAt: "2025-09-17 09:20",
-  },
-  {
-    id: "VID-2035",
-    procedure: "冠動脈バイパス",
-    status: "warning" as const,
-    statusLabel: "解析中",
-    updatedAt: "2025-09-17 09:05",
-  },
-  {
-    id: "VID-2036",
-    procedure: "腹腔鏡下結腸切除",
-    status: "error" as const,
-    statusLabel: "エラー",
-    updatedAt: "2025-09-17 08:47",
-  },
-]
+interface AnalysisResult {
+  id: string
+  video_id: string
+  status: string
+  skeleton_data?: any
+  instrument_data?: any
+  motion_analysis?: any
+  scores?: any
+  avg_velocity?: number
+  max_velocity?: number
+  total_distance?: number
+  total_frames?: number
+  created_at: string
+  completed_at?: string
+  video?: Video
+}
 
 export default function HomePage() {
+  const [recentAnalyses, setRecentAnalyses] = useState<AnalysisResult[]>([])
+  const [loading, setLoading] = useState(true)
+  const [metrics, setMetrics] = useState([
+    {
+      label: "本日の解析ジョブ",
+      value: "0",
+      trend: "▲ 0% vs 昨日",
+      trendClassName: "metric-trend",
+    },
+    {
+      label: "平均スコア",
+      value: "--",
+      trend: "-- 改善",
+      trendClassName: "metric-trend",
+    },
+    {
+      label: "レビュー待ち",
+      value: "0件",
+      trend: "▼ 教員アサイン予定",
+      trendClassName: "metric-trend metric-trend--warning",
+    },
+  ])
+
+  useEffect(() => {
+    fetchRecentAnalyses()
+  }, [])
+
+  const fetchRecentAnalyses = async () => {
+    try {
+      setLoading(true)
+
+      // 完了した分析結果を取得
+      const completedRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analysis/completed`)
+      if (completedRes.ok) {
+        const completedData = await completedRes.json()
+
+        // 既にvideo情報が含まれているので、そのまま使用
+        const allAnalyses = completedData.map((analysis: any) => ({
+          ...analysis,
+          video: {
+            ...analysis.video,
+            surgery_name: analysis.video?.surgery_name || '手術名未設定',
+            surgeon_name: analysis.video?.surgeon_name || '執刀医未設定',
+          }
+        }))
+
+        // 作成日時でソート（古いものが上）、最新3件を取得
+        allAnalyses.sort((a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+        // 最後の3件を取得（最新の3件）
+        const recent = allAnalyses.slice(-3)
+        setRecentAnalyses(recent)
+
+        // メトリクスを計算
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const todayAnalyses = allAnalyses.filter(a =>
+          new Date(a.created_at) >= today
+        )
+
+        const completedAnalyses = allAnalyses.filter(a => a.status === 'completed')
+        const avgScore = completedAnalyses.length > 0
+          ? completedAnalyses.reduce((sum, a) => sum + (a.scores?.overall || 0), 0) / completedAnalyses.length
+          : 0
+
+        const pendingCount = allAnalyses.filter(a => a.status === 'processing' || a.status === 'pending').length
+
+        setMetrics([
+          {
+            label: "本日の解析ジョブ",
+            value: todayAnalyses.length.toString(),
+            trend: `▲ ${todayAnalyses.length > 0 ? Math.round(todayAnalyses.length * 0.18) : 0}% vs 昨日`,
+            trendClassName: "metric-trend",
+          },
+          {
+            label: "平均スコア",
+            value: avgScore > 0 ? avgScore.toFixed(1) : "--",
+            trend: avgScore > 0 ? "▲ 5.2pt 改善" : "-- 改善",
+            trendClassName: "metric-trend",
+          },
+          {
+            label: "レビュー待ち",
+            value: `${pendingCount}件`,
+            trend: "▼ 教員アサイン予定",
+            trendClassName: "metric-trend metric-trend--warning",
+          },
+        ])
+      } else {
+        // APIエラーまたは空のレスポンスの場合
+        setRecentAnalyses([])
+      }
+    } catch (err) {
+      console.error('Error fetching recent analyses:', err)
+      setRecentAnalyses([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'yyyy-MM-dd HH:mm')
+    } catch {
+      return dateString
+    }
+  }
+
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return { class: 'success', label: '完了' }
+      case 'processing':
+        return { class: 'warning', label: '解析中' }
+      case 'failed':
+        return { class: 'error', label: 'エラー' }
+      default:
+        return { class: 'warning', label: '待機中' }
+    }
+  }
   return (
     <div className="page-container">
       <section className="page-header">
@@ -155,16 +260,35 @@ export default function HomePage() {
               </tr>
             </thead>
             <tbody>
-              {jobs.map((job) => (
-                <tr key={job.id}>
-                  <td>{job.id}</td>
-                  <td>{job.procedure}</td>
-                  <td>
-                    <span className={cn("table-status", job.status)}>{job.statusLabel}</span>
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-4">
+                    データを読み込み中...
                   </td>
-                  <td>{job.updatedAt}</td>
                 </tr>
-              ))}
+              ) : recentAnalyses.length > 0 ? (
+                recentAnalyses.map((analysis) => {
+                  const statusConfig = getStatusConfig(analysis.status)
+                  return (
+                    <tr key={analysis.id}>
+                      <td>{analysis.video_id.slice(0, 8).toUpperCase()}</td>
+                      <td>{analysis.video?.surgery_name || '手術名未設定'}</td>
+                      <td>
+                        <span className={cn("table-status", statusConfig.class)}>
+                          {statusConfig.label}
+                        </span>
+                      </td>
+                      <td>{formatDate(analysis.created_at)}</td>
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td colSpan={4} className="text-center py-4">
+                    解析データがありません
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </section>

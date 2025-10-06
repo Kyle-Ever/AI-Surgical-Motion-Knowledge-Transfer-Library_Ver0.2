@@ -30,7 +30,35 @@ class Settings(BaseSettings):
 
     # 手袋検出設定
     USE_ADVANCED_GLOVE_DETECTION: bool = False  # 高性能な手袋検出器を使用するか（デフォルト無効で後方互換性維持）
-    
+
+    # SAM器具追跡設定
+    SAM_USE_MOCK: bool = False  # モックモードを無効化して実際の追跡を使用
+    SAM_DEVICE: str = "auto"  # GPU/CPU自動検出 ("auto", "cuda", "cpu")
+    SAM_REDETECTION_INTERVAL: int = 30  # 再検出間隔（フレーム数）
+    SAM_CONFIDENCE_THRESHOLD: float = 0.7  # 信頼度閾値
+    SAM_USE_PROACTIVE_REDETECTION: bool = True  # プロアクティブ再検出を有効化
+
+    # SAMトラッカーモード設定
+    SAM_TRACKER_MODE: str = "enhanced"  # "enhanced" (マルチポイント+カルマン), "full_sam" (毎フレームSAM), "hybrid" (部分SAM), "legacy" (OpenCV併用)
+    SAM_FRAME_SKIP: int = 1  # SAM検出の頻度 (1=毎フレーム, 5=5フレームごと)
+    SAM_BATCH_SIZE: int = 10  # バッチ処理サイズ
+    SAM_USE_CACHE: bool = True  # 検出結果のキャッシュを使用
+
+    # Enhanced SAMトラッカー詳細パラメータ
+    SAM_ENHANCED_CONFIDENCE_THRESHOLD: float = 0.3  # 検出の信頼度閾値（低めに設定）
+    SAM_ENHANCED_MAX_LOST_FRAMES: int = 50  # ロストを許容する最大フレーム数
+    SAM_ENHANCED_SEARCH_EXPANSION: float = 2.0  # 探索範囲の拡張倍率
+    SAM_ENHANCED_MAX_SIZE_CHANGE: float = 3.0  # 許容するサイズ変化倍率
+    SAM_ENHANCED_ENABLE_KALMAN: bool = True  # カルマンフィルター使用
+    SAM_ENHANCED_ENABLE_MULTIPOINT: bool = True  # マルチポイントプロンプト使用
+    SAM_ENHANCED_ENABLE_BOX_PROMPT: bool = True  # ボックスプロンプト使用
+    SAM_ENHANCED_REDETECTION_INTERVAL: int = 15  # 定期的な再検出の間隔（フレーム数）
+
+    # SAM2設定
+    USE_SAM2: bool = False  # SAM2を有効化（高精度、JPEG一時保存方式）
+    SAM2_MODEL_TYPE: str = "small"  # tiny, small, base_plus, large
+    SAM2_TEMP_DIR: Path = Path("./temp_frames")  # JPEG一時保存ディレクトリ
+
     # 開発設定
     DEBUG: bool = True
     RELOAD: bool = True

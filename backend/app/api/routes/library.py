@@ -24,11 +24,11 @@ async def get_completed_analyses(
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    """Get list of completed analyses with video information"""
+    """Get list of completed analyses with video information - sorted by created_at desc"""
 
     analyses = db.query(AnalysisResult).filter(
         AnalysisResult.status == AnalysisStatus.COMPLETED
-    ).offset(skip).limit(limit).all()
+    ).order_by(AnalysisResult.created_at.desc()).offset(skip).limit(limit).all()
 
     result = []
     for analysis in analyses:

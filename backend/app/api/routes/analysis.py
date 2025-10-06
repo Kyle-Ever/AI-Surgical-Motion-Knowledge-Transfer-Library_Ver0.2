@@ -14,7 +14,7 @@ from app.schemas.analysis import (
     AnalysisResultResponse,
     ProcessingStep
 )
-from app.services.analysis_service import AnalysisService
+# from app.services.analysis_service import AnalysisService  # DEPRECATED: V2サービスを使用
 from app.schemas.common import ErrorResponse
 
 router = APIRouter()
@@ -85,17 +85,25 @@ async def start_analysis(
 async def get_completed_analyses(
     skip: int = 0,
     limit: int = 100,
+    include_failed: bool = False,  # パラメータを追加
     db: Session = Depends(get_db)
 ):
-    """Get list of completed analyses with video information"""
+    """Get list of completed analyses with video information - sorted by created_at desc"""
 
     import logging
     logger = logging.getLogger(__name__)
     logger.info("[DEBUG] get_completed_analyses endpoint called")
 
-    analyses = db.query(AnalysisResult).filter(
-        AnalysisResult.status == AnalysisStatus.COMPLETED
-    ).offset(skip).limit(limit).all()
+    # include_failedがTrueの場合は全ステータス、Falseの場合はCOMPLETEDのみ
+    if include_failed:
+        # FAILEDも含めて取得（開発用）
+        analyses = db.query(AnalysisResult).filter(
+            AnalysisResult.status.in_([AnalysisStatus.COMPLETED, AnalysisStatus.FAILED])
+        ).order_by(AnalysisResult.created_at.desc()).offset(skip).limit(limit).all()
+    else:
+        analyses = db.query(AnalysisResult).filter(
+            AnalysisResult.status == AnalysisStatus.COMPLETED
+        ).order_by(AnalysisResult.created_at.desc()).offset(skip).limit(limit).all()
 
     logger.info(f"[DEBUG] Found {len(analyses)} completed analyses")
 
@@ -164,7 +172,8 @@ async def get_analysis_status(
             ProcessingStep(name="Data generation", status="completed", progress=100),
         ]
     elif analysis.status == AnalysisStatus.PROCESSING:
-        progress = analysis.progress or 0
+        # DBの進捗が0の場合でも最低1%は表示
+        progress = max(1, analysis.progress or 0)
         if progress < 25:
             steps = [
                 ProcessingStep(name="Video loading", status="processing", progress=progress*4),
@@ -277,6 +286,23 @@ async def get_analysis_result(
     video = db.query(Video).filter(Video.id == analysis.video_id).first()
 
     try:
+        # Phase 2.3: tracking_statsとwarningsをJSONからデシリアライズ
+        import json
+        tracking_stats = None
+        warnings = None
+
+        if analysis.tracking_stats:
+            try:
+                tracking_stats = json.loads(analysis.tracking_stats) if isinstance(analysis.tracking_stats, str) else analysis.tracking_stats
+            except:
+                logger.warning(f"Failed to parse tracking_stats for analysis {analysis_id}")
+
+        if analysis.warnings:
+            try:
+                warnings = json.loads(analysis.warnings) if isinstance(analysis.warnings, str) else analysis.warnings
+            except:
+                logger.warning(f"Failed to parse warnings for analysis {analysis_id}")
+
         # Create response manually to avoid from_orm issues
         result_dict = {
             "id": analysis.id,
@@ -296,7 +322,11 @@ async def get_analysis_result(
             "total_frames": analysis.total_frames,
             "created_at": analysis.created_at,
             "completed_at": analysis.completed_at,
-            "video": None
+            "video": None,
+            # Phase 2.3: 新しいフィールド
+            "tracking_stats": tracking_stats,
+            "last_error_frame": analysis.last_error_frame,
+            "warnings": warnings
         }
 
         result = AnalysisResultResponse(**result_dict)
@@ -317,461 +347,93 @@ def sync_process_video_analysis(
     import asyncio
     from pathlib import Path
     import logging
+    import json
+    import sys
 
+    # バックグラウンドタスク用のログ設定を強化
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('analysis_debug.log'),
+            logging.StreamHandler(sys.stdout)
+        ],
+        force=True  # 既存の設定を上書き
+    )
     logger = logging.getLogger(__name__)
+    logger.info(f"[BACKGROUND_TASK] ========== STARTING ANALYSIS ==========")
+    logger.info(f"[BACKGROUND_TASK] analysis_id: {analysis_id}")
+    logger.info(f"[BACKGROUND_TASK] video_id: {video_id}")
+    logger.info(f"[BACKGROUND_TASK] instruments: {len(instruments) if instruments else 0}")
+
     db = SessionLocal()
-    analysis_service = AnalysisService()
+
+    # If instruments not provided, try to load from saved JSON file
+    if not instruments:
+        instruments_file = Path(f"data/uploads/{video_id}_instruments.json")
+        if instruments_file.exists():
+            try:
+                with open(instruments_file, 'r') as f:
+                    instruments = json.load(f)
+                logger.info(f"[DEBUG] Loaded instruments from file: {len(instruments)} items")
+            except Exception as e:
+                logger.warning(f"[DEBUG] Failed to load instruments file: {e}")
+                instruments = []
+        else:
+            logger.info(f"[DEBUG] No instruments file found at {instruments_file}")
+    # V2サービスを使用
+    logger.info(f"[sync_process] Starting background processing for analysis_id: {analysis_id}")
+    from app.services.analysis_service_v2 import AnalysisServiceV2
+    # analysis_service = AnalysisService()  # 旧サービス（無効化）
 
     try:
         analysis = db.query(AnalysisResult).filter(AnalysisResult.id == analysis_id).first()
         if not analysis:
+            logger.error(f"[sync_process] Analysis not found: {analysis_id}")
             return
 
         # Get video from database
         video = db.query(Video).filter(Video.id == video_id).first()
         if not video:
+            logger.error(f"[sync_process] Video not found: {video_id}")
             return
 
-        # Update status to processing
-        analysis.status = AnalysisStatus.PROCESSING
-        analysis.current_step = "Loading video"
-        db.commit()
+        # V2サービスを使用して解析を実行
+        logger.info(f"[sync_process][ANALYSIS] Starting analysis with AnalysisServiceV2")
+        logger.info(f"[sync_process][ANALYSIS] video_id: {video_id}")
+        logger.info(f"[sync_process][ANALYSIS] analysis_id: {analysis_id}")
+        logger.info(f"[sync_process][ANALYSIS] instruments: {len(instruments) if instruments else 0} items")
 
-        # Check if we should use real processing or mock
-        use_real_processing = False
-        video_path = Path(video.file_path) if video.file_path else None
+        # 非同期処理を同期的に実行
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-        # Debug: Log the actual path being checked
-        logger.info(f"[DEBUG] Video file_path from DB: {video.file_path}")
-        logger.info(f"[DEBUG] Resolved video_path: {video_path}")
-        logger.info(f"[DEBUG] Path exists: {video_path.exists() if video_path else False}")
-
-        if video_path and video_path.exists():
-            logger.info(f"[MediaPipe] Video file found: {video_path}")
-            logger.info(f"[MediaPipe] File size: {video_path.stat().st_size / (1024*1024):.2f} MB")
-
-            # Try to use real MediaPipe processing
-            try:
-                logger.info(f"[MediaPipe] Starting real video processing...")
-                # Run MediaPipe processing directly (synchronously)
-                process_with_mediapipe(
-                    analysis, video, video_path, instruments, sampling_rate, db
-                )
-                logger.info(f"[MediaPipe] Real processing completed successfully")
-                return  # Exit after successful processing
-            except Exception as e:
-                import traceback
-                logger.error(f"[MediaPipe] Real processing failed: {e}")
-                logger.error(f"[MediaPipe] Traceback:\n{traceback.format_exc()}")
-                logger.warning(f"[MediaPipe] Falling back to mock processing")
-                use_real_processing = False
-        else:
-            logger.warning(f"[MediaPipe] Video file not found or path is None: {video_path}")
-            if video_path:
-                logger.warning(f"[MediaPipe] Expected location: {video_path.absolute()}")
-
-        # Fallback to mock processing (synchronous version)
-        logger.info("[MOCK] Using mock processing")
-        sync_process_with_mock(analysis, instruments, db, video.video_type if video else None)
+        try:
+            logger.info(f"[sync_process][ANALYSIS] Creating AnalysisServiceV2 instance")
+            service = AnalysisServiceV2()
+            logger.info(f"[sync_process][ANALYSIS] Running analyze_video...")
+            result = loop.run_until_complete(
+                service.analyze_video(video_id, analysis_id, instruments)
+            )
+            logger.info(f"[sync_process][ANALYSIS] Analysis completed successfully: {analysis_id}")
+        except Exception as e:
+            logger.error(f"[sync_process][ANALYSIS] Error in analyze_video: {e}")
+            import traceback
+            logger.error(f"[sync_process][ANALYSIS] Traceback: {traceback.format_exc()}")
+            raise
+        finally:
+            loop.close()
 
     except Exception as e:
-        logger.error(f"Analysis failed: {e}")
-        analysis.status = AnalysisStatus.FAILED
-        analysis.error_message = str(e)
-        db.commit()
+        logger.error(f"[sync_process] Analysis failed: {e}")
+        if analysis:
+            analysis.status = AnalysisStatus.FAILED
+            analysis.error_message = str(e)
+            db.commit()
         raise
     finally:
         db.close()
 
-
-def process_with_mediapipe(
-    analysis: AnalysisResult,
-    video: Video,
-    video_path: Path,
-    instruments: list,
-    sampling_rate: int,
-    db
-):
-    """Process video with real MediaPipe"""
-    import cv2
-    from app.ai_engine.processors.skeleton_detector import HandSkeletonDetector
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    try:
-        # Initialize processors with settings matching the reference code
-        # For external cameras, we need to flip handedness (mirror effect)
-        flip_handedness = (video.video_type == 'external')
-        # Use same settings as reference code that works with both hands
-        skeleton_detector = HandSkeletonDetector(
-            static_image_mode=False,         # Use tracking mode like reference
-            max_num_hands=2,                # Detect both hands
-            min_detection_confidence=0.5,   # Same as reference code
-            min_tracking_confidence=0.5,    # Same as reference code
-            flip_handedness=flip_handedness # Flip for external cameras
-        )
-        logger.info(f"[MediaPipe] HandSkeletonDetector initialized with static_mode=False, max_hands=2, confidence=0.5, flip={flip_handedness}")
-        # Note: FrameExtractor is not needed here, we use cv2 directly
-
-        # Open video
-        cap = cv2.VideoCapture(str(video_path))
-        if not cap.isOpened():
-            raise ValueError(f"Cannot open video: {video_path}")
-
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        # Use lower interval for smoother tracking (process more frames)
-        # For 30fps video with sampling_rate=5, we want 5 samples per second
-        # So interval = fps/sampling_rate = 30/5 = 6 frames
-        # But for better tracking, let's process more frames
-        frame_interval = max(1, int(fps / (sampling_rate * 2)))  # Double the sampling for smoother tracking
-
-        skeleton_data = []
-        instrument_data = []
-        frame_count = 0
-        processed_frames = 0
-
-        expected_samples = total_frames // frame_interval
-        logger.info(f"[MediaPipe] Processing {total_frames} frames at {fps:.2f} fps")
-        logger.info(f"[MediaPipe] Sampling every {frame_interval} frames (approx {fps/frame_interval:.1f} samples/sec)")
-        logger.info(f"[MediaPipe] Expected samples: {expected_samples}")
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            # Process only sampled frames
-            if frame_count % frame_interval == 0:
-                timestamp = frame_count / fps
-
-                # Detect hand skeleton
-                detection_result = skeleton_detector.detect_from_frame(frame)
-
-                if processed_frames % 10 == 0:  # Log every 10th processed frame
-                    logger.info(f"[MediaPipe] Frame {frame_count}: Detected {len(detection_result.get('hands', []))} hands")
-
-                if detection_result["hands"]:
-                    for hand_idx, hand in enumerate(detection_result["hands"]):
-                        # Convert to our format (normalize coordinates to 0-1 range)
-                        landmarks = {}
-                        frame_height, frame_width = frame.shape[:2]
-                        for i, landmark in enumerate(hand["landmarks"]):
-                            # Convert from pixel coordinates to normalized coordinates
-                            landmarks[f"point_{i}"] = {
-                                "x": landmark["x"] / frame_width,  # Normalize to 0-1
-                                "y": landmark["y"] / frame_height,  # Normalize to 0-1
-                                "z": landmark.get("z", 0)
-                            }
-
-                        skeleton_data.append({
-                            "frame_number": frame_count,
-                            "timestamp": timestamp,
-                            "hand_type": hand.get("handedness", hand.get("label", "Unknown")),
-                            "landmarks": landmarks
-                        })
-
-                # Simple instrument detection (only for internal camera with registered instruments)
-                if instruments and video.video_type == 'internal':
-                    # For now, create mock instrument data when instruments are registered
-                    # Real YOLO detection would go here
-                    instrument_data.append({
-                        "frame_number": frame_count,
-                        "timestamp": timestamp,
-                        "detections": [
-                            {
-                                "bbox": [100, 100, 200, 200],  # Mock bbox
-                                "confidence": 0.9,
-                                "class_name": instruments[0].get("name", "Forceps") if instruments else "Unknown",
-                                "track_id": 0
-                            }
-                        ] if instruments else []
-                    })
-
-                processed_frames += 1
-
-                # Update progress
-                progress = int((frame_count / total_frames) * 100)
-                analysis.progress = progress
-                analysis.current_step = f"Processing frame {frame_count}/{total_frames}"
-                db.commit()
-
-            frame_count += 1
-
-        cap.release()
-
-        # Save results
-        logger.info(f"[MediaPipe] Processing complete!")
-        logger.info(f"[MediaPipe] Processed frames: {processed_frames}")
-        logger.info(f"[MediaPipe] Total hand detections: {len(skeleton_data)}")
-        detection_rate = len(skeleton_data) / max(processed_frames, 1) * 100
-        logger.info(f"[MediaPipe] Detection rate: {detection_rate:.1f}%")
-
-        # Log summary of hand types detected
-        if skeleton_data:
-            hand_types = {}
-            for data in skeleton_data:
-                hand_type = data.get("hand_type", "Unknown")
-                hand_types[hand_type] = hand_types.get(hand_type, 0) + 1
-            logger.info(f"[MediaPipe] Hand types detected: {hand_types}")
-
-        analysis.skeleton_data = skeleton_data
-        analysis.instrument_data = instrument_data if instruments else None
-        analysis.total_frames = total_frames
-        analysis.status = AnalysisStatus.COMPLETED
-        analysis.progress = 100
-
-        from datetime import datetime
-        analysis.completed_at = datetime.now()
-        db.commit()
-
-    except Exception as e:
-        import traceback
-        logger.error(f"[MediaPipe] Processing failed: {e}")
-        logger.error(f"[MediaPipe] Traceback: {traceback.format_exc()}")
-        raise
-
-
-def sync_process_with_mock(
-    analysis: AnalysisResult,
-    instruments: list,
-    db,
-    video_type=None
-):
-    """Synchronous mock processing for testing"""
-    import time
-    import random
-    import uuid
-    from datetime import datetime
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    # Simulate processing steps
-    steps = [
-        ("preprocessing", 5),
-        ("video_info", 10),
-        ("frame_extraction", 30),
-        ("skeleton_detection" if video_type == 'external' else "instrument_detection", 50),
-        ("motion_analysis", 70),
-        ("score_calculation", 85),
-        ("data_saving", 95),
-    ]
-
-    for step_name, progress in steps:
-        analysis.current_step = step_name
-        analysis.progress = progress
-        db.commit()
-        time.sleep(0.5)  # Simulate processing time
-
-    # Generate mock data
-    mock_skeleton_data = [
-        {
-            "frame": i,
-            "timestamp": i * 0.033,
-            "hands": [
-                {
-                    "hand": "right",
-                    "landmarks": [[random.random(), random.random(), random.random()] for _ in range(21)],
-                    "confidence": random.uniform(0.8, 1.0)
-                }
-            ]
-        } for i in range(10)
-    ]
-
-    mock_scores = {
-        "speed_score": random.uniform(70, 95),
-        "smoothness_score": random.uniform(70, 95),
-        "stability_score": random.uniform(70, 95),
-        "efficiency_score": random.uniform(70, 95),
-        "overall": random.uniform(75, 90)
-    }
-
-    # Update analysis with mock results
-    analysis.skeleton_data = mock_skeleton_data
-    analysis.scores = mock_scores
-    analysis.avg_velocity = random.uniform(50, 150)
-    analysis.max_velocity = random.uniform(200, 400)
-    analysis.total_distance = random.uniform(500, 2000)
-    analysis.total_frames = 300
-    analysis.status = AnalysisStatus.COMPLETED
-    analysis.progress = 100
-    analysis.completed_at = datetime.now()
-    db.commit()
-
-    logger.info(f"[MOCK] Analysis {analysis.id} completed successfully")
-
-async def process_with_mock(
-    analysis: AnalysisResult,
-    instruments: list,
-    db,
-    video_type: str = None
-):
-    """Fallback mock processing"""
-    import asyncio
-    import random
-    import math
-    import logging
-
-    logger = logging.getLogger(__name__)
-    logger.info(f"[MOCK] Starting mock processing for video_type: {video_type}")
-
-    # Simulate progress
-    for progress in range(0, 101, 5):
-        await asyncio.sleep(1)
-        analysis.progress = progress
-
-        if progress < 25:
-            analysis.current_step = "Loading video"
-        elif progress < 50:
-            analysis.current_step = "Skeleton detection"
-        elif progress < 75:
-            analysis.current_step = "Instrument tracking"
-        else:
-            analysis.current_step = "Data generation"
-
-        db.commit()
-
-    # Mock data
-    analysis.status = AnalysisStatus.COMPLETED
-    analysis.avg_velocity = random.uniform(10, 20)
-    analysis.max_velocity = random.uniform(30, 50)
-    analysis.total_distance = random.uniform(1000, 2000)
-    analysis.total_frames = random.randint(2000, 4000)
-    from datetime import datetime
-    analysis.completed_at = datetime.now()
-
-    # Mock skeleton_data (MediaPipe hand landmarks format)
-    # Generate 100 frames of hand skeleton data
-    analysis.skeleton_data = []
-    for i in range(100):
-        landmarks = {}
-        # Generate 21 hand landmarks (MediaPipe hand model)
-        # Center position for the hand (moves in a circular pattern)
-        center_x = 0.5 + 0.2 * math.sin(i * 0.05)
-        center_y = 0.5 + 0.2 * math.cos(i * 0.05)
-
-        # Define relative positions for hand landmarks (simplified hand structure)
-        hand_structure = [
-            (0, 0),      # 0: Wrist
-            (-0.02, -0.04), # 1: Thumb CMC
-            (-0.03, -0.08), # 2: Thumb MCP
-            (-0.04, -0.12), # 3: Thumb IP
-            (-0.05, -0.15), # 4: Thumb Tip
-            (0, -0.05),   # 5: Index MCP
-            (0, -0.10),   # 6: Index PIP
-            (0, -0.14),   # 7: Index DIP
-            (0, -0.17),   # 8: Index Tip
-            (0.02, -0.05),  # 9: Middle MCP
-            (0.02, -0.10),  # 10: Middle PIP
-            (0.02, -0.14),  # 11: Middle DIP
-            (0.02, -0.17),  # 12: Middle Tip
-            (0.04, -0.05),  # 13: Ring MCP
-            (0.04, -0.10),  # 14: Ring PIP
-            (0.04, -0.14),  # 15: Ring DIP
-            (0.04, -0.17),  # 16: Ring Tip
-            (0.06, -0.05),  # 17: Pinky MCP
-            (0.06, -0.09),  # 18: Pinky PIP
-            (0.06, -0.13),  # 19: Pinky DIP
-            (0.06, -0.16),  # 20: Pinky Tip
-        ]
-
-        for j, (offset_x, offset_y) in enumerate(hand_structure):
-            landmarks[f"point_{j}"] = {
-                "x": max(0.1, min(0.9, center_x + offset_x + random.uniform(-0.005, 0.005))),
-                "y": max(0.1, min(0.9, center_y + offset_y + random.uniform(-0.005, 0.005))),
-                "z": random.uniform(-0.05, 0.05)
-            }
-
-        analysis.skeleton_data.append({
-            "frame_number": i,
-            "timestamp": i * 0.033,  # ~30fps
-            "landmarks": landmarks
-        })
-
-    # Mock instrument_data (YOLO-style detection format)
-    # Only generate if instruments are registered AND video_type is internal
-    if instruments and video_type == 'internal':
-        logger.info(f"[MOCK] Generating instrument data for {len(instruments)} instruments")
-        analysis.instrument_data = []
-        # Use registered instrument names
-        instrument_names = [inst.get("name", "Unknown") for inst in instruments] if instruments else []
-        if not instrument_names:
-            instrument_names = ["Forceps", "Scissors", "Needle Holder"]
-
-        for i in range(100):
-            detections = []
-
-            # Simulate 1-2 instruments detected
-            num_instruments = min(len(instrument_names), random.randint(1, 2))
-            for inst_id in range(num_instruments):
-                # Create moving bounding box
-                center_x = 0.4 + 0.2 * math.sin(i * 0.05 + inst_id * math.pi)
-                center_y = 0.5 + 0.1 * math.cos(i * 0.05 + inst_id * math.pi)
-                width = 0.1 + random.uniform(-0.02, 0.02)
-                height = 0.15 + random.uniform(-0.02, 0.02)
-
-                detections.append({
-                    "bbox": [
-                        max(0, (center_x - width/2) * 640),  # x1
-                        max(0, (center_y - height/2) * 480),  # y1
-                        min(640, (center_x + width/2) * 640),  # x2
-                        min(480, (center_y + height/2) * 480)   # y2
-                    ],
-                    "confidence": 0.85 + random.uniform(-0.1, 0.1),
-                    "class_name": instrument_names[inst_id % len(instrument_names)],
-                    "track_id": inst_id
-                })
-
-            analysis.instrument_data.append({
-                "frame_number": i,
-                "timestamp": i * 0.033,  # ~30fps
-                "detections": detections
-            })
-    else:
-        # No instruments registered or external camera, no detection data
-        logger.info(f"[MOCK] No instrument data (video_type={video_type}, instruments={len(instruments) if instruments else 0})")
-        analysis.instrument_data = None
-
-    # Mock coordinate data (for backward compatibility)
-    analysis.coordinate_data = {
-            "frames": [
-                {
-                    "frame_number": i,
-                    "timestamp": i * 0.2,
-                    "left_hand": {"x": random.random(), "y": random.random()},
-                    "right_hand": {"x": random.random(), "y": random.random()}
-                }
-                for i in range(10)
-            ]
-        }
-
-    # Mock velocity data
-    analysis.velocity_data = {
-            "average": random.uniform(10, 20),
-            "max": random.uniform(30, 50),
-            "data": [random.uniform(5, 25) for _ in range(10)]
-        }
-
-    # Mock angle data
-    analysis.angle_data = {
-            "frames": [
-                {
-                    "frame_number": i,
-                    "angles": {
-                        "thumb": random.uniform(0, 180),
-                        "index": random.uniform(0, 180),
-                        "middle": random.uniform(0, 180),
-                        "ring": random.uniform(0, 180),
-                        "pinky": random.uniform(0, 180)
-                    }
-                }
-                for i in range(10)
-            ]
-        }
-
-    db.commit()
 
 
 @router.get(

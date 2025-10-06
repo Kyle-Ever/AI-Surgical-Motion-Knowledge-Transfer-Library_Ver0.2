@@ -60,5 +60,10 @@ class AnalysisResultResponse(BaseModel):
     completed_at: Optional[datetime] = None  # Add completed_at
     video: Optional[Dict[str, Any]] = None  # Add video details
 
+    # Phase 2.1で追加されたフィールド
+    tracking_stats: Optional[Dict[str, Any]] = None  # トラッキング統計情報
+    last_error_frame: Optional[int] = None  # 最後のエラーフレーム
+    warnings: Optional[List[Dict[str, Any]]] = None  # 警告メッセージリスト
+
     class Config:
         from_attributes = True

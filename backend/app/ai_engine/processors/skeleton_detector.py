@@ -28,14 +28,13 @@ class HandSkeletonDetector:
     }
     
     def __init__(self,
-                 static_image_mode: bool = False,  # Use tracking mode like reference code
+                 static_image_mode: bool = False,
                  max_num_hands: int = 2,
                  min_detection_confidence: float = 0.5,
                  min_tracking_confidence: float = 0.5,
-                 flip_handedness: bool = False,
-                 enable_glove_detection: bool = False):
+                 flip_handedness: bool = False):
         """
-        初期化
+        初期化 - 純粋なMediaPipe実装
 
         Args:
             static_image_mode: 静止画モード（Trueで各フレーム完全検出、両手検出に推奨）
@@ -43,19 +42,13 @@ class HandSkeletonDetector:
             min_detection_confidence: 検出の最小信頼度
             min_tracking_confidence: トラッキングの最小信頼度
             flip_handedness: 手の左右を反転するか（外部カメラの場合True）
-            enable_glove_detection: 手袋検出モードを有効にするか
         """
         self.mp_hands = mp.solutions.hands
         self.mp_drawing = mp.solutions.drawing_utils
         self.flip_handedness = flip_handedness
         self.max_num_hands = max_num_hands
-        self.enable_glove_detection = enable_glove_detection
 
-        # 手袋検出モードの場合は低い閾値を使用
-        if enable_glove_detection:
-            min_detection_confidence = min(min_detection_confidence, 0.2)
-            min_tracking_confidence = min(min_tracking_confidence, 0.2)
-
+        # 純粋なMediaPipe Hands初期化
         self.hands = self.mp_hands.Hands(
             static_image_mode=static_image_mode,
             max_num_hands=max_num_hands,
@@ -83,9 +76,62 @@ class HandSkeletonDetector:
 
         logger.info("HandSkeletonDetector initialized with MediaPipe")
     
+    def _normalize_landmarks(self, landmarks):
+        """
+        landmarksを常に辞書のリストに正規化
+
+        Args:
+            landmarks: numpy配列、リスト、または辞書のリスト
+
+        Returns:
+            正規化された辞書のリスト
+        """
+        if landmarks is None:
+            return []
+
+        # numpy配列の場合
+        if isinstance(landmarks, np.ndarray):
+            logger.debug(f"Converting numpy array landmarks with shape {landmarks.shape}")
+            normalized = []
+            for i in range(len(landmarks)):
+                if len(landmarks[i]) >= 2:
+                    normalized.append({
+                        "x": float(landmarks[i][0]),
+                        "y": float(landmarks[i][1]),
+                        "z": float(landmarks[i][2]) if len(landmarks[i]) > 2 else 0.0,
+                        "visibility": float(landmarks[i][3]) if len(landmarks[i]) > 3 else 1.0
+                    })
+            return normalized
+
+        # リストの場合
+        if isinstance(landmarks, list):
+            if len(landmarks) == 0:
+                return []
+
+            # 最初の要素をチェック
+            if isinstance(landmarks[0], dict):
+                # 既に正しい形式
+                return landmarks
+            elif isinstance(landmarks[0], (list, tuple, np.ndarray)):
+                # リストのリストまたはタプルのリスト
+                logger.debug("Converting list of arrays/tuples to dict format")
+                normalized = []
+                for point in landmarks:
+                    if len(point) >= 2:
+                        normalized.append({
+                            "x": float(point[0]),
+                            "y": float(point[1]),
+                            "z": float(point[2]) if len(point) > 2 else 0.0,
+                            "visibility": float(point[3]) if len(point) > 3 else 1.0
+                        })
+                return normalized
+
+        logger.warning(f"Unexpected landmarks format: {type(landmarks)}")
+        return landmarks if isinstance(landmarks, list) else []
+
     def detect_from_frame(self, frame: np.ndarray) -> Dict[str, Any]:
         """
-        フレームから手の骨格を検出
+        フレームから手の骨格を検出 - 純粋なMediaPipe実装
 
         Args:
             frame: 入力画像フレーム (BGR)
@@ -93,14 +139,10 @@ class HandSkeletonDetector:
         Returns:
             検出結果の辞書
         """
-        # 手袋検出モードの場合は前処理を適用
-        if self.enable_glove_detection:
-            processed_frame = self._preprocess_for_gloves(frame)
-            rgb_frame = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
-        else:
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # BGR to RGB変換のみ（前処理なし）
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # まず通常の検出を試みる
+        # MediaPipeで検出
         results = self.hands.process(rgb_frame)
 
         detection_result = {
@@ -123,92 +165,39 @@ class HandSkeletonDetector:
                     frame.shape,
                     hand_idx
                 )
+                # landmarksを正規化
+                if "landmarks" in hand_data:
+                    hand_data["landmarks"] = self._normalize_landmarks(hand_data["landmarks"])
                 detection_result["hands"].append(hand_data)
 
         # 両手検出モードで1つしか検出されなかった場合、分割処理を試みる
         if self.max_num_hands == 2 and len(detection_result["hands"]) < 2 and self.hands_left and self.hands_right:
             detection_result["hands"] = self._detect_both_hands_split(frame, rgb_frame, detection_result["hands"])
 
+        # デバッグログ（最初のフレームのみ詳細出力）
+        if hasattr(self, '_debug_logged'):
+            pass  # 既にログ出力済み
+        else:
+            self._debug_logged = True
+            logger.info("=== SKELETON DETECTOR OUTPUT DEBUG ===")
+            logger.info(f"Result type: {type(detection_result)}")
+            logger.info(f"Number of hands: {len(detection_result.get('hands', []))}")
+            if detection_result.get('hands'):
+                first_hand = detection_result['hands'][0]
+                logger.info(f"First hand keys: {list(first_hand.keys())}")
+                if 'landmarks' in first_hand:
+                    lm = first_hand['landmarks']
+                    logger.info(f"Landmarks type: {type(lm)}")
+                    if isinstance(lm, list) and len(lm) > 0:
+                        logger.info(f"First landmark type: {type(lm[0])}")
+                        if isinstance(lm[0], dict):
+                            logger.info(f"First landmark keys: {list(lm[0].keys())}")
+
+        # 🔴 CRITICAL FIX: detectedキーを追加（analysis_service_v2が依存）
+        detection_result['detected'] = len(detection_result.get('hands', [])) > 0
+
         return detection_result
 
-    def _preprocess_for_gloves(self, frame: np.ndarray) -> np.ndarray:
-        """手袋検出用の前処理（青・白両対応）"""
-        # 複数の前処理手法を組み合わせる
-
-        # 方法1: 青い手袋と白い手袋を肌色に変換
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-        # 青色の範囲を拡張（手術用手袋の幅広い青色に対応）
-        # 明るい青から濃い青まで広範囲をカバー
-        lower_blue1 = np.array([70, 20, 20])   # より明るい青も検出
-        upper_blue1 = np.array([140, 255, 255]) # より広い範囲
-
-        lower_blue2 = np.array([85, 40, 40])   # 中間の青
-        upper_blue2 = np.array([125, 255, 255])
-
-        # 白色の範囲（白い手袋用）
-        # 彩度が低く、明度が高い範囲
-        lower_white1 = np.array([0, 0, 200])    # H=任意, S=0-30, V=200-255
-        upper_white1 = np.array([180, 30, 255])
-
-        # より広い白色範囲（薄い色も含む）
-        lower_white2 = np.array([0, 0, 180])    # やや暗めの白も含む
-        upper_white2 = np.array([180, 50, 255])
-
-        # 複数のマスクを作成
-        blue_mask1 = cv2.inRange(hsv, lower_blue1, upper_blue1)
-        blue_mask2 = cv2.inRange(hsv, lower_blue2, upper_blue2)
-        white_mask1 = cv2.inRange(hsv, lower_white1, upper_white1)
-        white_mask2 = cv2.inRange(hsv, lower_white2, upper_white2)
-
-        # すべてのマスクを結合
-        blue_mask = cv2.bitwise_or(blue_mask1, blue_mask2)
-        white_mask = cv2.bitwise_or(white_mask1, white_mask2)
-        glove_mask = cv2.bitwise_or(blue_mask, white_mask)
-
-        # ノイズ除去と領域拡張
-        kernel = np.ones((7, 7), np.uint8)
-        glove_mask = cv2.morphologyEx(glove_mask, cv2.MORPH_CLOSE, kernel)
-        glove_mask = cv2.dilate(glove_mask, kernel, iterations=1)
-
-        # 手袋領域をより自然な肌色に変換（明度を考慮）
-        result = frame.copy()
-        if np.any(glove_mask > 0):
-            # 元の明度を保持しながら色相・彩度を調整
-            glove_pixels = frame[glove_mask > 0]
-            # 各ピクセルの明度を保持
-            brightness = np.mean(glove_pixels, axis=1, keepdims=True)
-            # 肌色のベース（明度に応じて調整）
-            skin_base = np.array([180, 150, 120])  # BGR
-            skin_color = skin_base * (brightness / 255.0)
-            skin_color = np.clip(skin_color, 0, 255).astype(np.uint8)
-            result[glove_mask > 0] = skin_color.reshape(-1, 3)
-
-        # 方法2: CLAHE適用でコントラスト改善
-        # LAB色空間でCLAHE適用
-        lab = cv2.cvtColor(result, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
-        l = clahe.apply(l)
-        result = cv2.merge([l, a, b])
-        result = cv2.cvtColor(result, cv2.COLOR_LAB2BGR)
-
-        # 方法3: ガンマ補正で明るさ調整
-        gamma = 1.1  # より控えめなガンマ値
-        invGamma = 1.0 / gamma
-        table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
-        result = cv2.LUT(result, table)
-
-        # エッジ強調
-        kernel_sharpen = np.array([[-1,-1,-1],
-                                   [-1, 9,-1],
-                                   [-1,-1,-1]])
-        sharpened = cv2.filter2D(result, -1, kernel_sharpen)
-
-        # オリジナルとブレンド
-        result = cv2.addWeighted(result, 0.7, sharpened, 0.3, 0)
-
-        return result
 
     def _detect_both_hands_split(self, frame: np.ndarray, rgb_frame: np.ndarray, initial_hands: List[Dict]) -> List[Dict]:
         """
@@ -553,7 +542,24 @@ class HandSkeletonDetector:
                          (0, 255, 0), 2)
         
         return annotated_frame
-    
+
+    def detect_batch(self, frames: List[np.ndarray]) -> List[Dict[str, Any]]:
+        """
+        複数フレームに対してバッチ検出を実行
+
+        Args:
+            frames: フレームのリスト
+
+        Returns:
+            検出結果のリスト
+        """
+        results = []
+        for idx, frame in enumerate(frames):
+            result = self.detect_from_frame(frame)
+            result['frame_index'] = idx  # フレームインデックスを追加
+            results.append(result)
+        return results
+
     def __del__(self):
         """クリーンアップ"""
         if hasattr(self, 'hands'):
