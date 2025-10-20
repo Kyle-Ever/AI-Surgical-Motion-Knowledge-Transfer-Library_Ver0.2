@@ -194,7 +194,7 @@ export default function HomePage() {
     <div className="page-container">
       <section className="page-header">
         <span className="badge">ダッシュボード</span>
-        <h1 data-testid="home-title">AI手技モーション伝承ライブラリ</h1>
+        <h1 data-testid="home-title">MindモーションAI</h1>
         <p className="page-header__description" data-testid="home-description">
           医療現場に合わせたブルー基調のデザインで、解析状況と学習フローを直感的に把握できます。
         </p>

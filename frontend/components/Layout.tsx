@@ -20,10 +20,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header__inner">
-          <div className="app-brand" aria-label="AI手技モーション伝承ライブラリ">
+          <div className="app-brand" aria-label="MindモーションAI">
             <span className="app-brand__symbol">AI</span>
             <div className="app-brand__copy">
-              <span className="app-brand__title">AI手技モーション伝承ライブラリ</span>
+              <span className="app-brand__title">MindモーションAI</span>
               <span className="app-brand__subtitle">Surgical Motion Intelligence Hub</span>
             </div>
           </div>

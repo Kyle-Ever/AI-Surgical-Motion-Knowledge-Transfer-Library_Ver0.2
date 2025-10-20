@@ -203,9 +203,9 @@ export function useAnalysisWebSocket(analysisId: string | null) {
   const [currentStep, setCurrentStep] = useState<string>('')
   const [message, setMessage] = useState<string>('')
 
-  // Use backend URL (port 8000) for WebSocket
+  // Use backend URL (port 8001) for WebSocket
   const wsUrl = analysisId
-    ? `ws://localhost:8000/ws/analysis/${analysisId}`
+    ? `${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8001'}/ws/analysis/${analysisId}`
     : null
 
   const { isConnected, lastMessage, error } = useWebSocket(wsUrl, {

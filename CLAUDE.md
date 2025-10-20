@@ -57,53 +57,64 @@ This project uses the SuperClaude framework for enhanced AI capabilities.
 ### Python 3.11 MANDATORY
 **MUST use Python 3.11** - Python 3.12+ breaks MediaPipe/OpenCV compatibility
 - **DO NOT use Python 3.13**: Completely incompatible with MediaPipe/OpenCV
-- Virtual environment: `backend\venv311\`
+- Virtual environment: `backend_experimental\venv311\`
 - Always use: `./venv311/Scripts/python.exe` for backend operations
 - Check version: `./venv311/Scripts/python.exe --version` should show 3.11.x
-- If venv311 doesn't exist: Run `start_backend_py311.bat` to auto-create with Python 3.11
+- If venv311 doesn't exist: Run `start_backend_experimental.bat` to auto-create with Python 3.11
 - Required Python 3.11 installation path: `C:\Users\ajksk\AppData\Local\Programs\Python\Python311`
 
 ### CORS Configuration (Development)
 **🚨 CRITICAL: Upload feature requires these settings to work**
-- **Backend**: `allow_origins=["*"]` in `backend/app/main.py` (line 96)
+- **Backend**: `allow_origins=["*"]` in `backend_experimental/app/main.py`
   - This is ALREADY configured correctly in the current codebase
   - DO NOT change this setting unless deploying to production
-- **Frontend**: `.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1`
-- **Backend** `.env`: `BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","http://localhost:8000"]`
+- **Frontend**: `.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:8001/api/v1`
+- **Backend** `.env`: `BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","http://localhost:8001"]`
 - **Common Issue**: If uploads fail with CORS errors, verify these settings first
 
 ### Environment Variables
-**Backend (.env)**
+**Backend Experimental (.env)**
 ```
 DATABASE_URL=sqlite:///./aimotion.db
 UPLOAD_DIR=data/uploads
 MAX_UPLOAD_SIZE=1073741824  # 1GB in bytes
-BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","http://localhost:8000"]
+BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","http://localhost:8001"]
+PORT=8001  # Experimental backend port
+FRAME_EXTRACTION_FPS=15  # Target FPS for frame extraction
+USE_SAM2_VIDEO_API=true  # Enable SAM2 Video API
 ```
 
 **Frontend (.env.local)**
 ```
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-NEXT_PUBLIC_WS_URL=ws://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:8001/api/v1
+NEXT_PUBLIC_WS_URL=ws://localhost:8001
 ```
 
 ## Commands
 
 ### Quick Start
+**📖 詳細は [START_HERE.md](START_HERE.md) を参照**
+
 ```bash
-# Both servers (recommended) - Windows
-start_both.bat      # Kills existing processes, starts both servers
+# 🟢 推奨: フロントエンド + Experimentalバックエンド (Port 3000 + 8001)
+start_both_experimental.bat
 
-# Backend only - Windows
-start_backend_py311.bat  # Auto-creates venv311, installs deps, starts server
-# OR manually:
-cd backend && ./venv311/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
+# 🔵 Experimentalバックエンドのみ (Port 8001)
+start_backend_experimental.bat
 
-# Frontend only
+# 🔴 全サーバー停止（トラブル時）
+kill_all_servers.bat
+
+# Frontend only (手動起動が必要な場合)
 cd frontend
 npm install         # First time only
-npm run dev         # Start development server
+npm run dev         # Start development server (Port 3000)
 ```
+
+**重要:**
+- Experimentalバックエンド (Port 8001) を使用
+- 旧バックエンド (Port 8000) は非推奨
+- Python 3.11必須（`backend_experimental/venv311/`）
 
 ### Testing
 ```bash
@@ -123,18 +134,18 @@ npm run lint              # ESLint check
 npm run build            # Full build with type check
 npx tsc --noEmit         # TypeScript check only
 
-# Backend API tests
-cd backend
+# Backend API tests (Experimental)
+cd backend_experimental
 ./venv311/Scripts/python.exe test_api.py           # Basic API functionality
-./venv311/Scripts/python.exe test_mediapipe_integration.py  # MediaPipe detection
-./venv311/Scripts/python.exe tests/test_integration.py      # Full integration
-./venv311/Scripts/python.exe test_analysis_direct.py        # Analysis pipeline
-./venv311/Scripts/python.exe test_sam_direct.py             # SAM tracker
+./venv311/Scripts/python.exe tests/unit/test_frame_extraction_service.py  # Frame extraction
+./venv311/Scripts/python.exe tests/integration/test_analysis_pipeline_25fps.py  # 25fps pipeline
 
 # Database operations
 ./venv311/Scripts/python.exe check_db.py           # View database contents
 ./venv311/Scripts/python.exe check_analysis_data.py # Check analysis results
+./venv311/Scripts/python.exe verify_fix.py         # Verify latest analysis data structure
 sqlite3 aimotion.db ".tables"                      # Direct SQLite access
+sqlite3 aimotion.db "SELECT id, status, created_at FROM analyses ORDER BY created_at DESC LIMIT 5;"  # Recent analyses
 ```
 
 ## High-Level Architecture
@@ -228,10 +239,11 @@ const useVideoStore = create((set) => ({
 - **HTTP Client**: Axios v1.11.0
 
 ### Infrastructure
-- **Ports**: Backend 8000, Frontend 3000
+- **Ports**: Backend 8001 (Experimental), Frontend 3000
 - **File Limits**: 1GB max upload, .mp4 format only
 - **WebSocket**: Real-time progress updates during analysis
 - **Testing**: Playwright v1.55.0 (expects Japanese UI text)
+- **Note**: Legacy backend (Port 8000) is deprecated
 
 ## Git Commit Guidelines
 **Large File Exclusion**
@@ -246,12 +258,15 @@ const useVideoStore = create((set) => ({
 ```bash
 # Find processes on ports
 netstat -ano | findstr :3000    # Frontend
-netstat -ano | findstr :8000    # Backend
+netstat -ano | findstr :8001    # Experimental Backend
 
 # Kill specific process
 taskkill /PID <process_id> /F
 
-# Kill all Node.js/Python
+# Kill all servers (recommended)
+kill_all_servers.bat
+
+# Kill all Node.js/Python (use with caution)
 taskkill /F /IM node.exe
 taskkill /F /IM python.exe
 
@@ -263,10 +278,10 @@ npm run dev
 ### Common Errors
 | エラー | 解決方法 |
 |--------|----------|
-| CORS error | Backend: `allow_origins=["*"]` in `app/main.py` line 96 |
-| Import errors | Use `./venv311/Scripts/python.exe` |
-| WebSocket disconnects | Run `start_both.bat` to restart both servers |
-| WebSocket connection refused | Backend not running or port 8000 blocked |
+| CORS error | Backend: `allow_origins=["*"]` in `backend_experimental/app/main.py` |
+| Import errors | Use `./venv311/Scripts/python.exe` in `backend_experimental/` |
+| WebSocket disconnects | Run `start_both_experimental.bat` to restart both servers |
+| WebSocket connection refused | Backend not running or port 8001 blocked |
 | Upload failures | 1GB max, .mp4 only |
 | MediaPipe errors | Switch to Python 3.11 (NOT 3.12 or 3.13) |
 | Button not clickable | Must be `<button>`, not `<span>` |
@@ -278,19 +293,87 @@ npm run dev
 - Video player: Must be `<video>` element
 - Test after changes: `npx playwright test button-regression.spec.ts`
 
+### 🔬 Debugging Protocol (MANDATORY)
+**全てのトラブルシューティングで以下3つの質問に回答すること**
+
+詳細: [docs/DEBUGGING_PROTOCOL.md](docs/DEBUGGING_PROTOCOL.md)
+
+#### 必須回答項目
+1. **今のところ修正してもほかの部分には影響ないか？**
+   - 修正範囲の明確化
+   - 依存関係の確認
+   - 副作用の評価
+
+2. **なんでこういう作りになっているのか？**
+   - 設計意図の調査
+   - Git履歴の確認
+   - コメントやドキュメントの参照
+
+3. **この部分にも問題を起こしていそうな場所はないか？徹底的に検証して**
+   - 類似パターンの検索
+   - 同じロジックの他の箇所
+   - 同じ開発者の他のコード
+
+#### 調査テンプレート
+```markdown
+## 問題概要
+[問題の簡潔な説明]
+
+## 影響分析（質問1）
+### 修正範囲
+- 変更ファイル: [file:line]
+- 変更内容: [具体的な変更]
+
+### 依存関係
+- 呼び出し元: [関数/クラス]
+- 呼び出し先: [関数/クラス]
+- データフロー: [入力 → 処理 → 出力]
+
+### 副作用評価
+- [ ] 他の機能への影響なし
+- [ ] テストカバレッジ確認
+- [ ] E2Eテストで検証
+
+## 背景調査（質問2）
+### 設計意図
+- コメント: [該当箇所のコメント]
+- Git履歴: [commit hash, author, date]
+- 関連Issue/PR: [リンク]
+
+### なぜこの実装？
+[推測される理由]
+
+## 類似問題検証（質問3）
+### 検索パターン
+```bash
+# 同じパターンを検索
+grep -r "similar_pattern" backend/
+```
+
+### 発見した類似箇所
+- [file:line] - [説明]
+- [file:line] - [説明]
+
+### 修正必要箇所
+- [ ] [file:line] - [理由]
+- [ ] [file:line] - [理由]
+```
+
 ## Debug Commands
 ```bash
 # Process check
 netstat -ano | findstr :3000
+netstat -ano | findstr :8001
 tasklist | findstr node
+tasklist | findstr python
 
 # Database check
-cd backend
+cd backend_experimental
 sqlite3 aimotion.db "SELECT * FROM videos;"
 sqlite3 aimotion.db "SELECT * FROM analyses WHERE status='failed';"
 
 # API health
-curl http://localhost:8000/api/v1/health
+curl http://localhost:8001/api/v1/health
 ```
 
 ## Project-Specific Notes
@@ -307,6 +390,18 @@ Analyzes surgical procedure videos to:
 - **external_with_instruments/internal**: Instrument tracking (YOLOv8 + SAM)
 - White surgical gloves require enhanced detection
 
+### AI Processing Pipeline Architecture
+**Key Services Interaction**:
+1. `AnalysisService._run_skeleton_detection()` → calls `SkeletonDetector.detect_batch()`
+2. `SkeletonDetector.detect_batch()` → returns list of detection results with `frame_index`
+3. `AnalysisService._format_skeleton_data()` → transforms raw results to frontend format
+4. **Critical**: Each result MUST contain `frame_index` field (Fail Fast validation enforced)
+
+**Data Flow**:
+```
+Video Upload → Frame Extraction → Batch Detection → Format Conversion → Database Storage → WebSocket Broadcast → Frontend Display
+```
+
 ### Required Model Files (Auto-downloaded if missing)
 - `backend/yolov8n.pt`: Instrument detection (~6MB)
 - `backend/yolov8n-pose.pt`: Pose model (~6MB)
@@ -314,7 +409,7 @@ Analyzes surgical procedure videos to:
 
 ### File Structure
 ```
-backend/
+backend_experimental/   # CURRENT: Experimental backend (Port 8001)
   app/
     api/routes/         # API endpoint handlers
     ai_engine/          # AI processing (MediaPipe, YOLOv8, SAM)
@@ -467,17 +562,17 @@ expect(data.skeleton_data[0].hands.length).toBeLessThan(5)
 
 2. **リロードが検知されない場合**:
 ```bash
-# 専用スクリプトで明示的に再起動
-./restart_backend.bat
+# バックエンドを停止（Ctrl+C）して再起動
+start_backend_experimental.bat
 ```
 
 3. **再起動後の検証**:
 ```bash
 # verify_fix.py で最新データをチェック
-backend/venv311/Scripts/python.exe verify_fix.py
+backend_experimental/venv311/Scripts/python.exe verify_fix.py
 
 # または手動でAPIヘルスチェック
-curl http://localhost:8000/api/v1/health
+curl http://localhost:8001/api/v1/health
 ```
 
 4. **新規解析を実行して検証**:
@@ -502,7 +597,7 @@ curl http://localhost:8000/api/v1/health
 
 | 症状 | 原因 | 解決方法 |
 |------|------|----------|
-| 変更が反映されない | WatchFilesが検知していない | `restart_backend.bat` 実行 |
+| 変更が反映されない | WatchFilesが検知していない | バックエンド停止（Ctrl+C）→ `start_backend_experimental.bat` |
 | "古いコード"が動作 | フロントエンドキャッシュ | `.next` フォルダを削除 |
 | 新データでもバグ再現 | 変更が保存されていない | ファイル保存を確認、エディタをチェック |
 

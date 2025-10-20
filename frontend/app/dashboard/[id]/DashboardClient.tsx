@@ -82,7 +82,8 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
           return
         }
 
-        const response = await fetch(`http://localhost:8000/api/v1/analysis/${analysisId}`)
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+        const response = await fetch(`${apiUrl}/analysis/${analysisId}`)
         if (!response.ok) {
           throw new Error(`解析データの取得に失敗しました: ${response.status}`)
         }
@@ -141,7 +142,8 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
       setSelectedReferenceId(referenceId)
 
       // 比較を実行
-      const response = await fetch('http://localhost:8000/api/v1/scoring/compare', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+      const response = await fetch(`${apiUrl}/scoring/compare`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -205,7 +207,8 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
 
   const handleExport = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/analysis/${analysisId}/export`)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+      const response = await fetch(`${apiUrl}/analysis/${analysisId}/export`)
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
@@ -291,7 +294,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
             解析動画
           </h2>
           <VideoPlayer
-            videoUrl={analysisData?.video_id ? `http://localhost:8000/api/v1/videos/${analysisData.video_id}/stream` : undefined}
+            videoUrl={analysisData?.video_id ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/videos/${analysisData.video_id}/stream` : undefined}
             skeletonData={analysisData?.skeleton_data || []}
             toolData={analysisData?.instrument_data || []}
             videoType={analysisData?.video_type}
@@ -314,6 +317,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
         <MotionAnalysisPanel
           analysisData={analysisData}
           currentVideoTime={currentVideoTime}
+          videoType={analysisData?.video_type}
         />
 
         {/* 2. フィードバック */}

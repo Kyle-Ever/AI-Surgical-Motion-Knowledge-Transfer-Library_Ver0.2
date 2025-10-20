@@ -231,6 +231,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
         <MotionAnalysisPanel
           analysisData={analysisData}
           currentVideoTime={currentVideoTime}
+          videoType={analysisData?.video_type}
         />
 
         {/* 2. フィードバック */}

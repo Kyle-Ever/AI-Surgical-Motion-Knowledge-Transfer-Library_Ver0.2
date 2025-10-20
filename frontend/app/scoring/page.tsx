@@ -52,7 +52,8 @@ export default function ScoringPage() {
         attempts++
 
         try {
-          const statusResponse = await fetch(`http://localhost:8000/api/v1/analysis/${analysisId}/status`)
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
+          const statusResponse = await fetch(`${apiUrl}/analysis/${analysisId}/status`)
           const statusData = await statusResponse.json()
 
           // overall_progress が 100 なら完了

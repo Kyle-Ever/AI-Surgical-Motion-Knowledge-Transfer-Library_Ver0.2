@@ -1,5 +1,5 @@
 ---
-title: PRD-001 AI謇区橿繝｢繝ｼ繧ｷ繝ｧ繝ｳ莨晄価繝ｩ繧､繝悶Λ繝ｪ・医ヰ繝・け繧ｨ繝ｳ繝会ｼ・version: 0.2
+title: PRD-001 AI謇区橿繝｢繝ｼ繧ｷ繝ｧ繝ｳ繝ｩ繧､繝悶Λ繝ｪ・医ヰ繝・け繧ｨ繝ｳ繝会ｼ・version: 0.2
 owner: Product/Tech Lead
 last_updated: 2025-09-13
 ---

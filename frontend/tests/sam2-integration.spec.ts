@@ -33,7 +33,7 @@ test.describe('SAM2統合テスト', () => {
   test('SAM2による動画アップロードと解析', async ({ page }) => {
     // ホームページに移動
     await page.goto(FRONTEND_URL);
-    await expect(page.locator('h1')).toContainText('AI手技モーション伝承ライブラリ');
+    await expect(page.locator('h1')).toContainText('AI手技モーションライブラリ');
 
     // アップロードページに移動
     await page.click('text=動画をアップロード');

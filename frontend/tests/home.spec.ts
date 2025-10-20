@@ -15,7 +15,7 @@ test.describe('Home Page', () => {
 
     // Check main title
     const title = await home.getMainTitle()
-    expect(title).toContain('AI手技モーション伝承ライブラリ')
+    expect(title).toContain('AI手技モーションライブラリ')
 
     // Check navigation cards
     const cardCount = await home.getCardCount()

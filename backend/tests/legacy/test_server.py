@@ -30,7 +30,7 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {
-        "message": "AI手技モーション伝承ライブラリ API (Test Mode)",
+        "message": "AI手技モーションライブラリ API (Test Mode)",
         "version": "0.1.0",
         "status": "running"
     }

@@ -10,7 +10,6 @@ import SyncControlBar from '@/components/scoring/SyncControlBar';
 import ScoreComparison from '@/components/scoring/ScoreComparison';
 import DetailedAnalysis from '@/components/scoring/DetailedAnalysis';
 import AIFeedback from '@/components/scoring/AIFeedback';
-import Trajectory3D from '@/components/scoring/Trajectory3D';
 import { useComparisonResult } from '@/hooks/useScoring';
 
 export default function ComparisonDashboard() {
@@ -25,7 +24,6 @@ export default function ComparisonDashboard() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showSkeleton, setShowSkeleton] = useState(true);
-  const [showTrajectory, setShowTrajectory] = useState(true);
   const [useDTW, setUseDTW] = useState(true);
 
   // APIデータから表示用データを構築
@@ -54,7 +52,7 @@ export default function ComparisonDashboard() {
       performer: result.reference_video?.performer_name || result.reference_model?.surgeon_name || 'Dr. 田中太郎',
       procedure: result.reference_video?.procedure_name || result.reference_model?.surgery_type || '腹腔鏡下胆嚢摘出術',
       date: result.reference_video?.created_at ? new Date(result.reference_video.created_at).toLocaleDateString('ja-JP') : '2024/12/01',
-      videoUrl: referenceVideoId ? `http://localhost:8000/api/v1/videos/${referenceVideoId}/stream` : 'http://localhost:8000/api/v1/videos/stream/sample_reference',
+      videoUrl: referenceVideoId ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/${referenceVideoId}/stream` : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/stream/sample_reference`,
       detectionRate: 98.5,
       fps: 30,
       skeletonData: referenceAnalysis?.skeleton_data || result.reference_analysis?.skeleton_data || []
@@ -64,7 +62,7 @@ export default function ComparisonDashboard() {
       performer: result.evaluation_video?.performer_name || result.learner_analysis?.surgeon_name || '研修医 山田花子',
       procedure: result.evaluation_video?.procedure_name || result.learner_analysis?.surgery_type || '腹腔鏡下胆嚢摘出術',
       date: result.evaluation_video?.created_at ? new Date(result.evaluation_video.created_at).toLocaleDateString('ja-JP') : '2024/12/27',
-      videoUrl: evaluationVideoId ? `http://localhost:8000/api/v1/videos/${evaluationVideoId}/stream` : 'http://localhost:8000/api/v1/videos/stream/sample_evaluation',
+      videoUrl: evaluationVideoId ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/${evaluationVideoId}/stream` : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/stream/sample_evaluation`,
       detectionRate: 95.2,
       fps: 30,
       skeletonData: evaluationAnalysis?.skeleton_data || result.learner_analysis?.skeleton_data || []
@@ -97,18 +95,20 @@ export default function ComparisonDashboard() {
       performer: 'Dr. 田中太郎',
       procedure: '腹腔鏡下胆嚢摘出術',
       date: '2024/12/01',
-      videoUrl: 'http://localhost:8000/api/v1/videos/stream/sample_reference',
+      videoUrl: `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/stream/sample_reference`,
       detectionRate: 98.5,
-      fps: 30
+      fps: 30,
+      skeletonData: []
     },
     evaluation: {
       title: '評価動作（学習者）',
       performer: '研修医 山田花子',
       procedure: '腹腔鏡下胆嚢摘出術',
       date: '2024/12/27',
-      videoUrl: 'http://localhost:8000/api/v1/videos/stream/sample_evaluation',
+      videoUrl: `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/stream/sample_evaluation`,
       detectionRate: 95.2,
-      fps: 30
+      fps: 30,
+      skeletonData: []
     },
     scores: {
       total: { value: 85.3, reference: 92.0, diff: -6.7 },
@@ -199,7 +199,6 @@ export default function ComparisonDashboard() {
           currentTime={currentTime}
           duration={duration}
           showSkeleton={showSkeleton}
-          showTrajectory={showTrajectory}
           onTimeUpdate={setCurrentTime}
           onDurationChange={setDuration}
         />
@@ -213,7 +212,6 @@ export default function ComparisonDashboard() {
           onSpeedChange={handleSpeedChange}
           onDTWToggle={() => setUseDTW(!useDTW)}
           onSkeletonToggle={() => setShowSkeleton(!showSkeleton)}
-          onTrajectoryToggle={() => setShowTrajectory(!showTrajectory)}
         />
 
         {/* スコア比較セクション */}
@@ -233,13 +231,6 @@ export default function ComparisonDashboard() {
         <AIFeedback
           comparisonId={comparisonId}
           onSeek={setCurrentTime}
-        />
-
-        {/* 3D軌跡比較 */}
-        <Trajectory3D
-          comparisonId={comparisonId}
-          showReference={true}
-          showEvaluation={true}
         />
       </main>
 

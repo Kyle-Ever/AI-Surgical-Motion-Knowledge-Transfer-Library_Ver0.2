@@ -1,0 +1,389 @@
+﻿"""蜍慕判隗｣譫舌し繝ｼ繝薙せ"""
+
+import asyncio
+import json
+import cv2
+import numpy as np
+from pathlib import Path
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+import logging
+
+from app.core.websocket import manager
+from app.models import SessionLocal
+from app.models.analysis import AnalysisResult, AnalysisStatus
+from app.ai_engine.processors.skeleton_detector import HandSkeletonDetector
+from app.ai_engine.processors.video_analyzer import VideoAnalyzer
+
+logger = logging.getLogger(__name__)
+
+
+class AnalysisService:
+    """蜍慕判隗｣譫仙・逅・し繝ｼ繝薙せ"""
+    
+    def __init__(self):
+        self.skeleton_detector = None
+        self.current_progress = 0
+        self.analysis_id = None
+        
+    async def process_video(
+        self, 
+        video_id: str,
+        video_path: str, 
+        video_type: str,
+        analysis_id: str
+    ) -> Dict[str, Any]:
+        """
+        蜍慕判繧定ｧ｣譫舌＠縺ｦ繝｢繝ｼ繧ｷ繝ｧ繝ｳ繝・・繧ｿ繧呈歓蜃ｺ
+        
+        Args:
+            video_id: 蜍慕判ID
+            video_path: 蜍慕判繝輔ぃ繧､繝ｫ繝代せ
+            video_type: 蜍慕判繧ｿ繧､繝・(internal/external)
+            analysis_id: 隗｣譫蝕D
+        
+        Returns:
+            隗｣譫千ｵ先棡
+        """
+        self.analysis_id = analysis_id
+        
+        try:
+            # 繧ｹ繝・ャ繝・: 蜍慕判諠・ｱ蜿門ｾ・            await self._update_progress("蜍慕判諠・ｱ繧貞叙蠕嶺ｸｭ...", 10, "preprocessing")
+            video_info = self._get_video_info(video_path)
+            
+            # 繧ｹ繝・ャ繝・: 繝輔Ξ繝ｼ繝謚ｽ蜃ｺ
+            await self._update_progress("繝輔Ξ繝ｼ繝繧呈歓蜃ｺ荳ｭ...", 20, "frame_extraction")
+            frames = await self._extract_frames(video_path, fps=5)
+            
+            # 繧ｹ繝・ャ繝・: 鬪ｨ譬ｼ讀懷・ (螟夜Κ繧ｫ繝｡繝ｩ縺ｮ蝣ｴ蜷医・縺ｿ)
+            skeleton_data = []
+            if video_type == "external":
+                await self._update_progress("謇九・鬪ｨ譬ｼ繧呈､懷・荳ｭ...", 40, "skeleton_detection")
+                skeleton_data = await self._detect_skeleton(frames)
+            
+            # 繧ｹ繝・ャ繝・: 蝎ｨ蜈ｷ讀懷・ (蜀・Κ繧ｫ繝｡繝ｩ縺ｮ蝣ｴ蜷・- 蟆・擂螳溯｣・
+            instrument_data = []
+            if video_type == "internal":
+                await self._update_progress("謇玖｡灘勣蜈ｷ繧呈､懷・荳ｭ...", 40, "instrument_detection")
+                # TODO: YOLO螳溯｣・                instrument_data = self._mock_instrument_detection(len(frames))
+            
+            # 繧ｹ繝・ャ繝・: 繝｢繝ｼ繧ｷ繝ｧ繝ｳ隗｣譫・            await self._update_progress("繝｢繝ｼ繧ｷ繝ｧ繝ｳ繧定ｧ｣譫蝉ｸｭ...", 60, "motion_analysis")
+            motion_analysis = await self._analyze_motion(skeleton_data, instrument_data)
+            
+            # 繧ｹ繝・ャ繝・: 繧ｹ繧ｳ繧｢險育ｮ・            await self._update_progress("繧ｹ繧ｳ繧｢繧定ｨ育ｮ嶺ｸｭ...", 80, "scoring")
+            scores = self._calculate_scores(motion_analysis)
+            
+            # 繧ｹ繝・ャ繝・: 繝・・繧ｿ菫晏ｭ・            await self._update_progress("繝・・繧ｿ繧剃ｿ晏ｭ倅ｸｭ...", 90, "saving")
+            await self._save_results(
+                video_id,
+                analysis_id,
+                video_info,
+                skeleton_data,
+                instrument_data,
+                motion_analysis,
+                scores
+            )
+            
+            # 螳御ｺ・            await self._update_progress("隗｣譫仙ｮ御ｺ・, 100, "completed")
+            
+            return {
+                "video_id": video_id,
+                "analysis_id": analysis_id,
+                "video_info": video_info,
+                "motion_analysis": motion_analysis,
+                "scores": scores,
+                "frame_count": len(frames),
+                "skeleton_detected": len(skeleton_data) > 0,
+                "instrument_detected": len(instrument_data) > 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Analysis failed: {e}")
+            await self._update_progress(f"繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆: {str(e)}", self.current_progress, "failed")
+            raise
+    
+    def _get_video_info(self, video_path: str) -> Dict[str, Any]:
+        """蜍慕判諠・ｱ繧貞叙蠕・""
+        cap = cv2.VideoCapture(video_path)
+        
+        info = {
+            "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            "fps": cap.get(cv2.CAP_PROP_FPS),
+            "frame_count": int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
+            "duration": int(cap.get(cv2.CAP_PROP_FRAME_COUNT) / cap.get(cv2.CAP_PROP_FPS))
+        }
+        
+        cap.release()
+        return info
+    
+    async def _extract_frames(self, video_path: str, fps: int = 5) -> List[Dict[str, Any]]:
+        """蜍慕判縺九ｉ繝輔Ξ繝ｼ繝繧呈歓蜃ｺ"""
+        frames = []
+        cap = cv2.VideoCapture(video_path)
+        
+        original_fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_interval = int(original_fps / fps)
+        frame_count = 0
+        extracted_count = 0
+        
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            if frame_count % frame_interval == 0:
+                frames.append({
+                    "frame_number": extracted_count,
+                    "timestamp": frame_count / original_fps,
+                    "image": frame
+                })
+                extracted_count += 1
+                
+                # 騾ｲ謐玲峩譁ｰ
+                if extracted_count % 10 == 0:
+                    progress = 20 + (extracted_count / (cap.get(cv2.CAP_PROP_FRAME_COUNT) / frame_interval)) * 10
+                    await self._update_progress(
+                        f"繝輔Ξ繝ｼ繝謚ｽ蜃ｺ荳ｭ... ({extracted_count}繝輔Ξ繝ｼ繝)",
+                        min(30, int(progress)),
+                        "frame_extraction"
+                    )
+            
+            frame_count += 1
+        
+        cap.release()
+        logger.info(f"Extracted {len(frames)} frames from video")
+        return frames
+    
+    async def _detect_skeleton(self, frames: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """謇九・鬪ｨ譬ｼ繧呈､懷・"""
+        if self.skeleton_detector is None:
+            self.skeleton_detector = HandSkeletonDetector()
+        
+        skeleton_data = []
+        total_frames = len(frames)
+        
+        for i, frame_data in enumerate(frames):
+            # 鬪ｨ譬ｼ讀懷・
+            detection_result = self.skeleton_detector.detect_from_frame(frame_data["image"])
+            detection_result["frame_number"] = frame_data["frame_number"]
+            detection_result["timestamp"] = frame_data["timestamp"]
+            skeleton_data.append(detection_result)
+            
+            # 騾ｲ謐玲峩譁ｰ
+            if i % 5 == 0:
+                progress = 40 + (i / total_frames) * 20
+                await self._update_progress(
+                    f"鬪ｨ譬ｼ讀懷・荳ｭ... ({i}/{total_frames})",
+                    int(progress),
+                    "skeleton_detection"
+                )
+        
+        logger.info(f"Detected skeleton in {len([d for d in skeleton_data if d['hands']])} frames")
+        return skeleton_data
+    
+    def _mock_instrument_detection(self, frame_count: int) -> List[Dict[str, Any]]:
+        """蝎ｨ蜈ｷ讀懷・縺ｮ繝｢繝・け・亥ｰ・擂YOLO螳溯｣・ｼ・""
+        instrument_data = []
+        
+        for i in range(frame_count):
+            # 繝繝溘・繝・・繧ｿ逕滓・
+            instrument_data.append({
+                "frame_number": i,
+                "instruments": [
+                    {
+                        "type": "forceps",
+                        "confidence": 0.95,
+                        "bbox": [100, 100, 200, 200],
+                        "position": {"x": 150, "y": 150}
+                    }
+                ]
+            })
+        
+        return instrument_data
+    
+    async def _analyze_motion(
+        self, 
+        skeleton_data: List[Dict[str, Any]], 
+        instrument_data: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """繝｢繝ｼ繧ｷ繝ｧ繝ｳ隗｣譫・""
+        analysis = {
+            "smoothness": 0,
+            "speed": 0,
+            "accuracy": 0,
+            "efficiency": 0,
+            "motion_patterns": [],
+            "key_frames": []
+        }
+        
+        if skeleton_data:
+            # 繧ｹ繝繝ｼ繧ｺ繝阪せ險育ｮ・            analysis["smoothness"] = self._calculate_smoothness(skeleton_data)
+            
+            # 繧ｹ繝斐・繝芽ｨ育ｮ・            analysis["speed"] = self._calculate_speed(skeleton_data)
+            
+            # 繧ｭ繝ｼ繝輔Ξ繝ｼ繝讀懷・
+            analysis["key_frames"] = self._detect_key_frames(skeleton_data)
+        
+        if instrument_data:
+            # 邊ｾ蠎ｦ險育ｮ暦ｼ亥勣蜈ｷ縺ｮ蜍輔″縺九ｉ・・            analysis["accuracy"] = 85  # 繝繝溘・蛟､
+            
+            # 蜉ｹ邇・ｨ育ｮ・            analysis["efficiency"] = 90  # 繝繝溘・蛟､
+        
+        return analysis
+    
+    def _calculate_smoothness(self, skeleton_data: List[Dict[str, Any]]) -> float:
+        """蜍輔″縺ｮ繧ｹ繝繝ｼ繧ｺ繝阪せ繧定ｨ育ｮ・""
+        if len(skeleton_data) < 2:
+            return 0
+        
+        # 謇矩ｦ悶・菴咲ｽｮ螟牙喧縺九ｉ險育ｮ・        velocities = []
+        for i in range(1, len(skeleton_data)):
+            if skeleton_data[i]["hands"] and skeleton_data[i-1]["hands"]:
+                curr = skeleton_data[i]["hands"][0]["landmarks"][0]  # 謇矩ｦ・                prev = skeleton_data[i-1]["hands"][0]["landmarks"][0]
+                
+                dx = curr["x"] - prev["x"]
+                dy = curr["y"] - prev["y"]
+                velocity = np.sqrt(dx**2 + dy**2)
+                velocities.append(velocity)
+        
+        if velocities:
+            # 騾溷ｺｦ縺ｮ螟牙虚菫よ焚縺九ｉ險育ｮ・            std = np.std(velocities)
+            mean = np.mean(velocities)
+            if mean > 0:
+                cv = std / mean
+                smoothness = max(0, min(100, 100 * (1 - cv)))
+                return smoothness
+        
+        return 75  # 繝・ヵ繧ｩ繝ｫ繝亥､
+    
+    def _calculate_speed(self, skeleton_data: List[Dict[str, Any]]) -> float:
+        """蜍穂ｽ憺溷ｺｦ繧定ｨ育ｮ・""
+        if len(skeleton_data) < 2:
+            return 0
+        
+        total_distance = 0
+        valid_frames = 0
+        
+        for i in range(1, len(skeleton_data)):
+            if skeleton_data[i]["hands"] and skeleton_data[i-1]["hands"]:
+                curr = skeleton_data[i]["hands"][0]["landmarks"][0]  # 謇矩ｦ・                prev = skeleton_data[i-1]["hands"][0]["landmarks"][0]
+                
+                dx = curr["x"] - prev["x"]
+                dy = curr["y"] - prev["y"]
+                distance = np.sqrt(dx**2 + dy**2)
+                total_distance += distance
+                valid_frames += 1
+        
+        if valid_frames > 0:
+            avg_distance = total_distance / valid_frames
+            # 霍晞屬繧・-100縺ｮ繧ｹ繧ｳ繧｢縺ｫ螟画鋤
+            speed_score = min(100, avg_distance * 1000)
+            return speed_score
+        
+        return 50  # 繝・ヵ繧ｩ繝ｫ繝亥､
+    
+    def _detect_key_frames(self, skeleton_data: List[Dict[str, Any]]) -> List[int]:
+        """驥崎ｦ√↑繝輔Ξ繝ｼ繝繧呈､懷・"""
+        key_frames = []
+        
+        for i, data in enumerate(skeleton_data):
+            if data.get("hands"):
+                # 謖・・譖ｲ縺後ｊ縺悟､ｧ縺阪＞繝輔Ξ繝ｼ繝繧呈､懷・
+                finger_angles = data["hands"][0].get("finger_angles", {})
+                if finger_angles:
+                    avg_angle = np.mean(list(finger_angles.values()))
+                    if avg_angle > 45:  # 髢ｾ蛟､
+                        key_frames.append(i)
+        
+        return key_frames[:10]  # 譛螟ｧ10繝輔Ξ繝ｼ繝
+    
+    def _calculate_scores(self, motion_analysis: Dict[str, Any]) -> Dict[str, float]:
+        """邱丞粋繧ｹ繧ｳ繧｢繧定ｨ育ｮ・""
+        scores = {
+            "smoothness": motion_analysis["smoothness"],
+            "speed": motion_analysis["speed"],
+            "accuracy": motion_analysis["accuracy"],
+            "efficiency": motion_analysis["efficiency"],
+            "overall": 0
+        }
+        
+        # 邱丞粋繧ｹ繧ｳ繧｢險育ｮ・        weights = {
+            "smoothness": 0.25,
+            "speed": 0.20,
+            "accuracy": 0.30,
+            "efficiency": 0.25
+        }
+        
+        overall = sum(scores[key] * weights[key] for key in weights)
+        scores["overall"] = overall
+        
+        return scores
+    
+    async def _save_results(
+        self,
+        video_id: str,
+        analysis_id: str,
+        video_info: Dict[str, Any],
+        skeleton_data: List[Dict[str, Any]],
+        instrument_data: List[Dict[str, Any]],
+        motion_analysis: Dict[str, Any],
+        scores: Dict[str, float]
+    ):
+        """隗｣譫千ｵ先棡繧偵ョ繝ｼ繧ｿ繝吶・繧ｹ縺ｫ菫晏ｭ・""
+        db = SessionLocal()
+        try:
+            # 譌｢蟄倥・繝ｬ繧ｳ繝ｼ繝峨ｒ譖ｴ譁ｰ縺ｾ縺溘・譁ｰ隕丈ｽ懈・
+            result = db.query(AnalysisResult).filter(
+                AnalysisResult.id == analysis_id
+            ).first()
+            
+            if not result:
+                result = AnalysisResult(
+                    id=analysis_id,
+                    video_id=video_id,
+                    created_at=datetime.utcnow()
+                )
+                db.add(result)
+            
+            # 邨先棡繧呈峩譁ｰ・・SON縺ｯdict縺ｮ縺ｾ縺ｾ菫晏ｭ倥・num縺ｯ蝙九〒菫晏ｭ假ｼ・            result.status = AnalysisStatus.COMPLETED
+            result.skeleton_data = skeleton_data
+            result.instrument_data = instrument_data
+            result.motion_analysis = motion_analysis
+            result.scores = scores
+            result.completed_at = datetime.utcnow()
+            
+            db.commit()
+            logger.info(f"Analysis results saved for {analysis_id}")
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Failed to save results: {e}")
+            raise
+        finally:
+            db.close()
+    
+    async def _update_progress(
+        self,
+        message: str,
+        progress: int,
+        step_status: str
+    ):
+        """騾ｲ謐礼憾豕√ｒWebSocket邨檎罰縺ｧ騾∽ｿ｡"""
+        self.current_progress = progress
+        
+        update_data = {
+            "type": "progress",
+            "analysis_id": self.analysis_id,
+            "progress": progress,
+            "message": message,
+            "step_status": step_status,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        # WebSocket邨檎罰縺ｧ騾∽ｿ｡
+        await manager.broadcast(json.dumps(update_data))
+        
+        # 繝ｭ繧ｰ蜃ｺ蜉・        logger.info(f"Progress: {progress}% - {message}")
+
+

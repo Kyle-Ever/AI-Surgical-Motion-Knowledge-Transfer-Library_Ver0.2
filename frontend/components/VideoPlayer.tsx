@@ -30,7 +30,10 @@ interface ToolDetection {
   area_reduction?: number  // Phase 2.5
   confidence: number
   class_name: string
+  name?: string  // SAM2 instrument name
+  id?: number    // SAM2 instrument id
   track_id?: number
+  contour?: [number, number][]  // Mask contour points for shape display
 }
 
 interface ToolData {
@@ -84,9 +87,10 @@ export default function VideoPlayer({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [videoFps, setVideoFps] = useState(30) // 🔧 追加: 動画の実際のFPSを保存
   const [canvasSize, setCanvasSize] = useState({ width: 640, height: 360 })
-  const animationFrameRef = useRef<number>()
-  const trajectoryRef = useRef<Map<number, Array<{x: number, y: number, timestamp: number}>>>(new Map())
+  const animationFrameRef = useRef<number | undefined>(undefined)
+  const rvfcHandleRef = useRef<number | undefined>(undefined) // 🆕 RVFC用のハンドル
   const lastDrawnFrameRef = useRef<number>(-1)
   const lastCanvasStateRef = useRef<ImageData | null>(null)
   const frameSkipCountRef = useRef<number>(0)
@@ -94,32 +98,35 @@ export default function VideoPlayer({
   // オーバーレイ表示設定
   const [showSkeleton, setShowSkeleton] = useState(true)
   const [showInstruments, setShowInstruments] = useState(hasInstrumentData)
-  const [showTrajectory, setShowTrajectory] = useState(false)
 
   // 現在のフレームに対応するデータを取得（新形式対応）
   const getCurrentData = (timestamp: number) => {
-    // タイムスタンプのわずかな調整（同期改善のため）
-    const adjustedTimestamp = timestamp + 0.02
+    // 🔧 修正: タイムスタンプ調整を削除し、厳密な同期を実現
+    // const adjustedTimestamp = timestamp + 0.02  // 削除: 20msの遅延は不要
+
+    // 🔧 修正: 許容範囲を狭めて正確なマッチングを実現
+    // 30fps = 33.3ms/frame なので、許容範囲は ±16ms (半フレーム) に設定
+    const tolerance = 0.016  // 16ms = 約半フレーム
 
     // 最も近いフレームを探す（新形式: 1フレーム = 1レコード）
     let currentSkeletonFrame: SkeletonData | undefined
     if (skeletonData.length > 0) {
       currentSkeletonFrame = skeletonData.find(
-        data => Math.abs(data.timestamp - adjustedTimestamp) < 0.04
+        data => Math.abs(data.timestamp - timestamp) < tolerance
       )
 
       // 見つからない場合は最近傍
       if (!currentSkeletonFrame) {
         currentSkeletonFrame = skeletonData.reduce((prev, curr) => {
-          const prevDiff = Math.abs(prev.timestamp - adjustedTimestamp)
-          const currDiff = Math.abs(curr.timestamp - adjustedTimestamp)
+          const prevDiff = Math.abs(prev.timestamp - timestamp)
+          const currDiff = Math.abs(curr.timestamp - timestamp)
           return currDiff < prevDiff ? curr : prev
         })
       }
     }
 
     let currentTools = toolData.find(
-      data => Math.abs(data.timestamp - adjustedTimestamp) < 0.04
+      data => Math.abs(data.timestamp - timestamp) < tolerance
     )
 
     if (!currentTools && toolData.length > 0) {
@@ -131,8 +138,8 @@ export default function VideoPlayer({
     return { skeletonFrame: currentSkeletonFrame, tools: currentTools }
   }
 
-  // オーバーレイを描画（最適化版）
-  const drawOverlay = useCallback(() => {
+  // オーバーレイを指定時刻で描画（RVFC/RAF共通ロジック）
+  const drawOverlayAtTime = useCallback((timestamp: number) => {
     if (!videoRef.current || !canvasRef.current) return
 
     const canvas = canvasRef.current
@@ -140,10 +147,11 @@ export default function VideoPlayer({
     if (!ctx) return
 
     const video = videoRef.current
-    const currentTimestamp = video.currentTime
+    const currentTimestamp = timestamp
 
     // フレームスキップ最適化（同じフレームを再描画しない）
-    const currentFrame = Math.floor(currentTimestamp * 30) // 30fpsと仮定
+    // 🔧 修正: ハードコードされた30fpsを実際のvideoFpsに置き換え
+    const currentFrame = Math.floor(currentTimestamp * videoFps)
     if (currentFrame === lastDrawnFrameRef.current && !isPlaying) {
       return
     }
@@ -260,37 +268,68 @@ export default function VideoPlayer({
     if (showInstruments && tools?.detections) {
       tools.detections.forEach((detection) => {
         const [x1, y1, x2, y2] = detection.bbox
-
-        // バウンディングボックスを描画（外部カメラ用の器具は紫色）
         const isExternalInstrument = videoType === 'external_with_instruments'
-        ctx.strokeStyle = isExternalInstrument ? '#9333EA' : '#FF0000'
-        ctx.lineWidth = 3
+        const color = isExternalInstrument ? '#9333EA' : '#FF0000'
 
-        // Phase 2.5: 回転BBoxが存在する場合は回転矩形を描画
-        if (detection.rotated_bbox && detection.rotated_bbox.length === 4) {
+        // ✨ 新機能: マスク形状を半透明で描画
+        if (detection.contour && detection.contour.length > 2) {
+          // 半透明塗りつぶし
+          ctx.fillStyle = isExternalInstrument
+            ? 'rgba(147, 51, 234, 0.35)'  // 紫色、35%透明
+            : 'rgba(255, 0, 0, 0.35)'      // 赤色、35%透明
+
           ctx.beginPath()
-          const [p1, p2, p3, p4] = detection.rotated_bbox
-          ctx.moveTo(p1[0], p1[1])
-          ctx.lineTo(p2[0], p2[1])
-          ctx.lineTo(p3[0], p3[1])
-          ctx.lineTo(p4[0], p4[1])
+          detection.contour.forEach(([x, y], idx) => {
+            if (idx === 0) {
+              ctx.moveTo(x, y)
+            } else {
+              ctx.lineTo(x, y)
+            }
+          })
           ctx.closePath()
+          ctx.fill()
+
+          // 輪郭線を描画（より明確に）
+          ctx.strokeStyle = color
+          ctx.lineWidth = 2.5
           ctx.stroke()
 
-          // 従来の矩形BBoxを半透明で表示（比較用）
-          ctx.strokeStyle = isExternalInstrument ? 'rgba(147, 51, 234, 0.3)' : 'rgba(255, 0, 0, 0.3)'
-          ctx.setLineDash([5, 5])
-          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
-          ctx.setLineDash([])
+          // デバッグ: 輪郭点数をコンソール出力（開発時のみ）
+          if (currentTime < 1) {
+            console.log(`Instrument contour: ${detection.contour.length} points`)
+          }
         } else {
-          // 従来の矩形BBox
-          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+          // フォールバック: contourがない場合は従来のbbox（安定版対応）
+          ctx.strokeStyle = color
+          ctx.lineWidth = 3
+
+          // Phase 2.5対応: 回転BBoxがある場合
+          if (detection.rotated_bbox && detection.rotated_bbox.length === 4) {
+            ctx.beginPath()
+            const [p1, p2, p3, p4] = detection.rotated_bbox
+            ctx.moveTo(p1[0], p1[1])
+            ctx.lineTo(p2[0], p2[1])
+            ctx.lineTo(p3[0], p3[1])
+            ctx.lineTo(p4[0], p4[1])
+            ctx.closePath()
+            ctx.stroke()
+
+            // 従来の矩形BBoxを半透明で表示（比較用）
+            ctx.strokeStyle = isExternalInstrument ? 'rgba(147, 51, 234, 0.3)' : 'rgba(255, 0, 0, 0.3)'
+            ctx.setLineDash([5, 5])
+            ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+            ctx.setLineDash([])
+          } else {
+            // 通常の矩形bbox
+            ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+          }
         }
 
-        // 背景付きラベルを描画
-        ctx.fillStyle = isExternalInstrument ? '#9333EA' : '#FF0000'
+        // ラベル描画
+        ctx.fillStyle = color
         ctx.font = 'bold 14px Arial'
-        const label = `${detection.class_name} (${(detection.confidence * 100).toFixed(0)}%)`
+        const labelName = detection.name || detection.class_name || 'Instrument'
+        const label = `${labelName} (${(detection.confidence * 100).toFixed(0)}%)`
         const textWidth = ctx.measureText(label).width
 
         // ラベル背景
@@ -302,10 +341,11 @@ export default function VideoPlayer({
         ctx.fillText(label, x1 + 4, y1 - 6)
 
         // 追跡IDがある場合
-        if (detection.track_id !== undefined) {
+        if (detection.track_id !== undefined || detection.id !== undefined) {
+          const displayId = detection.track_id ?? detection.id
           ctx.fillStyle = 'rgba(255, 255, 0, 0.9)'
           ctx.font = 'bold 12px Arial'
-          ctx.fillText(`ID: ${detection.track_id}`, x2 - 35, y1 - 6)
+          ctx.fillText(`ID: ${displayId}`, x2 - 35, y1 - 6)
         }
 
         // Phase 2.5: 面積削減率の表示（回転BBoxがある場合）
@@ -322,56 +362,52 @@ export default function VideoPlayer({
         ctx.beginPath()
         ctx.arc(centerX, centerY, 4, 0, 2 * Math.PI)
         ctx.fill()
-
-        // 軌跡データの更新と描画
-        if (showTrajectory && detection.track_id !== undefined) {
-          // 軌跡データを更新
-          if (!trajectoryRef.current.has(detection.track_id)) {
-            trajectoryRef.current.set(detection.track_id, [])
-          }
-          const trajectory = trajectoryRef.current.get(detection.track_id)!
-          trajectory.push({ x: centerX, y: centerY, timestamp: currentTimestamp })
-
-          // 古いデータを削除（最大100点保持）
-          if (trajectory.length > 100) {
-            trajectory.shift()
-          }
-
-          // 軌跡を描画
-          if (trajectory.length > 1) {
-            ctx.strokeStyle = isExternalInstrument ? 'rgba(147, 51, 234, 0.5)' : 'rgba(255, 0, 0, 0.5)'
-            ctx.lineWidth = 2
-            ctx.setLineDash([5, 5])
-            ctx.beginPath()
-
-            for (let i = 1; i < trajectory.length; i++) {
-              const prev = trajectory[i - 1]
-              const curr = trajectory[i]
-
-              // 時間による透明度のグラデーション
-              const age = (currentTimestamp - curr.timestamp) / 3 // 3秒でフェードアウト
-              const opacity = Math.max(0, 1 - age)
-              ctx.globalAlpha = opacity * 0.7
-
-              if (i === 1) {
-                ctx.moveTo(prev.x, prev.y)
-              }
-              ctx.lineTo(curr.x, curr.y)
-            }
-
-            ctx.stroke()
-            ctx.setLineDash([])
-            ctx.globalAlpha = 1
-          }
-        }
       })
     }
 
-    // 次のフレームで再描画（最適化されたRAF）
-    if (isPlaying) {
-      animationFrameRef.current = requestAnimationFrame(drawOverlay)
+    // 次のフレームをスケジュール（後で scheduleNextFrame() で実装）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSkeleton, showInstruments, skeletonData, toolData, videoType, videoFps, getCurrentData])
+
+  // 次のフレーム描画をスケジュール（RVFC優先、フォールバックRAF）
+  const scheduleNextFrame = useCallback(() => {
+    if (!videoRef.current || !isPlaying) return
+
+    const video = videoRef.current
+
+    // 🆕 RVFC対応ブラウザ: ビデオフレームと完全同期
+    if (video.requestVideoFrameCallback) {
+      rvfcHandleRef.current = video.requestVideoFrameCallback((now, metadata) => {
+        // metadata.mediaTime がビデオの正確な現在時刻
+        drawOverlayAtTime(metadata.mediaTime)
+
+        // 再生中なら次のフレームをスケジュール
+        if (isPlaying) {
+          scheduleNextFrame()
+        }
+      })
+
+      // 初回のみログ出力
+      if (!rvfcHandleRef.current || rvfcHandleRef.current === 1) {
+        console.log('[VideoPlayer] Using requestVideoFrameCallback (RVFC) for precise frame sync')
+      }
     }
-  }, [isPlaying, showSkeleton, showInstruments, showTrajectory, skeletonData, toolData, videoType])
+    // ⚠️ フォールバック: RAF（Firefox等、RVFC非対応ブラウザ）
+    else {
+      animationFrameRef.current = requestAnimationFrame(() => {
+        drawOverlayAtTime(video.currentTime)
+
+        if (isPlaying) {
+          scheduleNextFrame()
+        }
+      })
+
+      // 初回のみログ出力
+      if (!animationFrameRef.current || animationFrameRef.current === 1) {
+        console.log('[VideoPlayer] Using requestAnimationFrame (RAF) fallback')
+      }
+    }
+  }, [isPlaying, drawOverlayAtTime])
 
   // 動画の再生/一時停止
   const togglePlay = () => {
@@ -386,30 +422,55 @@ export default function VideoPlayer({
     }
   }
 
-  // 動画の時間更新（デバウンス付き）
+  // 動画の時間更新
   const handleTimeUpdate = useCallback(() => {
     if (!videoRef.current) return
     const time = videoRef.current.currentTime
     setCurrentTime(time)
 
-    // 描画をスロットル（再生中のみ）
-    if (!isPlaying || Math.abs(time - currentTime) > 0.033) { // 30fps以上の更新を制限
-      drawOverlay()
+    // 🔧 修正: 一時停止中のみ描画（再生中はRVFC/RAFで自動描画）
+    if (!isPlaying) {
+      drawOverlayAtTime(time)
     }
 
     // 外部にも通知
     if (onTimeUpdate) {
       onTimeUpdate(time)
     }
-  }, [currentTime, isPlaying, drawOverlay, onTimeUpdate])
+  }, [isPlaying, drawOverlayAtTime, onTimeUpdate])
 
   // 動画のメタデータ読み込み完了
   const handleLoadedMetadata = () => {
     if (!videoRef.current) return
     setDuration(videoRef.current.duration)
 
+    // 🔧 追加: 動画の実際のFPSを推定
+    // duration と skeletonData/toolData から FPS を推定
+    const video = videoRef.current
+    if (skeletonData.length > 1) {
+      // skeleton_data から FPS を推定（最初の2フレームの時間差から）
+      const firstTimestamp = skeletonData[0].timestamp
+      const secondTimestamp = skeletonData[1].timestamp
+      const frameDiff = secondTimestamp - firstTimestamp
+      if (frameDiff > 0) {
+        const estimatedFps = Math.round(1 / frameDiff)
+        setVideoFps(estimatedFps)
+        console.log(`[VideoPlayer] Estimated FPS from skeleton data: ${estimatedFps}`)
+      }
+    } else if (toolData.length > 1) {
+      // tool_data から FPS を推定
+      const firstTimestamp = toolData[0].timestamp
+      const secondTimestamp = toolData[1].timestamp
+      const frameDiff = secondTimestamp - firstTimestamp
+      if (frameDiff > 0) {
+        const estimatedFps = Math.round(1 / frameDiff)
+        setVideoFps(estimatedFps)
+        console.log(`[VideoPlayer] Estimated FPS from tool data: ${estimatedFps}`)
+      }
+    }
+
     // 初期描画を実行
-    drawOverlay()
+    drawOverlayAtTime(0)
   }
 
   // シーク処理
@@ -419,8 +480,8 @@ export default function VideoPlayer({
     videoRef.current.currentTime = newTime
     setCurrentTime(newTime)
     lastDrawnFrameRef.current = -1 // フレームキャッシュをリセット
-    drawOverlay()
-  }, [drawOverlay])
+    drawOverlayAtTime(newTime)
+  }, [drawOverlayAtTime])
 
   // 再生速度変更
   const handleSpeedChange = (speed: number) => {
@@ -435,12 +496,19 @@ export default function VideoPlayer({
 
     const handlePlay = () => {
       setIsPlaying(true)
-      drawOverlay()
+      // 🆕 再生開始時にフレームスケジューリングを開始
+      scheduleNextFrame()
     }
     const handlePause = () => {
       setIsPlaying(false)
+      // 🔧 両方のハンドルをクリーンアップ
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = undefined
+      }
+      if (rvfcHandleRef.current && video.cancelVideoFrameCallback) {
+        video.cancelVideoFrameCallback(rvfcHandleRef.current)
+        rvfcHandleRef.current = undefined
       }
     }
 
@@ -450,24 +518,30 @@ export default function VideoPlayer({
     return () => {
       video.removeEventListener('play', handlePlay)
       video.removeEventListener('pause', handlePause)
+      // クリーンアップ
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
+      if (rvfcHandleRef.current && video.cancelVideoFrameCallback) {
+        video.cancelVideoFrameCallback(rvfcHandleRef.current)
+      }
     }
-  }, [])
+  }, [scheduleNextFrame])
 
   // データが更新されたら再描画
   useEffect(() => {
-    if (skeletonData.length > 0 || toolData.length > 0) {
+    if ((skeletonData.length > 0 || toolData.length > 0) && videoRef.current) {
       console.log('Data updated, triggering redraw')
-      drawOverlay()
+      drawOverlayAtTime(videoRef.current.currentTime)
     }
-  }, [skeletonData, toolData])
+  }, [skeletonData, toolData, drawOverlayAtTime])
 
   // 表示設定が変更されたら再描画
   useEffect(() => {
-    drawOverlay()
-  }, [showSkeleton, showInstruments, showTrajectory])
+    if (videoRef.current) {
+      drawOverlayAtTime(videoRef.current.currentTime)
+    }
+  }, [showSkeleton, showInstruments, drawOverlayAtTime])
 
   // 時間フォーマット
   const formatTime = (seconds: number) => {
@@ -614,14 +688,6 @@ export default function VideoPlayer({
               {videoType === 'external_with_instruments' && hasInstrumentData ? ' (外部カメラ)' : ''}
               {!hasInstrumentData && canShowInstruments ? ' (データなし)' : ''}
             </span>
-          </label>
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={showTrajectory}
-              onChange={(e) => setShowTrajectory(e.target.checked)}
-            />
-            <span>軌跡表示</span>
           </label>
         </div>
       </div>

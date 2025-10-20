@@ -21,7 +21,6 @@ interface DualVideoSectionProps {
   currentTime: number;
   duration: number;
   showSkeleton: boolean;
-  showTrajectory: boolean;
   onTimeUpdate: (time: number) => void;
   onDurationChange: (duration: number) => void;
 }
@@ -32,15 +31,15 @@ const VideoPlayer: React.FC<{
   isPlaying: boolean;
   currentTime: number;
   showSkeleton: boolean;
-  showTrajectory: boolean;
   onTimeUpdate?: (time: number) => void;
   onDurationChange?: (duration: number) => void;
-}> = ({ data, isReference, isPlaying, currentTime, showSkeleton, showTrajectory, onTimeUpdate, onDurationChange }) => {
+}> = ({ data, isReference, isPlaying, currentTime, showSkeleton, onTimeUpdate, onDurationChange }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [localTime, setLocalTime] = useState(0);
   const [localDuration, setLocalDuration] = useState(0);
   const [currentFrame, setCurrentFrame] = useState(0);
+  const [videoError, setVideoError] = useState<string | null>(null);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -240,15 +239,33 @@ const VideoPlayer: React.FC<{
       <div className="p-4">
         {/* ビデオプレーヤー */}
         <div className="relative aspect-video rounded-lg overflow-hidden bg-black mb-3">
-          <video
-            ref={videoRef}
-            className="w-full h-full object-cover"
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-            poster={`https://via.placeholder.com/640x360/${isReference ? '22c55e' : '3b82f6'}/ffffff?text=${isReference ? '基準動画' : '評価動画'}`}
-          >
-            <source src={data.videoUrl} type="video/mp4" />
-          </video>
+          {videoError ? (
+            <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
+              <div className="text-center p-8">
+                <div className="text-6xl mb-4">⚠️</div>
+                <h3 className="text-xl font-semibold mb-2">動画ファイルが見つかりません</h3>
+                <p className="text-sm text-gray-400 mb-4">{videoError}</p>
+                <p className="text-xs text-gray-500">
+                  この動画ファイルはデータベースに登録されていますが、<br />
+                  サーバー上に実際のファイルが存在しません。
+                </p>
+              </div>
+            </div>
+          ) : (
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onError={(e) => {
+                console.error('[VideoPlayer] Video load error:', e);
+                setVideoError(`動画の読み込みに失敗しました (${isReference ? '基準' : '評価'}動画)`);
+              }}
+              poster={`https://via.placeholder.com/640x360/${isReference ? '22c55e' : '3b82f6'}/ffffff?text=${isReference ? '基準動画' : '評価動画'}`}
+            >
+              <source src={data.videoUrl} type="video/mp4" />
+            </video>
+          )}
 
           {/* オーバーレイCanvas（手技検出/軌跡表示用） */}
           {showSkeleton && <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full pointer-events-none" />}
@@ -261,13 +278,6 @@ const VideoPlayer: React.FC<{
               className={`px-2 py-1 ${showSkeleton ? 'bg-green-600' : 'bg-black/70'} text-white text-xs rounded hover:bg-opacity-90 transition`}
             >
               ✋ 手技検出 {showSkeleton ? 'ON' : 'OFF'}
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className={`px-2 py-1 ${showTrajectory ? 'bg-green-600' : 'bg-black/70'} text-white text-xs rounded hover:bg-opacity-90 transition`}
-            >
-              〰️ 軌跡 {showTrajectory ? 'ON' : 'OFF'}
             </motion.button>
           </div>
 
@@ -308,7 +318,6 @@ const DualVideoSection: React.FC<DualVideoSectionProps> = ({
   currentTime,
   duration,
   showSkeleton,
-  showTrajectory,
   onTimeUpdate,
   onDurationChange
 }) => {
@@ -325,7 +334,6 @@ const DualVideoSection: React.FC<DualVideoSectionProps> = ({
         isPlaying={isPlaying}
         currentTime={currentTime}
         showSkeleton={showSkeleton}
-        showTrajectory={showTrajectory}
         onTimeUpdate={onTimeUpdate}
         onDurationChange={onDurationChange}
       />
@@ -337,7 +345,6 @@ const DualVideoSection: React.FC<DualVideoSectionProps> = ({
         isPlaying={isPlaying}
         currentTime={currentTime}
         showSkeleton={showSkeleton}
-        showTrajectory={showTrajectory}
       />
     </motion.section>
   );

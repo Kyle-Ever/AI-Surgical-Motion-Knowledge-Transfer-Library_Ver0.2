@@ -101,8 +101,12 @@ export default function UploadPage() {
     if (step === 'upload' && file) {
       setStep('type')
     } else if (step === 'type' && videoType) {
+      // For eye gaze, skip instruments and go directly to annotation
+      if (videoType === 'eye_gaze') {
+        setStep('annotation')
+      }
       // For internal videos or external with instruments, show instrument selection
-      if (videoType === 'internal' || videoType === 'external_with_instruments') {
+      else if (videoType === 'internal' || videoType === 'external_with_instruments') {
         setStep('instruments')
       } else {
         // For external without instruments, skip to annotation
@@ -175,8 +179,9 @@ export default function UploadPage() {
 
         // Save instruments to backend if any were selected
         if (instruments.length > 0) {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
           const instrumentsResponse = await fetch(
-            `http://localhost:8000/api/v1/videos/${videoId}/instruments`,
+            `${apiUrl}/videos/${videoId}/instruments`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -357,7 +362,7 @@ export default function UploadPage() {
       {step === 'type' && (
         <div className="space-y-6">
           <h2 className="text-lg font-semibold">映像タイプを選択</h2>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <button
               onClick={() => setVideoType('external_no_instruments')}
               className={`p-6 rounded-lg border-2 transition-all ${
@@ -409,6 +414,25 @@ export default function UploadPage() {
                 </p>
                 <p className="text-xs text-gray-500 mt-2">
                   検出対象: 手の骨格 + 器具
+                </p>
+              </div>
+            </button>
+            <button
+              onClick={() => setVideoType('eye_gaze')}
+              className={`p-6 rounded-lg border-2 transition-all ${
+                videoType === 'eye_gaze'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+              data-testid="eye-gaze-button"
+            >
+              <div className="text-left">
+                <h3 className="font-semibold mb-2">視線解析<br/>（DeepGaze III）</h3>
+                <p className="text-sm text-gray-600">
+                  運転中などの動画から視線注目度を予測
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  検出対象: サリエンシーマップ + 固視点
                 </p>
               </div>
             </button>
@@ -539,7 +563,8 @@ export default function UploadPage() {
             <div className="flex justify-between">
               <span className="text-gray-600">映像タイプ:</span>
               <span className="font-medium">
-                {videoType === 'external_no_instruments' ? '外部カメラ（器具なし）' :
+                {videoType === 'eye_gaze' ? '視線解析（DeepGaze III）' :
+                 videoType === 'external_no_instruments' ? '外部カメラ（器具なし）' :
                  videoType === 'external_with_instruments' ? '外部カメラ（器具あり）' :
                  videoType === 'external' ? '外部（手元カメラ）' : '内視鏡（術野カメラ）'}
               </span>

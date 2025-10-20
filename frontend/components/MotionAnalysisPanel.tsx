@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Activity, TrendingUp, Target, Timer, Zap } from 'lucide-react'
+import { Activity, TrendingUp, Target, Timer } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
-const Chart = dynamic(() => import('@/components/Chart'), { ssr: false })
+// 動的インポート（Chart.jsのSSR対策）
+const AngleTimelineChart = dynamic(() => import('./AngleTimelineChart'), { ssr: false })
 
 interface MotionAnalysisPanelProps {
   analysisData: any
   currentVideoTime: number
+  videoType?: string  // 'external_no_instruments' | 'external_with_instruments' | 'internal'
   className?: string
 }
 
@@ -30,322 +32,190 @@ interface MotionMetrics {
 export default function MotionAnalysisPanel({
   analysisData,
   currentVideoTime,
+  videoType,
   className = ''
 }: MotionAnalysisPanelProps) {
-  const [currentMetrics, setCurrentMetrics] = useState<MotionMetrics | null>(null)
-  const [timeSeriesData, setTimeSeriesData] = useState<any[]>([])
+  const [currentMetrics, setCurrentMetrics] = useState<MotionMetrics>({
+    handTechnique: {
+      speed: 15,
+      smoothness: 80,
+      precision: 85,
+      coordination: 82
+    },
+    instrumentMotion: {
+      stability: 88,
+      efficiency: 78,
+      accuracy: 90,
+      control: 85
+    }
+  })
 
-  // 現在の時間に対応するメトリクスを更新
+  // 器具の動きセクションを表示するかどうか
+  const showInstrumentMetrics =
+    videoType === 'external_with_instruments' ||
+    videoType === 'internal'
+
+  // 🔍 デバッグ: コンポーネント初期化
   useEffect(() => {
-    // 常に何かしらのメトリクスを表示（データがなくてもモック値を使用）
-    const currentFrame = Math.floor(currentVideoTime * 30)
+    console.log('[MotionAnalysisPanel] Component mounted', {
+      videoType,
+      showInstrumentMetrics
+    })
+  }, [videoType, showInstrumentMetrics])
 
-    // skeleton_dataがある場合は実データを使用
-    if (analysisData?.skeleton_data?.length > 0) {
-      const frameData = analysisData.skeleton_data.find(
-        (data: any) => Math.abs(data.frame_number - currentFrame) < 15
-      )
-
-      if (frameData) {
-        const metrics = calculateMetricsFromFrame(frameData, analysisData)
-        setCurrentMetrics(metrics)
-      } else {
-        // フレームデータがない場合はデフォルト値を使用
-        setCurrentMetrics(generateDefaultMetrics(currentVideoTime))
-      }
-    } else {
-      // skeleton_dataがない場合はモックデータを生成
-      setCurrentMetrics(generateDefaultMetrics(currentVideoTime))
-    }
-  }, [currentVideoTime, analysisData])
-
-  // 時系列データの準備
+  // 🔍 デバッグ: メトリクス更新（モックデータ使用）
   useEffect(() => {
-    if (!analysisData?.motion_analysis?.metrics) return
+    console.log('[MotionAnalysisPanel] Updating metrics', { currentVideoTime })
 
-    const { velocity, angles } = analysisData.motion_analysis.metrics
+    // 🎨 モックデータ生成: より大きな変動でリアルな動きを再現
+    // TODO: 実データ対応時は skeleton_data から計算
+    const time = currentVideoTime
 
-    if (velocity?.time_series) {
-      const chartData = velocity.time_series.map((v: any, index: number) => ({
-        time: index / 30, // フレームを秒に変換
-        left_velocity: v.left || 0,
-        right_velocity: v.right || 0,
-        avg_velocity: ((v.left || 0) + (v.right || 0)) / 2
-      }))
-      setTimeSeriesData(chartData)
-    }
-  }, [analysisData])
+    // ランダム要素を追加（より自然な変動）
+    const randomFactor1 = Math.sin(time * 1.7) * Math.cos(time * 0.9)
+    const randomFactor2 = Math.cos(time * 2.3) * Math.sin(time * 1.1)
+    const randomFactor3 = Math.sin(time * 1.5) * Math.cos(time * 1.9)
 
-  const calculateMetricsFromFrame = (frameData: any, analysis: any) => {
-    // 手技の動きメトリクス計算
-    const handMetrics = {
-      speed: calculateSpeed(frameData),
-      smoothness: calculateSmoothness(analysis),
-      precision: calculatePrecision(frameData),
-      coordination: calculateCoordination(frameData)
-    }
-
-    // 器具の動きメトリクス計算
-    const instrumentMetrics = {
-      stability: calculateStability(analysis),
-      efficiency: calculateEfficiency(analysis),
-      accuracy: calculateAccuracy(frameData),
-      control: calculateControl(analysis)
-    }
-
-    return {
-      handTechnique: handMetrics,
-      instrumentMotion: instrumentMetrics
-    }
-  }
-
-  // デフォルトメトリクスを生成
-  const generateDefaultMetrics = (time: number): MotionMetrics => {
-    // 時間に基づいて変化するモック値を生成
-    const baseValue = Math.sin(time * 0.5) * 10 + 80
-    return {
+    const newMetrics: MotionMetrics = {
       handTechnique: {
-        speed: 15 + Math.sin(time * 0.3) * 10,
-        smoothness: baseValue + Math.cos(time * 0.4) * 5,
-        precision: 85 + Math.sin(time * 0.2) * 8,
-        coordination: 82 + Math.cos(time * 0.35) * 10
+        // 速度: 5-35 cm/s (大きな振幅)
+        speed: 20 + Math.sin(time * 0.8) * 12 + randomFactor1 * 3,
+        // 滑らかさ: 60-95% (中程度の変動)
+        smoothness: 77.5 + Math.cos(time * 0.6) * 15 + randomFactor2 * 2.5,
+        // 精密度: 65-98% (大きな変動)
+        precision: 81.5 + Math.sin(time * 0.9) * 16.5 + randomFactor3 * 3,
+        // 協調性: 55-95% (非常に大きな変動)
+        coordination: 75 + Math.cos(time * 0.7) * 18 + randomFactor1 * 2
       },
       instrumentMotion: {
-        stability: 88 + Math.sin(time * 0.25) * 7,
-        efficiency: 78 + Math.cos(time * 0.3) * 12,
-        accuracy: 90 + Math.sin(time * 0.45) * 5,
-        control: 85 + Math.cos(time * 0.2) * 8
+        // 安定性: 70-100% (中程度の変動)
+        stability: 85 + Math.sin(time * 0.5) * 13 + randomFactor2 * 2,
+        // 効率性: 50-95% (大きな変動)
+        efficiency: 72.5 + Math.cos(time * 0.85) * 20 + randomFactor3 * 2.5,
+        // 正確性: 75-100% (中程度の変動)
+        accuracy: 87.5 + Math.sin(time * 0.65) * 11 + randomFactor1 * 1.5,
+        // 制御性: 60-100% (大きな変動)
+        control: 80 + Math.cos(time * 0.75) * 18 + randomFactor2 * 2
       }
     }
-  }
 
-  // メトリクス計算関数
-  const calculateSpeed = (frame: any) => {
-    if (!frame?.landmarks) return 15
-    // 実際のlandmarkデータから速度を計算する場合
-    const leftWrist = frame.landmarks.point_0
-    const rightWrist = frame.landmarks.point_1
-    if (leftWrist && rightWrist) {
-      return Math.abs(leftWrist.x * 100) + Math.abs(rightWrist.x * 100)
-    }
-    return 15 + Math.random() * 10
-  }
+    console.log('[MotionAnalysisPanel] New metrics:', newMetrics)
+    setCurrentMetrics(newMetrics)
+  }, [currentVideoTime])
 
-  const calculateSmoothness = (analysis: any) => {
-    if (!analysis?.motion_analysis?.metrics?.summary?.average_velocity) return 75
-    return Math.min(100, 100 - analysis.motion_analysis.metrics.summary.average_velocity.left * 2)
-  }
-
-  const calculatePrecision = (frame: any) => {
-    if (!frame?.landmarks) return 80
-    return 80 + Math.random() * 15
-  }
-
-  const calculateCoordination = (frame: any) => {
-    if (!frame?.landmarks) return 85
-    return 85 + Math.random() * 10
-  }
-
-  const calculateStability = (analysis: any) => {
-    return 85 + Math.random() * 10
-  }
-
-  const calculateEfficiency = (analysis: any) => {
-    return 75 + Math.random() * 15
-  }
-
-  const calculateAccuracy = (frame: any) => {
-    return 85 + Math.random() * 10
-  }
-
-  const calculateControl = (analysis: any) => {
-    return 80 + Math.random() * 10
-  }
-
-  return (
-    <div className={`bg-white rounded-lg shadow-sm p-6 ${className}`}>
-      <h2 className="text-lg font-semibold mb-4 flex items-center">
-        <Activity className="w-5 h-5 mr-2 text-blue-500" />
-        手技の動き分析
-      </h2>
-
-      <div className="space-y-6">
-        {/* リアルタイムメトリクス */}
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">現在の動作評価</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {/* 手技の動き */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-gray-600 uppercase">手技の動き</h4>
-              {currentMetrics?.handTechnique && (
-                <>
-                  <MetricBar
-                    label="速度"
-                    value={currentMetrics.handTechnique.speed}
-                    max={50}
-                    unit="cm/s"
-                    icon={<Zap className="w-3 h-3" />}
-                  />
-                  <MetricBar
-                    label="滑らかさ"
-                    value={currentMetrics.handTechnique.smoothness}
-                    max={100}
-                    unit="%"
-                    icon={<TrendingUp className="w-3 h-3" />}
-                  />
-                  <MetricBar
-                    label="精密度"
-                    value={currentMetrics.handTechnique.precision}
-                    max={100}
-                    unit="%"
-                    icon={<Target className="w-3 h-3" />}
-                  />
-                  <MetricBar
-                    label="協調性"
-                    value={currentMetrics.handTechnique.coordination}
-                    max={100}
-                    unit="%"
-                    icon={<Activity className="w-3 h-3" />}
-                  />
-                </>
-              )}
-            </div>
-
-            {/* 器具の動き */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-gray-600 uppercase">器具の動き</h4>
-              {currentMetrics?.instrumentMotion && (
-                <>
-                  <MetricBar
-                    label="安定性"
-                    value={currentMetrics.instrumentMotion.stability}
-                    max={100}
-                    unit="%"
-                  />
-                  <MetricBar
-                    label="効率性"
-                    value={currentMetrics.instrumentMotion.efficiency}
-                    max={100}
-                    unit="%"
-                  />
-                  <MetricBar
-                    label="正確性"
-                    value={currentMetrics.instrumentMotion.accuracy}
-                    max={100}
-                    unit="%"
-                  />
-                  <MetricBar
-                    label="制御"
-                    value={currentMetrics.instrumentMotion.control}
-                    max={100}
-                    unit="%"
-                  />
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 時系列グラフ */}
-        {timeSeriesData.length > 0 && (
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-3">速度の推移</h3>
-            <div className="h-48">
-              <Chart
-                type="line"
-                data={{
-                  labels: timeSeriesData.map(d => `${d.time.toFixed(1)}s`),
-                  datasets: [
-                    {
-                      label: '左手',
-                      data: timeSeriesData.map(d => d.left_velocity),
-                      borderColor: 'rgb(59, 130, 246)',
-                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                      tension: 0.4
-                    },
-                    {
-                      label: '右手',
-                      data: timeSeriesData.map(d => d.right_velocity),
-                      borderColor: 'rgb(239, 68, 68)',
-                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                      tension: 0.4
-                    }
-                  ]
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      title: {
-                        display: true,
-                        text: '速度 (cm/s)'
-                      }
-                    }
-                  },
-                  plugins: {
-                    legend: {
-                      display: true,
-                      position: 'top'
-                    }
-                  }
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* 現在時刻インジケータ */}
-        <div className="flex items-center justify-between text-sm text-gray-600">
-          <span className="flex items-center">
-            <Timer className="w-4 h-4 mr-1" />
-            現在時刻: {currentVideoTime.toFixed(1)}秒
-          </span>
-          <span>
-            フレーム: {Math.floor(currentVideoTime * 30)}
-          </span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// メトリックバーコンポーネント
-function MetricBar({
-  label,
-  value,
-  max,
-  unit,
-  icon
-}: {
-  label: string
-  value: number
-  max: number
-  unit: string
-  icon?: React.ReactNode
-}) {
-  const percentage = (value / max) * 100
-  const color = percentage > 80 ? 'bg-green-500' :
-                percentage > 60 ? 'bg-yellow-500' :
-                'bg-red-500'
-
-  return (
+  // メトリクスバーコンポーネント
+  const MetricBar = ({ label, value, unit, icon: Icon, color }: any) => (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
         <span className="flex items-center gap-1 text-gray-600">
-          {icon}
+          <Icon className="w-3 h-3" />
           {label}
         </span>
-        <span className="font-medium">
-          {value.toFixed(1)}{unit}
+        <span className="font-medium text-gray-900">
+          {value.toFixed(1)} {unit}
         </span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2">
         <div
           className={`${color} h-2 rounded-full transition-all duration-300`}
-          style={{ width: `${Math.min(percentage, 100)}%` }}
+          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
         />
+      </div>
+    </div>
+  )
+
+  return (
+    <div className={`bg-white rounded-lg shadow-sm p-6 ${className}`}>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Activity className="w-5 h-5 text-blue-500" />
+          手技の動き分析
+        </h2>
+      </div>
+
+      <div className={`grid ${showInstrumentMetrics ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+        {/* 手技の動き */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-gray-600 uppercase">手技の動き</h4>
+          <MetricBar
+            label="速度"
+            value={currentMetrics.handTechnique.speed}
+            unit="cm/s"
+            icon={TrendingUp}
+            color="bg-blue-500"
+          />
+          <MetricBar
+            label="滑らかさ"
+            value={currentMetrics.handTechnique.smoothness}
+            unit="%"
+            icon={Activity}
+            color="bg-green-500"
+          />
+          <MetricBar
+            label="精密度"
+            value={currentMetrics.handTechnique.precision}
+            unit="%"
+            icon={Target}
+            color="bg-purple-500"
+          />
+          <MetricBar
+            label="協調性"
+            value={currentMetrics.handTechnique.coordination}
+            unit="%"
+            icon={Timer}
+            color="bg-orange-500"
+          />
+        </div>
+
+        {/* 器具の動き - 条件付き表示 */}
+        {showInstrumentMetrics && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-gray-600 uppercase">器具の動き</h4>
+            <MetricBar
+              label="安定性"
+              value={currentMetrics.instrumentMotion.stability}
+              unit="%"
+              icon={Target}
+              color="bg-indigo-500"
+            />
+            <MetricBar
+              label="効率性"
+              value={currentMetrics.instrumentMotion.efficiency}
+              unit="%"
+              icon={TrendingUp}
+              color="bg-cyan-500"
+            />
+            <MetricBar
+              label="正確性"
+              value={currentMetrics.instrumentMotion.accuracy}
+              unit="%"
+              icon={Activity}
+              color="bg-pink-500"
+            />
+            <MetricBar
+              label="制御性"
+              value={currentMetrics.instrumentMotion.control}
+              unit="%"
+              icon={Timer}
+              color="bg-amber-500"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* 角度の推移グラフ */}
+      <div className="mt-6 space-y-2">
+        <AngleTimelineChart
+          skeletonData={analysisData?.skeleton_data || []}
+          instrumentData={analysisData?.instrument_data}
+          currentVideoTime={currentVideoTime}
+          videoType={videoType}
+        />
+      </div>
+
+      {/* デバッグ情報 */}
+      <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
+        現在時刻: {currentVideoTime.toFixed(2)}s
       </div>
     </div>
   )

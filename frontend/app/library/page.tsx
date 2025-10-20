@@ -77,7 +77,8 @@ export default function LibraryPage() {
             surgeonName: surgeonName,
             date: item.completed_at ? new Date(item.completed_at).toLocaleDateString('ja-JP') :
                   item.created_at ? new Date(item.created_at).toLocaleDateString('ja-JP') : '-',
-            category: item.video?.video_type === 'internal' ? '内視鏡' :
+            category: item.video?.video_type === 'eye_gaze' ? '視線解析' :
+                     item.video?.video_type === 'internal' ? '内視鏡' :
                      item.video?.video_type === 'external_no_instruments' ? '外部カメラ（器具なし）' :
                      item.video?.video_type === 'external_with_instruments' ? '外部カメラ（器具あり）' :
                      item.video?.video_type === 'external' ? '外部カメラ' : '不明',
@@ -349,6 +350,7 @@ export default function LibraryPage() {
                 </div>
                 <div className="mt-2">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    item.category === '視線解析' ? 'bg-orange-100 text-orange-800' :
                     item.category === '内視鏡' ? 'bg-purple-100 text-purple-800' :
                     item.category === '外部カメラ（器具あり）' ? 'bg-green-100 text-green-800' :
                     item.category === '外部カメラ（器具なし）' ? 'bg-blue-100 text-blue-800' :
@@ -466,7 +468,7 @@ export default function LibraryPage() {
             <div className="mb-6">
               <h3 className="text-sm font-medium text-gray-700 mb-2">カテゴリ</h3>
               <div className="space-y-2">
-                {['内視鏡', '外部カメラ（器具あり）', '外部カメラ（器具なし）', '外部カメラ'].map((category) => (
+                {['視線解析', '内視鏡', '外部カメラ（器具あり）', '外部カメラ（器具なし）', '外部カメラ'].map((category) => (
                   <label key={category} className="flex items-center">
                     <input
                       type="checkbox"

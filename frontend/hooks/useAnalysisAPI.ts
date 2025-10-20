@@ -22,8 +22,9 @@ export const useAnalysisAPI = (videoId: string | null | undefined) => {
   // 動画に対して分析を開始
   const startAnalysis = async (videoId: string): Promise<string | null> => {
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
       const response = await axios.post(
-        `http://localhost:8000/api/v1/analysis/${videoId}/analyze`,
+        `${apiUrl}/analysis/${videoId}/analyze`,
         {
           instruments: [],
           sampling_rate: 1
@@ -39,8 +40,9 @@ export const useAnalysisAPI = (videoId: string | null | undefined) => {
   // 分析ステータスを確認
   const checkAnalysisStatus = async (analysisId: string): Promise<AnalysisData | null> => {
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
       const response = await axios.get(
-        `http://localhost:8000/api/v1/analysis/${analysisId}`
+        `${apiUrl}/analysis/${analysisId}`
       );
       return response.data;
     } catch (error) {
@@ -88,8 +90,9 @@ export const useAnalysisAPI = (videoId: string | null | undefined) => {
         let existingResponse = null;
         try {
           // 動画の最新の分析結果を取得
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
           const analysesResponse = await axios.get(
-            `http://localhost:8000/api/v1/analysis/completed?include_failed=false`
+            `${apiUrl}/analysis/completed?include_failed=false`
           );
           const analyses = analysesResponse.data;
           existingResponse = analyses.find((a: any) => a.video_id === videoId && a.status === 'completed');

@@ -6,7 +6,7 @@ from pathlib import Path
 class Settings(BaseSettings):
     # API設定
     API_V1_STR: str = "/api/v1"
-    PROJECT_NAME: str = "AI手技モーション伝承ライブラリ"
+    PROJECT_NAME: str = "AI手技モーションライブラリ"
     VERSION: str = "0.1.0"
 
     # CORS設定
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     ALLOWED_EXTENSIONS: set = {".mp4", ".mov", ".avi"}
     
     # AI処理設定
-    FRAME_EXTRACTION_FPS: int = 5
+    FRAME_EXTRACTION_FPS: int = 15  # フレーム抽出レート（5=高速/低精度, 15=バランス, 30=低速/高精度）
     YOLO_MODEL: str = "yolov8n.pt"
     MEDIAPIPE_MIN_DETECTION_CONFIDENCE: float = 0.8
     MEDIAPIPE_MIN_TRACKING_CONFIDENCE: float = 0.8
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     SAM_ENHANCED_REDETECTION_INTERVAL: int = 15  # 定期的な再検出の間隔（フレーム数）
 
     # SAM2設定
-    USE_SAM2: bool = False  # SAM2を有効化（高精度、JPEG一時保存方式）
+    USE_SAM2: bool = True  # SAM2を有効化（高精度、JPEG一時保存方式）
     SAM2_MODEL_TYPE: str = "small"  # tiny, small, base_plus, large
     SAM2_TEMP_DIR: Path = Path("./temp_frames")  # JPEG一時保存ディレクトリ
 

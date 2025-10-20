@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
 
 // Axios インスタンスを作成
 export const api = axios.create({
@@ -81,7 +81,7 @@ export const endpoints = {
 }
 
 // WebSocket URL
-export const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
+export const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8001'
 
 export const wsEndpoints = {
   analysis: (analysisId: string) => `${WS_BASE_URL}/ws/analysis/${analysisId}`,

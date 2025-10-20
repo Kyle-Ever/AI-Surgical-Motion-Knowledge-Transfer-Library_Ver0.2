@@ -12,7 +12,6 @@ interface SyncControlBarProps {
   onSpeedChange: (speed: number) => void;
   onDTWToggle: () => void;
   onSkeletonToggle: () => void;
-  onTrajectoryToggle: () => void;
 }
 
 const SyncControlBar: React.FC<SyncControlBarProps> = ({
@@ -22,8 +21,7 @@ const SyncControlBar: React.FC<SyncControlBarProps> = ({
   onPlayPause,
   onSpeedChange,
   onDTWToggle,
-  onSkeletonToggle,
-  onTrajectoryToggle
+  onSkeletonToggle
 }) => {
   const speeds = [0.5, 1, 2];
 
@@ -100,24 +98,14 @@ const SyncControlBar: React.FC<SyncControlBarProps> = ({
         </label>
 
         {/* 表示オプション */}
-        <div className="flex gap-2">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onSkeletonToggle}
-            className="px-3 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition text-sm"
-          >
-            ✋ 手技検出
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onTrajectoryToggle}
-            className="px-3 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition text-sm"
-          >
-            〰️ 軌跡
-          </motion.button>
-        </div>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={onSkeletonToggle}
+          className="px-3 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition text-sm"
+        >
+          ✋ 手技検出
+        </motion.button>
       </div>
     </motion.div>
   );

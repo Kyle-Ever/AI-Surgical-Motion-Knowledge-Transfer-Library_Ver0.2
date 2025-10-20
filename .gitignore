@@ -12,8 +12,10 @@ backend/venv/
 backend/venv311/
 backend/venv311_new/
 backend/venv311_new_disabled/
+backend_experimental/venv311/
 .env
 backend/.env
+backend_experimental/.env
 
 # OS files
 .DS_Store
@@ -36,8 +38,15 @@ backend/aimotion.db
 backend/data/uploads/
 backend/data/temp/
 backend/nul
+backend_experimental/data/uploads/
+backend_experimental/data/temp/
 data/uploads/
 data/temp/
+*.db
+*.log
+response.json
+backend/*.json
+backend_experimental/*.json
 
 # Misc
 .claude/

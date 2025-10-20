@@ -63,7 +63,7 @@ test.describe('Navigation Tests', () => {
   test('direct URL navigation works', async ({ page }) => {
     // Test direct navigation to each page
     const urls = [
-      { path: '/', title: 'AI手技モーション伝承ライブラリ' },
+      { path: '/', title: 'AI手技モーションライブラリ' },
       { path: '/upload', title: '動画アップロード' },
       { path: '/library', title: 'ライブラリ' },
       { path: '/scoring', title: '採点' },

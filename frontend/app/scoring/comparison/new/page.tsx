@@ -10,7 +10,6 @@ import SyncControlBar from '@/components/scoring/SyncControlBar';
 import ScoreComparison from '@/components/scoring/ScoreComparison';
 import DetailedAnalysis from '@/components/scoring/DetailedAnalysis';
 import AIFeedback from '@/components/scoring/AIFeedback';
-import Trajectory3D from '@/components/scoring/Trajectory3D';
 
 export default function ComparisonDashboard() {
   const searchParams = useSearchParams();
@@ -21,7 +20,6 @@ export default function ComparisonDashboard() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showSkeleton, setShowSkeleton] = useState(true);
-  const [showTrajectory, setShowTrajectory] = useState(true);
   const [useDTW, setUseDTW] = useState(true);
 
   // モックデータ（後でAPIから取得）
@@ -108,7 +106,6 @@ export default function ComparisonDashboard() {
           currentTime={currentTime}
           duration={duration}
           showSkeleton={showSkeleton}
-          showTrajectory={showTrajectory}
           onTimeUpdate={setCurrentTime}
           onDurationChange={setDuration}
         />
@@ -122,7 +119,6 @@ export default function ComparisonDashboard() {
           onSpeedChange={handleSpeedChange}
           onDTWToggle={() => setUseDTW(!useDTW)}
           onSkeletonToggle={() => setShowSkeleton(!showSkeleton)}
-          onTrajectoryToggle={() => setShowTrajectory(!showTrajectory)}
         />
 
         {/* スコア比較セクション */}
@@ -139,13 +135,6 @@ export default function ComparisonDashboard() {
         <AIFeedback
           comparisonId={comparisonId}
           onSeek={setCurrentTime}
-        />
-
-        {/* 3D軌跡比較 */}
-        <Trajectory3D
-          comparisonId={comparisonId}
-          showReference={true}
-          showEvaluation={true}
         />
       </main>
 

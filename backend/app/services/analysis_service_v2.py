@@ -233,18 +233,22 @@ class AnalysisServiceV2:
         logger.info(f"[ANALYSIS] Video info: {info}")
         return info
 
-    async def _extract_frames(self, video_path: Path, target_fps: int = 5) -> List[np.ndarray]:
+    async def _extract_frames(self, video_path: Path, target_fps: int = None) -> List[np.ndarray]:
         """
         動画からフレームを抽出
 
         Args:
             video_path: 動画ファイルパス
-            target_fps: 抽出するFPS（デフォルト5fps）
+            target_fps: 抽出するFPS（Noneの場合は設定ファイルから取得、デフォルト15fps）
 
         Returns:
             フレームのリスト
         """
-        logger.info(f"[ANALYSIS] _extract_frames started: video_path={video_path}, target_fps={target_fps}")
+        # 環境変数から取得（デフォルト15fps）
+        if target_fps is None:
+            target_fps = getattr(settings, 'FRAME_EXTRACTION_FPS', 15)
+
+        logger.info(f"[ANALYSIS] _extract_frames started: video_path={video_path}, target_fps={target_fps} (from config: {settings.FRAME_EXTRACTION_FPS})")
         frames = []
         cap = cv2.VideoCapture(str(video_path))
 

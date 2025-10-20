@@ -1,0 +1,32 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+sqlalchemy>=2.0.36
+python-multipart==0.0.4
+opencv-python==4.8.1.78
+mediapipe>=0.10.0
+ultralytics==8.0.200
+numpy<2
+pandas>=2.2.0
+python-jose[cryptography]==3.3.0
+alembic==1.12.1
+aiofiles==23.2.1
+python-dotenv==1.0.0
+pydantic>=2.8.0
+pydantic-settings==2.1.0
+openpyxl==3.1.2
+Pillow>=10.4.0
+scipy>=1.11.0
+
+# GPU対応PyTorch（CUDA 11.8版 - RTX 3060対応）
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Segment Anything Model（SAM）
+segment-anything>=1.0
+
+# Segment Anything Model 2 (SAM2) - Video Tracking
+sam2>=1.1.0
+
+# DeepGaze III - Eye Gaze Analysis (視線解析)
+git+https://github.com/matthias-k/DeepGaze.git
