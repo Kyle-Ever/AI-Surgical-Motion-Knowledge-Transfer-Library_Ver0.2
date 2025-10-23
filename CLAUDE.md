@@ -99,6 +99,9 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8001
 # 🟢 推奨: フロントエンド + Experimentalバックエンド (Port 3000 + 8001)
 start_both_experimental.bat
 
+# 🌐 公開デモ・外部アクセス用（ngrok付き）
+start_both_experimental_with_ngrok.bat
+
 # 🔵 Experimentalバックエンドのみ (Port 8001)
 start_backend_experimental.bat
 
@@ -115,6 +118,7 @@ npm run dev         # Start development server (Port 3000)
 - Experimentalバックエンド (Port 8001) を使用
 - 旧バックエンド (Port 8000) は非推奨
 - Python 3.11必須（`backend_experimental/venv311/`）
+- ngrok付き起動でインターネット経由アクセス可能（デモ用）
 
 ### Testing
 ```bash
@@ -151,12 +155,14 @@ sqlite3 aimotion.db "SELECT id, status, created_at FROM analyses ORDER BY create
 ## High-Level Architecture
 
 ### Processing Pipeline
-1. **Upload**: Video → `backend/data/uploads/` (1GB max, .mp4 only)
-2. **Analysis**: Frame extraction → AI detection → Score calculation
-3. **Detection Types**:
-   - `external`: MediaPipe skeleton detection (hand tracking)
-   - `internal`: YOLOv8 instrument detection + SAM tracker
-4. **Real-time Updates**: WebSocket progress at `/ws/analysis/{analysis_id}`
+1. **Upload**: Video → `backend_experimental/data/uploads/` (1GB max, .mp4 only)
+2. **Frame Extraction**: Target 15 FPS with precise timestamp calculation
+3. **AI Detection**:
+   - **Skeleton**: MediaPipe hand/body tracking
+   - **Instruments**: YOLOv8 detection + SAM2 Video API tracking
+   - **Gaze**: DeepGaze III eye gaze analysis (experimental)
+4. **Score Calculation**: Motion efficiency metrics
+5. **Real-time Updates**: WebSocket progress at `/ws/analysis/{analysis_id}`
 
 ### Key API Endpoints
 - `POST /api/v1/videos/upload` - Upload video (1GB limit)
@@ -170,14 +176,17 @@ sqlite3 aimotion.db "SELECT id, status, created_at FROM analyses ORDER BY create
 - `WS /ws/analysis/{analysis_id}` - Real-time progress
 
 ### Core Services Architecture
-- **AnalysisService** (`backend/app/services/analysis_service_v2.py`): Orchestrates processing pipeline
-- **ScoringService** (`backend/app/services/scoring_service.py`): Calculates motion metrics
-- **InstrumentTrackingService** (`backend/app/services/instrument_tracking_service.py`): Instrument detection/tracking
-- **MetricsCalculator** (`backend/app/services/metrics_calculator.py`): Computes motion metrics
-- **WebSocket Manager** (`backend/app/core/websocket.py`): Real-time client connections
-- **AI Processors** (`backend/app/ai_engine/processors/`):
+- **AnalysisService** (`backend_experimental/app/services/analysis_service_v2.py`): Orchestrates processing pipeline
+- **ScoringService** (`backend_experimental/app/services/scoring_service.py`): Calculates motion metrics
+- **InstrumentTrackingService** (`backend_experimental/app/services/instrument_tracking_service.py`): Instrument detection/tracking
+- **FrameExtractionService** (`backend_experimental/app/services/frame_extraction_service.py`): Video frame extraction with precise FPS handling
+- **MetricsCalculator** (`backend_experimental/app/services/metrics_calculator.py`): Computes motion metrics
+- **WebSocket Manager** (`backend_experimental/app/core/websocket.py`): Real-time client connections
+- **AI Processors** (`backend_experimental/app/ai_engine/processors/`):
   - `skeleton_detector.py`: MediaPipe hand/body tracking
   - `sam_tracker.py`: Segment Anything Model for instruments
+  - `sam2_tracker_video.py`: SAM2 Video API for instrument tracking
+  - `gaze_analyzer.py`: DeepGaze III for eye gaze analysis
   - `enhanced_hand_detector.py`: Improved detection accuracy
 - **Frontend State**: Zustand for global state, custom hooks for WebSocket
 
@@ -225,7 +234,12 @@ const useVideoStore = create((set) => ({
 ### Backend
 - **Python**: 3.11 ONLY (3.12+ breaks MediaPipe/OpenCV)
 - **Framework**: FastAPI with async/await, SQLAlchemy ORM
-- **AI Libraries**: MediaPipe (hand tracking), YOLOv8 (instrument detection), SAM (segmentation)
+- **AI Libraries**:
+  - MediaPipe (hand tracking)
+  - YOLOv8 (instrument detection)
+  - SAM & SAM2 (segmentation & video tracking)
+  - DeepGaze III (eye gaze analysis)
+  - PyTorch with CUDA 11.8 (RTX 3060 GPU support)
 - **Critical Dependencies**: `numpy<2`, `ultralytics==8.0.200`, `mediapipe>=0.10.0`
 - **Database**: SQLite with migrations via Alembic
 
@@ -292,6 +306,58 @@ npm run dev
 - Form inputs: Must be `<input>`, not styled divs
 - Video player: Must be `<video>` element
 - Test after changes: `npx playwright test button-regression.spec.ts`
+
+## 🎨 視線解析ダッシュボード - 独自デザイン保護
+
+### 重要ファイル
+- **GazeDashboardClient.tsx**: ビデオ同期Canvas + Chart.js グラフ（879行）
+- **バックアップ**: GazeDashboardClient.custom.tsx
+- **ドキュメント**: [POST_MORTEM_GAZE_DASHBOARD_CUSTOM_DESIGN.md](docs/POST_MORTEM_GAZE_DASHBOARD_CUSTOM_DESIGN.md)
+
+### 独自デザインの主要機能
+1. **ビデオ同期Canvas表示**（2分割）
+   - 左Canvas: ゲーズプロットオーバーレイ（緑丸 + 白線）
+   - 右Canvas: リアルタイムヒートマップ（半透明カラーマップ）
+2. **Chart.js 時系列グラフ**（X/Y座標の動的表示）
+3. **リアルタイムヒートマップ**（Gaussian blur、±1秒時間窓）
+4. **用語統一**（「固視点」→「ゲーズプロット」）
+
+### 変更時の必須手順
+```bash
+# 1. バックアップ作成
+cp frontend/components/GazeDashboardClient.tsx \
+   frontend/components/GazeDashboardClient.backup_$(date +%Y%m%d_%H%M).tsx
+
+# 2. 変更実施
+
+# 3. 動作確認
+npm run dev
+# http://localhost:3000/dashboard/fcc9c5db-e82d-4cf8-83e0-55af633e397f
+
+# 4. Gitコミット
+git add frontend/components/GazeDashboardClient.tsx
+git commit -m "feat: 視線解析ダッシュボード改善 - [変更内容]"
+```
+
+### 🚨 禁止事項（独自デザインが消える）
+- ❌ `git restore frontend/components/GazeDashboardClient.tsx`
+- ❌ `saliency_map` ベースの実装に戻す
+- ❌ 「固視点」という用語を使用
+- ❌ Canvas解像度を1920x1080に戻す
+
+### 緊急復旧手順
+```bash
+# 独自デザインが消えた場合
+cp frontend/components/GazeDashboardClient.custom.tsx \
+   frontend/components/GazeDashboardClient.tsx
+
+# または
+cp docs/code_snapshots/GazeDashboardClient_custom_design_YYYYMMDD.tsx \
+   frontend/components/GazeDashboardClient.tsx
+
+# キャッシュクリアして再起動
+cd frontend && rm -rf .next && npm run dev
+```
 
 ### 🔬 Debugging Protocol (MANDATORY)
 **全てのトラブルシューティングで以下3つの質問に回答すること**
@@ -403,9 +469,11 @@ Video Upload → Frame Extraction → Batch Detection → Format Conversion → 
 ```
 
 ### Required Model Files (Auto-downloaded if missing)
-- `backend/yolov8n.pt`: Instrument detection (~6MB)
-- `backend/yolov8n-pose.pt`: Pose model (~6MB)
-- `backend/sam_b.pt`: Segment Anything Model (~375MB)
+- `backend_experimental/yolov8n.pt`: Instrument detection (~6MB)
+- `backend_experimental/yolov8n-pose.pt`: Pose model (~6MB)
+- `backend_experimental/sam_b.pt`: Segment Anything Model (~375MB)
+- **SAM2**: Downloaded automatically on first use
+- **DeepGaze III**: Installed via Git repository (視線解析用)
 
 ### File Structure
 ```
