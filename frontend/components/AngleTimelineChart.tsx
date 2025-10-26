@@ -178,6 +178,14 @@ export default function AngleTimelineChart({
 
   // Chart.jsのデータセット（現在時刻までのデータのみ表示）
   const chartData = useMemo(() => {
+    // データが空の場合は早期リターン
+    if (angleData.timestamps.length === 0) {
+      return {
+        labels: [],
+        datasets: []
+      }
+    }
+
     // 現在時刻までのデータをフィルタリング
     const currentDataIndex = currentIndex >= 0 ? currentIndex : 0
 
@@ -187,8 +195,8 @@ export default function AngleTimelineChart({
     const visibleInstrument = angleData.instrument.slice(0, currentDataIndex + 1)
 
     // 残りの部分はnullで埋める（グラフの幅を保つため）
-    const remainingCount = angleData.timestamps.length - (currentDataIndex + 1)
-    const nullArray = new Array(remainingCount).fill(null)
+    const remainingCount = Math.max(0, angleData.timestamps.length - (currentDataIndex + 1))
+    const nullArray = remainingCount > 0 ? new Array(remainingCount).fill(null) : []
 
     const datasets: any[] = [
       {

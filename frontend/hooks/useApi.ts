@@ -35,6 +35,7 @@ export function useUploadVideo() {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        timeout: 300000, // 5分タイムアウト（動画アップロード用）
         onUploadProgress: (progressEvent) => {
           if (progressEvent.total) {
             const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
@@ -162,7 +163,9 @@ export function useWebSocket(analysisId: string | null) {
         }
 
         ws.current.onerror = (error) => {
-          console.error('WebSocket error:', error)
+          // WebSocket errorイベントは詳細を提供しない（仕様）
+          // 接続状態の変化はoncloseで処理される
+          console.debug('WebSocket error event (normal during disconnect):', error)
         }
 
         ws.current.onclose = () => {

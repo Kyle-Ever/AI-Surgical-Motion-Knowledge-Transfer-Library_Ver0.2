@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, Activity, Target, Move, Wrench, AlertCircle, CheckCircle } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import GazeDashboardClient from '@/components/GazeDashboardClient'
 
 // 動的インポート（SSR対策）
 const VideoPlayer = dynamic(() => import('@/components/VideoPlayer'), { ssr: false })
@@ -39,6 +40,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
   const [comparisonId, setComparisonId] = useState<string | null>(null)
   const [selectedReferenceId, setSelectedReferenceId] = useState<string | null>(null)
   const [isComparing, setIsComparing] = useState(false)
+  const [videoType, setVideoType] = useState<string | null>(null)
 
   // APIから解析結果を取得
   useEffect(() => {
@@ -99,6 +101,15 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
           has_motion_analysis: !!data.motion_analysis,
           has_metrics: !!data.motion_analysis?.metrics
         })
+
+        // 視線解析の場合は専用ダッシュボードへ
+        if (data.video_type === 'eye_gaze') {
+          console.log('[DashboardClient] Detected eye_gaze analysis, switching to GazeDashboardClient')
+          setVideoType('eye_gaze')
+          setAnalysisData(data)
+          setLoading(false)
+          return
+        }
 
         setAnalysisData(data)
 
@@ -257,6 +268,11 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
         </div>
       </div>
     )
+  }
+
+  // 視線解析の場合は専用ダッシュボードを表示
+  if (videoType === 'eye_gaze') {
+    return <GazeDashboardClient analysisId={analysisId} />
   }
 
   return (

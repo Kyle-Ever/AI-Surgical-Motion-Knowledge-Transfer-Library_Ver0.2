@@ -4,6 +4,7 @@ import Link from "next/link"
 import { FileVideo, Library, Award, History } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from 'react'
+import { getCompletedAnalyses } from '@/lib/api'
 
 const features = [
   {
@@ -101,28 +102,26 @@ export default function HomePage() {
     try {
       setLoading(true)
 
-      // 完了した分析結果を取得
-      const completedRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analysis/completed`)
-      if (completedRes.ok) {
-        const completedData = await completedRes.json()
+      // 完了した分析結果を取得（軽量データのみ）
+      const completedData = await getCompletedAnalyses(50, false)  // include_details=false
 
-        // 既にvideo情報が含まれているので、そのまま使用
-        const allAnalyses = completedData.map((analysis: any) => ({
-          ...analysis,
-          video: {
-            ...analysis.video,
-            surgery_name: analysis.video?.surgery_name || '手術名未設定',
-            surgeon_name: analysis.video?.surgeon_name || '執刀医未設定',
-          }
-        }))
+      // 既にvideo情報が含まれているので、そのまま使用
+      const allAnalyses = completedData.map((analysis: any) => ({
+        ...analysis,
+        video: {
+          ...analysis.video,
+          surgery_name: analysis.video?.surgery_name || '手術名未設定',
+          surgeon_name: analysis.video?.surgeon_name || '執刀医未設定',
+        }
+      }))
 
-        // 作成日時でソート（古いものが上）、最新3件を取得
-        allAnalyses.sort((a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        )
-        // 最後の3件を取得（最新の3件）
-        const recent = allAnalyses.slice(-3)
-        setRecentAnalyses(recent)
+      // 作成日時でソート（古いものが上）、最新3件を取得
+      allAnalyses.sort((a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      // 最後の3件を取得（最新の3件）
+      const recent = allAnalyses.slice(-3)
+      setRecentAnalyses(recent)
 
         // メトリクスを計算
         const today = new Date()
@@ -138,30 +137,26 @@ export default function HomePage() {
 
         const pendingCount = allAnalyses.filter(a => a.status === 'processing' || a.status === 'pending').length
 
-        setMetrics([
-          {
-            label: "本日の解析ジョブ",
-            value: todayAnalyses.length.toString(),
-            trend: `▲ ${todayAnalyses.length > 0 ? Math.round(todayAnalyses.length * 0.18) : 0}% vs 昨日`,
-            trendClassName: "metric-trend",
-          },
-          {
-            label: "平均スコア",
-            value: avgScore > 0 ? avgScore.toFixed(1) : "--",
-            trend: avgScore > 0 ? "▲ 5.2pt 改善" : "-- 改善",
-            trendClassName: "metric-trend",
-          },
-          {
-            label: "レビュー待ち",
-            value: `${pendingCount}件`,
-            trend: "▼ 教員アサイン予定",
-            trendClassName: "metric-trend metric-trend--warning",
-          },
-        ])
-      } else {
-        // APIエラーまたは空のレスポンスの場合
-        setRecentAnalyses([])
-      }
+      setMetrics([
+        {
+          label: "本日の解析ジョブ",
+          value: todayAnalyses.length.toString(),
+          trend: `▲ ${todayAnalyses.length > 0 ? Math.round(todayAnalyses.length * 0.18) : 0}% vs 昨日`,
+          trendClassName: "metric-trend",
+        },
+        {
+          label: "平均スコア",
+          value: avgScore > 0 ? avgScore.toFixed(1) : "--",
+          trend: avgScore > 0 ? "▲ 5.2pt 改善" : "-- 改善",
+          trendClassName: "metric-trend",
+        },
+        {
+          label: "レビュー待ち",
+          value: `${pendingCount}件`,
+          trend: "▼ 教員アサイン予定",
+          trendClassName: "metric-trend metric-trend--warning",
+        },
+      ])
     } catch (err) {
       console.error('Error fetching recent analyses:', err)
       setRecentAnalyses([])

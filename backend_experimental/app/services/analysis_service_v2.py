@@ -1309,19 +1309,37 @@ class AnalysisServiceV2:
                 logger.info("[GAZE] GazeAnalyzer initialized")
             await self._update_status(analysis_result, "initialization", db, progress=10)
 
-            # 2. フレーム抽出（既存FrameExtractionService再利用）
+            # 2. 元動画の解像度を取得
+            logger.info("[GAZE] Getting original video resolution...")
+            video_info = self._get_video_info(str(video_path))
+            original_width = video_info['width']
+            original_height = video_info['height']
+            logger.info(f"[GAZE] Original video resolution: {original_width}x{original_height}")
+
+            # 3. フレーム抽出（視線解析では元動画のFPSを保持）
             logger.info("[GAZE] Starting frame extraction...")
+            logger.info(f"[GAZE] Using target_fps={video_info['fps']} (original video FPS)")
             await self._update_status(analysis_result, "frame_extraction", db, progress=15)
 
+            # 視線解析では元動画のFPSをそのまま使用（間引きなし）
             loop = asyncio.get_event_loop()
             extraction_result = await loop.run_in_executor(
                 None,
-                self.frame_extraction_service.extract_frames,
-                str(video_path)
+                lambda: self.frame_extraction_service.extract_frames(
+                    str(video_path),
+                    target_fps=video_info['fps']  # 元動画のFPSを使用
+                )
             )
 
             frames = extraction_result.frames
-            logger.info(f"[GAZE] Extracted {len(frames)} frames")
+            # フレーム解像度を取得（リサイズ後のサイズ）
+            if len(frames) > 0:
+                frame_height, frame_width = frames[0].shape[:2]
+            else:
+                raise ValueError("No frames extracted from video")
+
+            logger.info(f"[GAZE] Extracted {len(frames)} frames at {frame_width}x{frame_height}")
+            logger.info(f"[GAZE] Scale factor: {original_width/frame_width:.2f}x")
             await self._update_status(analysis_result, "frame_extraction", db, progress=30)
 
             # 3. 各フレームで視線解析
@@ -1369,23 +1387,34 @@ class AnalysisServiceV2:
                         gaze_params
                     )
 
-                    # 固視点をカウント
+                    # 固視点を元動画解像度にスケール変換
                     fixations = result['fixations']
-                    total_fixations += len(fixations)
+                    scale_x = original_width / frame_width
+                    scale_y = original_height / frame_height
 
-                    # ホットスポット集計
-                    for fx, fy in fixations:
-                        # 20x20ピクセルのグリッドに丸める
-                        grid_x = (fx // 20) * 20
-                        grid_y = (fy // 20) * 20
+                    # スケール変換した座標
+                    fixations_scaled = [
+                        (int(x * scale_x), int(y * scale_y))
+                        for x, y in fixations
+                    ]
+
+                    total_fixations += len(fixations_scaled)
+
+                    # ホットスポット集計（元解像度スケール）
+                    for fx, fy in fixations_scaled:
+                        # グリッドサイズもスケールに応じて調整（元解像度の20ピクセル単位）
+                        grid_size = int(20 * scale_x)
+                        grid_x = (fx // grid_size) * grid_size
+                        grid_y = (fy // grid_size) * grid_size
                         key = (grid_x, grid_y)
                         attention_hotspots[key] = attention_hotspots.get(key, 0) + 1
 
-                    # 結果を保存
+                    # 結果を保存（スケール変換後の座標をフロントエンド形式に変換）
+                    fixations_dict = [{'x': x, 'y': y} for x, y in fixations_scaled]
                     gaze_results.append({
                         'frame_index': idx,
                         'timestamp': extraction_result.timestamps[idx],
-                        'fixations': fixations,
+                        'fixations': fixations_dict,
                         'stats': result['stats']
                     })
 
@@ -1414,7 +1443,11 @@ class AnalysisServiceV2:
                 'average_fixations_per_frame': total_fixations / len(frames) if frames else 0,
                 'attention_hotspots': top_hotspot_coords,
                 'effective_fps': extraction_result.effective_fps,
-                'total_duration': extraction_result.timestamps[-1] if extraction_result.timestamps else 0
+                'total_duration': extraction_result.timestamps[-1] if extraction_result.timestamps else 0,
+                # 解像度情報を追加
+                'source_frame_resolution': [frame_width, frame_height],
+                'target_video_resolution': [original_width, original_height],
+                'scale_factor': round(original_width / frame_width, 2)
             }
 
             # 5. 結果をデータベースに保存

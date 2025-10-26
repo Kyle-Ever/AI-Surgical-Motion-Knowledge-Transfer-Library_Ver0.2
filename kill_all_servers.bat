@@ -60,6 +60,13 @@ echo ========================================
 echo All servers stopped successfully
 echo ========================================
 echo.
+
+REM 他のスクリプトから呼ばれた場合はpauseしない
+if "%1"=="nopause" (
+    echo Continuing with parent script...
+    exit /b 0
+)
+
 echo 次のステップ:
 echo   - バックエンド起動: start_backend_py311.bat
 echo   - フロントエンド起動: cd frontend ^&^& npm run dev

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import Dict, Any
 from pathlib import Path
 import uuid
@@ -85,24 +86,38 @@ async def start_analysis(
 async def get_completed_analyses(
     skip: int = 0,
     limit: int = 100,
-    include_failed: bool = False,  # パラメータを追加
+    include_failed: bool = False,
+    include_details: bool = False,  # 重いデータ（skeleton_data等）を含めるか
     db: Session = Depends(get_db)
 ):
-    """Get list of completed analyses with video information - sorted by created_at desc"""
+    """Get list of completed analyses with video information - sorted by created_at desc
+
+    Args:
+        skip: ページネーション用オフセット
+        limit: 取得件数上限
+        include_failed: FAILEDステータスも含めるか
+        include_details: skeleton_data, instrument_data, gaze_data を含めるか（デフォルト: False）
+    """
 
     import logging
-    logger = logging.getLogger(__name__)
-    logger.info("[DEBUG] get_completed_analyses endpoint called")
+    from sqlalchemy.orm import joinedload
 
-    # include_failedがTrueの場合は全ステータス、Falseの場合はCOMPLETEDのみ
+    logger = logging.getLogger(__name__)
+    logger.info(f"[DEBUG] get_completed_analyses endpoint called (include_details={include_details})")
+
+    # N+1クエリ問題を解消: joinedloadで1回のクエリでVideoも取得
     if include_failed:
         # FAILEDも含めて取得（開発用）
-        analyses = db.query(AnalysisResult).filter(
+        analyses = db.query(AnalysisResult).options(
+            joinedload(AnalysisResult.video)  # ← VideoをJOINで一緒に取得
+        ).filter(
             AnalysisResult.status.in_([AnalysisStatus.COMPLETED, AnalysisStatus.FAILED])
         ).order_by(AnalysisResult.created_at.desc()).offset(skip).limit(limit).all()
     else:
-        analyses = db.query(AnalysisResult).filter(
-            AnalysisResult.status == AnalysisStatus.COMPLETED
+        analyses = db.query(AnalysisResult).options(
+            joinedload(AnalysisResult.video)  # ← VideoをJOINで一緒に取得
+        ).filter(
+            func.lower(AnalysisResult.status) == 'completed'
         ).order_by(AnalysisResult.created_at.desc()).offset(skip).limit(limit).all()
 
     logger.info(f"[DEBUG] Found {len(analyses)} completed analyses")
@@ -110,17 +125,14 @@ async def get_completed_analyses(
     # Add video information to each analysis
     result = []
     for analysis in analyses:
-        # Get associated video
-        video = db.query(Video).filter(Video.id == analysis.video_id).first()
+        # video は既に joinedload で取得済み（追加クエリなし）
+        video = analysis.video
 
         # Convert to dict and add video info
         analysis_dict = {
             "id": analysis.id,
             "video_id": analysis.video_id,
             "status": analysis.status,
-            "skeleton_data": analysis.skeleton_data,
-            "instrument_data": analysis.instrument_data,
-            "motion_analysis": analysis.motion_analysis,
             "scores": analysis.scores,
             "avg_velocity": analysis.avg_velocity,
             "max_velocity": analysis.max_velocity,
@@ -140,6 +152,20 @@ async def get_completed_analyses(
                 "created_at": video.created_at
             } if video else None
         }
+
+        # include_details=True の場合のみ重いデータを追加（デフォルトでは除外）
+        if include_details:
+            analysis_dict.update({
+                "skeleton_data": analysis.skeleton_data,
+                "instrument_data": analysis.instrument_data,
+                "motion_analysis": analysis.motion_analysis,
+                "gaze_data": analysis.gaze_data,
+                "tracking_stats": analysis.tracking_stats,
+                "coordinate_data": analysis.coordinate_data,
+                "velocity_data": analysis.velocity_data,
+                "angle_data": analysis.angle_data,
+            })
+
         result.append(analysis_dict)
 
     return result
@@ -253,12 +279,26 @@ async def get_analysis_status(
     except Exception:
         pass
     # --- end unified mapping ---
+
+    # Determine current step based on progress
+    current_step = None
+    if analysis.status == AnalysisStatus.PROCESSING:
+        try:
+            for step in steps:
+                if step.status == 'processing':
+                    current_step = step.name
+                    break
+        except Exception:
+            pass
+
     return AnalysisStatusResponse(
         analysis_id=analysis.id,
         video_id=analysis.video_id,
+        video_type=str(video_type) if 'video_type' in locals() else None,
         overall_progress=analysis.progress or 0,
         steps=steps,
-        estimated_time_remaining=max(0, 300 - (analysis.progress or 0) * 3) if analysis.status == AnalysisStatus.PROCESSING else None
+        estimated_time_remaining=max(0, 300 - (analysis.progress or 0) * 3) if analysis.status == AnalysisStatus.PROCESSING else None,
+        current_step=current_step
     )
 
 @router.get(
@@ -303,6 +343,14 @@ async def get_analysis_result(
             except:
                 logger.warning(f"Failed to parse warnings for analysis {analysis_id}")
 
+        # DeepGaze III視線解析データをパース
+        gaze_data = None
+        if hasattr(analysis, 'gaze_data') and analysis.gaze_data:
+            try:
+                gaze_data = json.loads(analysis.gaze_data) if isinstance(analysis.gaze_data, str) else analysis.gaze_data
+            except:
+                logger.warning(f"Failed to parse gaze_data for analysis {analysis_id}")
+
         # Create response manually to avoid from_orm issues
         result_dict = {
             "id": analysis.id,
@@ -332,7 +380,9 @@ async def get_analysis_result(
             # Phase 2.3: 新しいフィールド
             "tracking_stats": tracking_stats,
             "last_error_frame": analysis.last_error_frame,
-            "warnings": warnings
+            "warnings": warnings,
+            # DeepGaze III視線解析データ
+            "gaze_data": gaze_data
         }
 
         result = AnalysisResultResponse(**result_dict)

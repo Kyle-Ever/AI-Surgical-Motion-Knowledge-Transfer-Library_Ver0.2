@@ -68,8 +68,34 @@ export default function AnalysisClient({ analysisId }: AnalysisClientProps) {
     }
   }, [lastMessage, analysisId, router])
 
-  // 処理ステップの定義（改善版）
-  const steps: ProcessingStep[] = [
+  // 視線解析かどうかを判定（video_typeで判定）
+  const isGazeAnalysis = status?.video_type === 'eye_gaze'
+
+  // 処理ステップの定義（解析タイプに応じて分岐）
+  const steps: ProcessingStep[] = isGazeAnalysis ? [
+    // 視線解析用ステップ
+    {
+      name: '動画読み込み',
+      status: status?.current_step === 'initialization' || lastMessage?.current_step === 'initialization' ? 'processing' :
+             (status && status.overall_progress >= 10) || overallProgress >= 10 ? 'completed' : 'pending'
+    },
+    {
+      name: 'フレーム抽出',
+      status: status?.current_step === 'frame_extraction' || lastMessage?.current_step === 'frame_extraction' ? 'processing' :
+             (status && status.overall_progress >= 30) || overallProgress >= 30 ? 'completed' : 'pending'
+    },
+    {
+      name: '視線検出',
+      status: status?.current_step === 'gaze_detection' || lastMessage?.current_step === 'gaze_detection' ? 'processing' :
+             (status && status.overall_progress >= 85) || overallProgress >= 85 ? 'completed' : 'pending'
+    },
+    {
+      name: 'ヒートマップ生成',
+      status: status?.current_step === 'report_generation' || lastMessage?.current_step === 'report_generation' ? 'processing' :
+             (status && status.overall_progress >= 100) || overallProgress >= 100 ? 'completed' : 'pending'
+    },
+  ] : [
+    // 通常の骨格・器具解析用ステップ
     {
       name: '動画読み込み',
       status: status?.current_step === 'initialization' || lastMessage?.current_step === 'initialization' ? 'processing' :

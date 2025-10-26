@@ -142,8 +142,15 @@ class FrameExtractionService:
         # target_fpsの決定
         fps_to_use = target_fps if target_fps is not None else self.config.target_fps
 
-        # frame_skip計算
-        frame_skip = self.config.calculate_frame_skip(metadata.fps)
+        # frame_skip計算（fps_to_useを使用）
+        if self.config.use_round:
+            frame_skip = max(1, round(metadata.fps / fps_to_use))
+        else:
+            frame_skip = max(1, int(metadata.fps / fps_to_use))
+
+        logger.info(f"[FRAME_EXTRACTION] frame_skip calculation: "
+                   f"video_fps={metadata.fps:.2f}, target_fps={fps_to_use:.2f}, "
+                   f"method={'round' if self.config.use_round else 'int'}, skip={frame_skip}")
 
         # 抽出対象フレーム番号を計算
         frame_indices = list(range(0, metadata.total_frames, frame_skip))

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime
 
@@ -33,10 +34,10 @@ async def create_reference_model(
 ):
     """基準動作モデルを作成"""
     try:
-        # 解析結果の確認
+        # 解析結果の確認（大文字・小文字を無視）
         analysis = db.query(AnalysisResult).filter(
             AnalysisResult.id == reference.analysis_id,
-            AnalysisResult.status == AnalysisStatus.COMPLETED
+            func.lower(AnalysisResult.status) == 'completed'
         ).first()
 
         if not analysis:
@@ -145,7 +146,7 @@ async def start_comparison(
         # 学習者の解析結果の確認
         learner_analysis = db.query(AnalysisResult).filter(
             AnalysisResult.id == comparison.learner_analysis_id,
-            AnalysisResult.status == AnalysisStatus.COMPLETED
+            func.lower(AnalysisResult.status) == 'completed'
         ).first()
 
         if not learner_analysis:

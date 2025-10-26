@@ -1,10 +1,11 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 import sys
 import os
 from pathlib import Path
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
 from app.core.error_handler import setup_exception_handlers
@@ -91,10 +92,27 @@ app = FastAPI(
 # エラーハンドラー設定
 setup_exception_handlers(app)
 
+# UTF-8エンコーディング強制ミドルウェア
+class UTF8EnforcementMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        # JSONレスポンスに明示的にcharset=utf-8を設定
+        if response.headers.get("content-type", "").startswith("application/json"):
+            response.headers["content-type"] = "application/json; charset=utf-8"
+        return response
+
+app.add_middleware(UTF8EnforcementMiddleware)
+
 # CORS設定
+# ngrokデュアルドメイン構成対応
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 一時的にすべてのオリジンを許可
+    allow_origins=[
+        "https://mindmotionai.ngrok-free.dev",  # フロントエンド
+        "https://dev.mindmotionai.ngrok-free.dev",  # バックエンド（自己参照）
+        "http://localhost:3000",  # ローカル開発用
+        "http://localhost:8001",  # ローカルバックエンド
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

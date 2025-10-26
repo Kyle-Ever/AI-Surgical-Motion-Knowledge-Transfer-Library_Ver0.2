@@ -26,97 +26,95 @@ export default function ComparisonDashboard() {
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [useDTW, setUseDTW] = useState(true);
 
-  // APIデータから表示用データを構築
-  // video_idを使って実際の動画URLを生成
-  const referenceVideoId = result?.reference_video_id || result?.reference_analysis?.video_id || result?.reference_model?.analysis_result?.video_id;
-  const evaluationVideoId = result?.learner_video_id || result?.learner_analysis?.video_id || result?.evaluation_video_id;
+  // comparisonData を useMemo でメモ化（result が変更されたときのみ再計算）
+  // IMPORTANT: React Hooks のルールにより、フックは条件分岐の前に呼び出す必要がある
+  const comparisonData = React.useMemo(() => {
+    if (!result) return null;
 
-  // 既存の分析データがある場合は再分析しない
-  // useComparisonResultがすでに分析データを含んでいる
-  const referenceAnalysis = result?.reference_analysis || null;
-  const evaluationAnalysis = result?.learner_analysis || null;
-  const isAnalyzing = false; // 分析は既に完了している
+    const referenceVideoId = result.reference_video_id || result.reference_analysis?.video_id || result.reference_model?.analysis_result?.video_id;
+    const evaluationVideoId = result.learner_video_id || result.learner_analysis?.video_id || result.evaluation_video_id;
+    const referenceAnalysis = result.reference_analysis || null;
+    const evaluationAnalysis = result.learner_analysis || null;
 
-  // デバッグ用ログ
-  console.log('Comparison result:', result);
-  console.log('Reference video ID:', referenceVideoId);
-  console.log('Evaluation video ID:', evaluationVideoId);
-  console.log('Reference analysis:', referenceAnalysis);
-  console.log('Reference skeleton data:', referenceAnalysis?.skeleton_data);
-  console.log('Evaluation analysis:', evaluationAnalysis);
-  console.log('Evaluation skeleton data:', evaluationAnalysis?.skeleton_data);
+    console.log('[comparisonData MEMO] Recalculating with result:', !!result);
+    console.log('[comparisonData MEMO] referenceVideoId:', referenceVideoId);
+    console.log('[comparisonData MEMO] evaluationVideoId:', evaluationVideoId);
 
-  const comparisonData = result ? {
-    reference: {
-      title: '基準動作（指導医）',
-      performer: result.reference_video?.performer_name || result.reference_model?.surgeon_name || 'Dr. 田中太郎',
-      procedure: result.reference_video?.procedure_name || result.reference_model?.surgery_type || '腹腔鏡下胆嚢摘出術',
-      date: result.reference_video?.created_at ? new Date(result.reference_video.created_at).toLocaleDateString('ja-JP') : '2024/12/01',
-      videoUrl: referenceVideoId ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/${referenceVideoId}/stream` : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/stream/sample_reference`,
-      detectionRate: 98.5,
-      fps: 30,
-      skeletonData: referenceAnalysis?.skeleton_data || result.reference_analysis?.skeleton_data || []
-    },
-    evaluation: {
-      title: '評価動作（学習者）',
-      performer: result.evaluation_video?.performer_name || result.learner_analysis?.surgeon_name || '研修医 山田花子',
-      procedure: result.evaluation_video?.procedure_name || result.learner_analysis?.surgery_type || '腹腔鏡下胆嚢摘出術',
-      date: result.evaluation_video?.created_at ? new Date(result.evaluation_video.created_at).toLocaleDateString('ja-JP') : '2024/12/27',
-      videoUrl: evaluationVideoId ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/${evaluationVideoId}/stream` : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/stream/sample_evaluation`,
-      detectionRate: 95.2,
-      fps: 30,
-      skeletonData: evaluationAnalysis?.skeleton_data || result.learner_analysis?.skeleton_data || []
-    },
-    scores: {
-      total: {
-        value: result.overall_score || 85.3,
-        reference: 92.0,
-        diff: (result.overall_score || 85.3) - 92.0
+    return {
+      reference: {
+        title: '基準動作（指導医）',
+        performer: result.reference_video?.performer_name || result.reference_model?.surgeon_name || 'Dr. 田中太郎',
+        procedure: result.reference_video?.procedure_name || result.reference_model?.surgery_type || '腹腔鏡下胆嚢摘出術',
+        date: result.reference_video?.created_at ? new Date(result.reference_video.created_at).toLocaleDateString('ja-JP') : '2024/12/01',
+        videoUrl: referenceVideoId ? `/api/v1/videos/${referenceVideoId}/stream` : '',
+        detectionRate: 98.5,
+        fps: 30,
+        skeletonData: referenceAnalysis?.skeleton_data || result.reference_analysis?.skeleton_data || []
       },
-      speed: {
-        value: result.speed_score || 78.5,
-        reference: 90.0,
-        diff: (result.speed_score || 78.5) - 90.0
+      evaluation: {
+        title: '評価動作（学習者）',
+        performer: result.evaluation_video?.performer_name || result.learner_analysis?.surgeon_name || '研修医 山田花子',
+        procedure: result.evaluation_video?.procedure_name || result.learner_analysis?.surgery_type || '腹腔鏡下胆嚢摘出術',
+        date: result.evaluation_video?.created_at ? new Date(result.evaluation_video.created_at).toLocaleDateString('ja-JP') : '2024/12/27',
+        videoUrl: evaluationVideoId ? `/api/v1/videos/${evaluationVideoId}/stream` : '',
+        detectionRate: 95.2,
+        fps: 30,
+        skeletonData: evaluationAnalysis?.skeleton_data || result.learner_analysis?.skeleton_data || []
       },
-      smoothness: {
-        value: result.smoothness_score || 92.1,
-        reference: 94.0,
-        diff: (result.smoothness_score || 92.1) - 94.0
+      scores: {
+        total: {
+          value: result.overall_score || 85.3,
+          reference: 92.0,
+          diff: (result.overall_score || 85.3) - 92.0
+        },
+        speed: {
+          value: result.speed_score || 78.5,
+          reference: 90.0,
+          diff: (result.speed_score || 78.5) - 90.0
+        },
+        smoothness: {
+          value: result.smoothness_score || 92.1,
+          reference: 94.0,
+          diff: (result.smoothness_score || 92.1) - 94.0
+        },
+        stability: {
+          value: result.stability_score || 85.7,
+          reference: 93.0,
+          diff: (result.stability_score || 85.7) - 93.0
+        }
       },
-      stability: {
-        value: result.stability_score || 85.7,
-        reference: 93.0,
-        diff: (result.stability_score || 85.7) - 93.0
-      }
-    }
-  } : {
-    reference: {
-      title: '基準動作（指導医）',
-      performer: 'Dr. 田中太郎',
-      procedure: '腹腔鏡下胆嚢摘出術',
-      date: '2024/12/01',
-      videoUrl: `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/stream/sample_reference`,
-      detectionRate: 98.5,
-      fps: 30,
-      skeletonData: []
-    },
-    evaluation: {
-      title: '評価動作（学習者）',
-      performer: '研修医 山田花子',
-      procedure: '腹腔鏡下胆嚢摘出術',
-      date: '2024/12/27',
-      videoUrl: `${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8001'}/api/v1/videos/stream/sample_evaluation`,
-      detectionRate: 95.2,
-      fps: 30,
-      skeletonData: []
-    },
-    scores: {
-      total: { value: 85.3, reference: 92.0, diff: -6.7 },
-      speed: { value: 78.5, reference: 90.0, diff: -11.5 },
-      smoothness: { value: 92.1, reference: 94.0, diff: -1.9 },
-      stability: { value: 85.7, reference: 93.0, diff: -7.3 }
-    }
-  };
+      // DetailedAnalysis コンポーネント用に analysis データも含める
+      referenceAnalysis,
+      evaluationAnalysis
+    };
+  }, [result]);
+
+  // 早期リターン: データ読み込み中またはデータなし
+  if (isLoading || !result || !comparisonData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">比較データを読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md p-8 bg-white rounded-lg shadow">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">エラーが発生しました</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Link href="/scoring" className="inline-block px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+            スコアリング画面に戻る
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handlePlayPause = () => {
     setIsPlaying(!isPlaying);
@@ -131,30 +129,6 @@ export default function ComparisonDashboard() {
     console.log('Exporting PDF...');
     // 将来的にはreact-pdfを使用して実装
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">比較データを読み込み中...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">エラーが発生しました</p>
-          <Link href="/scoring" className="text-blue-600 hover:underline">
-            採点モードに戻る
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -222,9 +196,9 @@ export default function ComparisonDashboard() {
           comparisonId={comparisonId}
           currentTime={currentTime}
           onSeek={setCurrentTime}
-          referenceAnalysis={referenceAnalysis}
-          evaluationAnalysis={evaluationAnalysis}
-          isAnalyzing={isAnalyzing}
+          referenceAnalysis={comparisonData.referenceAnalysis}
+          evaluationAnalysis={comparisonData.evaluationAnalysis}
+          isAnalyzing={false}
         />
 
         {/* AIフィードバックセクション */}

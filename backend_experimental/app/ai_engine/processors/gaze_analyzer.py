@@ -133,8 +133,9 @@ class GazeAnalyzer:
             hx = [seed_x] + [np.nan] * (len(self.model.included_fixations) - 1)
             hy = [seed_y] + [np.nan] * (len(self.model.included_fixations) - 1)
 
-            # Tensor変換
-            it = torch.tensor([frame.transpose(2, 0, 1)], dtype=torch.float32).to(self.device)
+            # Tensor変換（警告を避けるため先にnumpy配列に変換）
+            frame_transposed = np.array(frame.transpose(2, 0, 1))
+            it = torch.tensor([frame_transposed], dtype=torch.float32).to(self.device)
             ct = torch.tensor([cb_log], dtype=torch.float32).to(self.device)
             xt = torch.tensor([hx], dtype=torch.float32).to(self.device)
             yt = torch.tensor([hy], dtype=torch.float32).to(self.device)

@@ -39,10 +39,17 @@ async def app_exception_handler(request: Request, exc: BaseAppException) -> JSON
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """バリデーションエラーのハンドラー"""
+    # 詳細エラー情報をコンソールに出力
+    error_details = exc.errors()
+    logger.warning(f"Validation error on {request.url.path}")
+    logger.warning(f"Error details: {error_details}")
+    logger.warning(f"Request body: {exc.body}")
+
+    # extra付きログ（構造化ログ用）
     logger.warning(
         f"Validation error on {request.url.path}",
         extra={
-            "errors": exc.errors(),
+            "errors": error_details,
             "body": exc.body,
             "path": request.url.path,
             "method": request.method

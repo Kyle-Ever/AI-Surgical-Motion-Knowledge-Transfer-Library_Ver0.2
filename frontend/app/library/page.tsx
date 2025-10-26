@@ -157,21 +157,47 @@ export default function LibraryPage() {
     if (window.confirm('この解析結果を削除しますか？')) {
       try {
         // APIコールで実際に削除
-        const response = await fetch(`http://localhost:8000/api/v1/analysis/${itemId}`, {
-          method: 'DELETE'
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
+        const deleteUrl = `${apiUrl}/analysis/${itemId}`
+
+        console.log(`[DELETE] Attempting to delete: ${deleteUrl}`)
+
+        const response = await fetch(deleteUrl, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
         })
 
+        console.log(`[DELETE] Response status: ${response.status} ${response.statusText}`)
+        console.log(`[DELETE] Response ok: ${response.ok}`)
+
         if (response.ok) {
+          // レスポンスボディを取得
+          const data = await response.json().catch(() => null)
+          console.log(`[DELETE] Response data:`, data)
+
           // 削除成功後、リストを再取得
           fetchLibraryItems()
           console.log(`Successfully deleted analysis: ${itemId}`)
+          alert('削除しました')
         } else {
-          console.error('Failed to delete analysis:', response.statusText)
-          alert('削除に失敗しました')
+          // エラー詳細を取得
+          const errorData = await response.json().catch(() => null)
+          console.error(`[DELETE] Failed to delete analysis:`, {
+            status: response.status,
+            statusText: response.statusText,
+            errorData
+          })
+          alert(`削除に失敗しました: ${response.status} ${response.statusText}`)
         }
       } catch (error) {
-        console.error('Delete error:', error)
-        alert('削除中にエラーが発生しました')
+        console.error('[DELETE] Delete error:', error)
+        if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+          alert('サーバーに接続できません。バックエンドが起動しているか確認してください。')
+        } else {
+          alert(`削除中にエラーが発生しました: ${error}`)
+        }
       }
     }
   }

@@ -43,7 +43,9 @@ export interface ProcessingStep {
 export interface AnalysisStatus {
   analysisId: string
   videoId: string
+  video_type?: string  // Add video type for determining analysis type
   overallProgress: number
   steps: ProcessingStep[]
   estimatedTimeRemaining?: number
+  current_step?: string  // Add current step for progress messages
 }

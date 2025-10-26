@@ -25,6 +25,57 @@ from app.ai_engine.processors.sam_tracker import SAMTracker
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+def fix_encoding(text: Optional[str]) -> Optional[str]:
+    """
+    文字エンコーディングの修正（安全版）
+    文字化け検出 → 検出された場合のみ変換
+
+    Args:
+        text: 修正対象のテキスト（Shift-JIS/CP932がUTF-8として誤解釈された可能性）
+
+    Returns:
+        修正後のテキスト（修正不要または失敗時は元のテキスト）
+    """
+    if not text:
+        return text
+
+    # 文字化け検出: 制御文字・無効文字の存在確認
+    suspicious_chars = sum(1 for c in text if ord(c) < 32 or (ord(c) > 126 and ord(c) < 0x3000))
+
+    # 30%未満なら正常と判断（誤検出を避ける）
+    if suspicious_chars < len(text) * 0.3:
+        logger.debug(f"[ENCODING] Text appears valid UTF-8: {text[:50]}...")
+        return text
+
+    logger.warning(f"[ENCODING] Suspicious characters detected ({suspicious_chars}/{len(text)}): {text[:50]}...")
+
+    # 複数エンコーディング試行（優先度順）
+    encodings = ['shift-jis', 'cp932', 'euc-jp', 'iso-2022-jp']
+    for encoding in encodings:
+        try:
+            # latin-1として受信したデータを正しいエンコーディングでデコード
+            bytes_data = text.encode('latin-1')
+            decoded = bytes_data.decode(encoding)
+
+            # 有効な日本語文字が含まれるか確認
+            has_japanese = any(
+                '\u3040' <= c <= '\u309F' or  # ひらがな
+                '\u30A0' <= c <= '\u30FF' or  # カタカナ
+                '\u4E00' <= c <= '\u9FFF'     # 漢字
+                for c in decoded
+            )
+
+            if has_japanese:
+                logger.info(f"[ENCODING] Successfully decoded with {encoding}: {decoded[:50]}...")
+                return decoded
+        except (UnicodeDecodeError, UnicodeEncodeError) as e:
+            logger.debug(f"[ENCODING] Failed to decode with {encoding}: {e}")
+            continue
+
+    # すべて失敗した場合は元のテキストを返す
+    logger.warning(f"[ENCODING] All decoding attempts failed, returning original text")
+    return text
+
 @router.post(
     "/upload",
     response_model=VideoUploadResponse,
@@ -46,7 +97,12 @@ async def upload_video(
     db: Session = Depends(get_db)
 ):
     """Upload a video file"""
-    
+
+    # 文字エンコーディングの修正
+    surgery_name = fix_encoding(surgery_name)
+    surgeon_name = fix_encoding(surgeon_name)
+    memo = fix_encoding(memo)
+
     # ファイル拡張子チェック
     file_extension = Path(file.filename).suffix.lower()
     if file_extension not in settings.ALLOWED_EXTENSIONS:
@@ -108,7 +164,7 @@ async def upload_video(
         video = Video(
             id=video_id,
             filename=filename,
-            original_filename=file.filename,
+            original_filename=fix_encoding(file.filename),  # ファイル名も修正
             video_type=VideoType(video_type),
             surgery_name=surgery_name,
             surgery_date=parsed_date,

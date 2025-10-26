@@ -44,9 +44,11 @@ class AnalysisResponse(BaseModel):
 class AnalysisStatusResponse(BaseModel):
     analysis_id: str
     video_id: str
+    video_type: Optional[str] = None  # Add video type for frontend branching
     overall_progress: int
     steps: List[ProcessingStep]
     estimated_time_remaining: Optional[int] = None
+    current_step: Optional[str] = None  # Add current step for progress messages
 
 class AnalysisResultResponse(BaseModel):
     id: str
@@ -76,6 +78,9 @@ class AnalysisResultResponse(BaseModel):
 
     # Phase 2.1で追加されたフィールド
     tracking_stats: Optional[Dict[str, Any]] = None  # トラッキング統計情報
+
+    # DeepGaze III視線解析データ（eye_gazeタイプのみ）
+    gaze_data: Optional[Dict[str, Any]] = None  # 視線解析データ
 
     @field_serializer('created_at', 'completed_at')
     def serialize_datetime_jst(self, dt: Optional[datetime], _info):

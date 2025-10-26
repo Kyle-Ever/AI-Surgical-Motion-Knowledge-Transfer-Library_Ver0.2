@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 
 interface VideoData {
@@ -34,12 +34,291 @@ const VideoPlayer: React.FC<{
   onTimeUpdate?: (time: number) => void;
   onDurationChange?: (duration: number) => void;
 }> = ({ data, isReference, isPlaying, currentTime, showSkeleton, onTimeUpdate, onDurationChange }) => {
+  console.log(`[VideoPlayer ${isReference ? 'REF' : 'EVAL'}] Component rendering with videoUrl:`, data.videoUrl);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [localTime, setLocalTime] = useState(0);
   const [localDuration, setLocalDuration] = useState(0);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [videoError, setVideoError] = useState<string | null>(null);
+
+  // RVFC/RAF用のRef
+  const rvfcHandleRef = useRef<number | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const lastDrawnFrameRef = useRef<number>(-1);
+
+  // 現在のタイムスタンプに最も近い骨格データを取得
+  const getCurrentData = useCallback((timestamp: number) => {
+    const tolerance = 0.016; // 16ms = 約半フレーム
+
+    if (!data.skeletonData || data.skeletonData.length === 0) {
+      return null;
+    }
+
+    // 最も近いフレームを探す
+    let closestFrame = data.skeletonData.find(
+      frame => Math.abs(frame.timestamp - timestamp) < tolerance
+    );
+
+    // 見つからない場合は最近傍
+    if (!closestFrame) {
+      closestFrame = data.skeletonData.reduce((prev, curr) => {
+        const prevDiff = Math.abs(prev.timestamp - timestamp);
+        const currDiff = Math.abs(curr.timestamp - timestamp);
+        return currDiff < prevDiff ? curr : prev;
+      });
+    }
+
+    return closestFrame;
+  }, [data.skeletonData]);
+
+  // 指定されたタイムスタンプで骨格を描画
+  const drawOverlayAtTime = useCallback((timestamp: number) => {
+    console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Called at timestamp:`, timestamp);
+
+    if (!videoRef.current || !canvasRef.current) {
+      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Missing refs`);
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] No context`);
+      return;
+    }
+
+    const video = videoRef.current;
+
+    // フレームスキップ最適化
+    const fps = data.fps || 30;
+    const currentFrameNum = Math.floor(timestamp * fps);
+    if (currentFrameNum === lastDrawnFrameRef.current && !isPlaying) {
+      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Frame skip - already drawn frame ${currentFrameNum}`);
+      return;
+    }
+    lastDrawnFrameRef.current = currentFrameNum;
+
+    // Canvasサイズをビデオサイズに合わせる
+    if (video.videoWidth && video.videoHeight) {
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Resized canvas to ${canvas.width}x${canvas.height}`);
+      }
+    }
+
+    // クリア
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] showSkeleton=${showSkeleton}, skeletonData.length=${data.skeletonData?.length || 0}`);
+
+    if (!showSkeleton || !data.skeletonData || data.skeletonData.length === 0) {
+      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Early return - conditions not met`);
+      return;
+    }
+
+    // 現在のタイムスタンプに最も近い骨格フレームを取得
+    const skeletonFrame = getCurrentData(timestamp);
+    console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Got skeleton frame:`, !!skeletonFrame);
+    if (!skeletonFrame) return;
+
+    // 新形式: frame.hands配列（複数手対応）
+    const hands = skeletonFrame.hands || [skeletonFrame]; // 旧形式との互換性
+    console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Processing ${hands.length} hands`);
+
+    hands.forEach((hand: any, handIndex: number) => {
+      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Hand ${handIndex}:`, hand);
+      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Hand landmarks type:`, typeof hand?.landmarks, 'isArray:', Array.isArray(hand?.landmarks));
+
+      if (!hand?.landmarks) {
+        console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Hand ${handIndex} has no landmarks`);
+        return;
+      }
+
+      // landmarksの形式を統一（配列形式に変換）
+      const landmarks = Array.isArray(hand.landmarks)
+        ? hand.landmarks
+        : Object.values(hand.landmarks);
+
+      if (landmarks.length === 0) {
+        console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Hand ${handIndex} has empty landmarks`);
+        return;
+      }
+
+      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Hand ${handIndex} drawing ${landmarks.length} landmarks`);
+
+      // 座標が正規化されているか確認（0-1の範囲か、それともピクセル値か）
+      const firstLandmark = landmarks[0];
+      const isNormalized = firstLandmark.x <= 1.0 && firstLandmark.y <= 1.0;
+
+      // 正規化されていない場合（ピクセル座標）、動画サイズで正規化
+      const normalizeCoord = (x: number, y: number) => {
+        if (isNormalized) {
+          return { x, y };
+        } else {
+          // ピクセル座標を0-1の範囲に正規化
+          return {
+            x: x / video.videoWidth,
+            y: y / video.videoHeight
+          };
+        }
+      };
+
+      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Coordinates ${isNormalized ? 'normalized' : 'pixel-based'}, first point: (${firstLandmark.x}, ${firstLandmark.y})`);
+
+      const isLeftHand = hand.hand_type === 'Left';
+      const handColor = isLeftHand ? (isReference ? '#10b981' : '#3b82f6') : (isReference ? '#059669' : '#1e40af');
+      const pointColor = isLeftHand ? (isReference ? '#10b981' : '#3b82f6') : (isReference ? '#ff0000' : '#1e40af');
+
+      // 線を描画
+      ctx.strokeStyle = handColor;
+      ctx.lineWidth = 2;
+
+      const connections = [
+        [0, 1], [1, 2], [2, 3], [3, 4],  // 親指
+        [0, 5], [5, 6], [6, 7], [7, 8],  // 人差し指
+        [0, 9], [9, 10], [10, 11], [11, 12],  // 中指
+        [0, 13], [13, 14], [14, 15], [15, 16],  // 薬指
+        [0, 17], [17, 18], [18, 19], [19, 20],  // 小指
+        [5, 9], [9, 13], [13, 17]  // 手のひら
+      ];
+
+      connections.forEach(([startIdx, endIdx]) => {
+        const startPoint = landmarks[startIdx];
+        const endPoint = landmarks[endIdx];
+
+        if (startPoint && endPoint && startPoint.x !== undefined && endPoint.x !== undefined) {
+          const startNorm = normalizeCoord(startPoint.x, startPoint.y);
+          const endNorm = normalizeCoord(endPoint.x, endPoint.y);
+
+          ctx.beginPath();
+          ctx.moveTo(startNorm.x * canvas.width, startNorm.y * canvas.height);
+          ctx.lineTo(endNorm.x * canvas.width, endNorm.y * canvas.height);
+          ctx.stroke();
+        }
+      });
+
+      // 点を描画
+      ctx.fillStyle = pointColor;
+      landmarks.forEach((point: any) => {
+        if (point && typeof point === 'object' && point.x !== undefined && point.y !== undefined) {
+          const normalized = normalizeCoord(point.x, point.y);
+
+          ctx.beginPath();
+          ctx.arc(normalized.x * canvas.width, normalized.y * canvas.height, 3, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      });
+
+      // 手のタイプラベル表示
+      const wrist = landmarks[0];
+      if (wrist) {
+        const wristNorm = normalizeCoord(wrist.x, wrist.y);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.font = '12px Arial';
+        ctx.fillText(hand.hand_type || 'Unknown', wristNorm.x * canvas.width, wristNorm.y * canvas.height - 10);
+      }
+    });
+  }, [showSkeleton, data.skeletonData, data.fps, isReference, isPlaying, getCurrentData]);
+
+  // 次のフレーム描画をスケジュール（RVFC優先、フォールバックRAF）
+  const scheduleNextFrame = useCallback(() => {
+    if (!videoRef.current || !isPlaying) return;
+
+    const video = videoRef.current;
+
+    // RVFC対応ブラウザ: ビデオフレームと完全同期
+    if ('requestVideoFrameCallback' in video) {
+      rvfcHandleRef.current = (video as any).requestVideoFrameCallback((now: number, metadata: any) => {
+        drawOverlayAtTime(metadata.mediaTime);
+
+        // 再生中なら次のフレームをスケジュール
+        if (isPlaying) {
+          scheduleNextFrame();
+        }
+      });
+    }
+    // フォールバック: RAF（Firefox等、RVFC非対応ブラウザ）
+    else {
+      animationFrameRef.current = requestAnimationFrame(() => {
+        if (videoRef.current) {
+          drawOverlayAtTime(videoRef.current.currentTime);
+
+          if (isPlaying) {
+            scheduleNextFrame();
+          }
+        }
+      });
+    }
+  }, [isPlaying, drawOverlayAtTime]);
+
+  const handleTimeUpdate = useCallback(() => {
+    if (!videoRef.current) return;
+    const time = videoRef.current.currentTime;
+    setLocalTime(time);
+
+    // 外部にも通知
+    if (isReference && onTimeUpdate) {
+      onTimeUpdate(time);
+    }
+
+    // フレーム番号を更新
+    const fps = data.fps || 30;
+    const frameNumber = Math.floor(time * fps);
+    setCurrentFrame(frameNumber);
+
+    // 一時停止中のみ描画（再生中はRVFC/RAFで自動描画）
+    if (!isPlaying) {
+      drawOverlayAtTime(time);
+    }
+  }, [isPlaying, drawOverlayAtTime, isReference, onTimeUpdate, data.fps]);
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      const duration = videoRef.current.duration;
+      setLocalDuration(duration);
+      if (isReference && onDurationChange) {
+        onDurationChange(duration);
+      }
+    }
+  };
+
+  // useEffects - 関数定義の後に配置
+  // videoUrl変更時にエラーをリセット
+  useEffect(() => {
+    console.log(`[DualVideoSection ${isReference ? 'REF' : 'EVAL'}] Resetting videoError for URL:`, data.videoUrl);
+    setVideoError(null);
+  }, [data.videoUrl, isReference]);
+
+  // Canvas初期化: videoのメタデータ読み込み後にCanvasサイズを設定
+  useEffect(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (!video || !canvas) return;
+
+    const handleLoadedMetadata = () => {
+      if (video.videoWidth && video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        console.log(`[Canvas ${isReference ? 'REF' : 'EVAL'}] Initialized to ${canvas.width}x${canvas.height}`);
+      }
+    };
+
+    // すでにメタデータが読み込まれている場合
+    if (video.readyState >= 1) {
+      handleLoadedMetadata();
+    }
+
+    // メタデータ読み込みイベントをリスン
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [data.videoUrl, isReference]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -57,165 +336,32 @@ const VideoPlayer: React.FC<{
     }
   }, [currentTime]);
 
-  const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      const time = videoRef.current.currentTime;
-      setLocalTime(time);
-      if (isReference && onTimeUpdate) {
-        onTimeUpdate(time);
-      }
-      // フレーム番号を計算
-      const fps = data.fps || 30;
-      const frameNumber = Math.floor(time * fps);
-      setCurrentFrame(frameNumber);
-
-      // 骨格データを描画
-      if (showSkeleton && data.skeletonData && canvasRef.current) {
-        drawSkeleton(frameNumber);
-      }
+  // skeletonData変更時に再描画
+  useEffect(() => {
+    if (data.skeletonData && canvasRef.current && videoRef.current) {
+      drawOverlayAtTime(videoRef.current.currentTime);
     }
-  };
+  }, [data.skeletonData, drawOverlayAtTime]);
 
-  const drawSkeleton = (frameNumber: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !videoRef.current) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Canvasサイズをビデオサイズに合わせる
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-
-    // クリア
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (!data.skeletonData || data.skeletonData.length === 0) return;
-
-    // 現在のフレームの骨格データを取得（最近傍探索・複数手対応）
-    // バックエンドは5fps、フロントは30fpsなので、最も近いフレームを探す
-    const currentTime = frameNumber / (data.fps || 30); // 現在の時刻を秒で計算
-    let matchedFrames: any[] = [];
-
-    // タイムスタンプベースで同時刻の全フレームを収集（両手対応）
-    if (data.skeletonData && data.skeletonData.length > 0) {
-      // 0.2秒以内（5fpsの1フレーム分）のすべてのデータを収集
-      const timeWindow = 0.2;
-
-      // 手のタイプごとに最も近いフレームを1つだけ選択（重複除去）
-      const handTypeFrames: { [key: string]: any } = {};
-
-      for (const frame of data.skeletonData) {
-        const diff = Math.abs(frame.timestamp - currentTime);
-        if (diff <= timeWindow) {
-          const handType = frame.hand_type || 'Unknown';
-
-          // この手のタイプの既存フレームがない、またはより近いフレームの場合のみ保存
-          if (!handTypeFrames[handType] ||
-              Math.abs(frame.timestamp - currentTime) < Math.abs(handTypeFrames[handType].timestamp - currentTime)) {
-            handTypeFrames[handType] = frame;
-          }
-        }
-      }
-
-      // オブジェクトから配列に変換
-      matchedFrames = Object.values(handTypeFrames);
-
-      if (matchedFrames.length === 0) {
-        console.log(`[DualVideoSection] No frames within ${timeWindow}s for ${isReference ? 'reference' : 'evaluation'} at time ${currentTime}`);
-        return;
-      } else {
-        console.log(`[DualVideoSection] Found ${matchedFrames.length} unique hand(s) for time ${currentTime}`);
-      }
+  // 再生/停止時のRVFC/RAFスケジュール管理
+  useEffect(() => {
+    if (isPlaying) {
+      // 再生開始 - フレーム描画をスケジュール
+      scheduleNextFrame();
     }
 
-    if (matchedFrames.length === 0) return;
-
-    // すべての手のランドマークを描画（両手対応）
-    matchedFrames.forEach((frameData, index) => {
-      if (frameData.landmarks) {
-        const landmarks = frameData.landmarks;
-        const handType = frameData.hand_type || 'Unknown';
-
-        // 手ごとに色を変える（左手: 緑系、右手: 青系）
-        if (handType === 'Left') {
-          ctx.fillStyle = isReference ? '#10b981' : '#3b82f6';
-        } else if (handType === 'Right') {
-          ctx.fillStyle = isReference ? '#059669' : '#1e40af';
-        } else {
-          ctx.fillStyle = isReference ? '#10b981' : '#3b82f6';
-        }
-
-        // ポイントを描画
-        Object.values(landmarks).forEach((point: any) => {
-          if (point && typeof point === 'object' && 'x' in point && 'y' in point) {
-            const x = point.x * canvas.width;
-            const y = point.y * canvas.height;
-            ctx.beginPath();
-            ctx.arc(x, y, 3, 0, 2 * Math.PI);
-            ctx.fill();
-          }
-        });
-
-        // デバッグ: 手のタイプを表示
-        if (frameData.landmarks.point_0) {
-          const wrist = frameData.landmarks.point_0;
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-          ctx.font = '12px Arial';
-          ctx.fillText(handType, wrist.x * canvas.width, wrist.y * canvas.height - 10);
-        }
+    // クリーンアップ: コンポーネントアンマウント時やisPlaying変化時
+    return () => {
+      if (rvfcHandleRef.current && videoRef.current && 'cancelVideoFrameCallback' in videoRef.current) {
+        (videoRef.current as any).cancelVideoFrameCallback(rvfcHandleRef.current);
+        rvfcHandleRef.current = null;
       }
-
-    });
-
-      // 手のコネクション（線の描画）
-      matchedFrames.forEach((frameData) => {
-        if (frameData.landmarks) {
-          const landmarks = frameData.landmarks;
-          const handType = frameData.hand_type || 'Unknown';
-
-          // 手ごとに線の色を設定
-          if (handType === 'Left') {
-            ctx.strokeStyle = isReference ? '#10b981' : '#3b82f6';
-          } else if (handType === 'Right') {
-            ctx.strokeStyle = isReference ? '#059669' : '#1e40af';
-          } else {
-            ctx.strokeStyle = isReference ? '#10b981' : '#3b82f6';
-          }
-          ctx.lineWidth = 2;
-
-          const connections = [
-            [0, 1], [1, 2], [2, 3], [3, 4],  // 親指
-            [0, 5], [5, 6], [6, 7], [7, 8],  // 人差し指
-            [0, 9], [9, 10], [10, 11], [11, 12],  // 中指
-            [0, 13], [13, 14], [14, 15], [15, 16],  // 薬指
-            [0, 17], [17, 18], [18, 19], [19, 20],  // 小指
-            [5, 9], [9, 13], [13, 17]  // 手のひら
-          ];
-
-          connections.forEach(([start, end]) => {
-            const startPoint = landmarks[`point_${start}`];
-            const endPoint = landmarks[`point_${end}`];
-            if (startPoint && endPoint) {
-              ctx.beginPath();
-              ctx.moveTo(startPoint.x * canvas.width, startPoint.y * canvas.height);
-              ctx.lineTo(endPoint.x * canvas.width, endPoint.y * canvas.height);
-              ctx.stroke();
-            }
-          });
-        }
-      });
-  };
-
-  const handleLoadedMetadata = () => {
-    if (videoRef.current) {
-      const duration = videoRef.current.duration;
-      setLocalDuration(duration);
-      if (isReference && onDurationChange) {
-        onDurationChange(duration);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
-    }
-  };
+    };
+  }, [isPlaying, scheduleNextFrame]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -224,6 +370,29 @@ const VideoPlayer: React.FC<{
   };
 
   const progressPercentage = localDuration > 0 ? (localTime / localDuration) * 100 : 0;
+
+  // videoUrlが空の場合のエラーチェック
+  if (!data.videoUrl) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm">
+        <div className={`px-4 py-3 border-b ${isReference ? 'bg-green-50' : 'bg-blue-50'}`}>
+          <h2 className={`font-semibold ${isReference ? 'text-green-800' : 'text-blue-800'} flex items-center`}>
+            <span className={`w-2 h-2 ${isReference ? 'bg-green-500' : 'bg-blue-500'} rounded-full mr-2`}></span>
+            {data.title}
+          </h2>
+        </div>
+        <div className="p-4">
+          <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-900 flex items-center justify-center text-white">
+            <div className="text-center p-8">
+              <div className="text-6xl mb-4">⚠️</div>
+              <h3 className="text-xl font-semibold mb-2">動画URLが見つかりません</h3>
+              <p className="text-sm text-gray-400">動画データの読み込みに失敗しました</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
@@ -253,15 +422,22 @@ const VideoPlayer: React.FC<{
             </div>
           ) : (
             <video
+              key={data.videoUrl}
               ref={videoRef}
               className="w-full h-full object-cover"
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
               onError={(e) => {
-                console.error('[VideoPlayer] Video load error:', e);
-                setVideoError(`動画の読み込みに失敗しました (${isReference ? '基準' : '評価'}動画)`);
+                const target = e.target as HTMLVideoElement;
+                console.error(`[VideoPlayer ${isReference ? 'REF' : 'EVAL'}] Video load error:`, {
+                  videoUrl: data.videoUrl,
+                  error: e,
+                  networkState: target.networkState,
+                  readyState: target.readyState,
+                  currentSrc: target.currentSrc
+                });
+                setVideoError(`動画の読み込みに失敗しました (${isReference ? '基準' : '評価'}動画): ${data.videoUrl}`);
               }}
-              poster={`https://via.placeholder.com/640x360/${isReference ? '22c55e' : '3b82f6'}/ffffff?text=${isReference ? '基準動画' : '評価動画'}`}
             >
               <source src={data.videoUrl} type="video/mp4" />
             </video>

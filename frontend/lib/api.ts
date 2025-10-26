@@ -5,6 +5,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/a
 // Axios インスタンスを作成
 export const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 30000,  // 30秒タイムアウト（ngrok経由を考慮）
   headers: {
     'Content-Type': 'application/json',
   },
@@ -118,24 +119,53 @@ export interface AnalysisResult {
 }
 
 // ライブラリ関連の関数
-export const getCompletedAnalyses = async (limit: number = 200): Promise<AnalysisResult[]> => {
-  // 開発中はFAILED状態も表示するため、include_failed=trueを設定
-  // limit を200に増やして、より多くの最新結果を取得（最新順にソート済み）
-  const response = await fetch(`${API_BASE_URL}/analysis/completed?include_failed=true&limit=${limit}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch completed analyses');
+export const getCompletedAnalyses = async (
+  limit: number = 50,
+  includeDetails: boolean = false  // デフォルトで軽量データのみ取得
+): Promise<AnalysisResult[]> => {
+  // axiosを使用してタイムアウトとエラーハンドリングを改善
+  // includeDetails=false で重いデータ（skeleton_data等）を除外し、高速化
+  try {
+    const response = await api.get('/analysis/completed', {
+      params: {
+        include_failed: true,
+        limit: limit,
+        include_details: includeDetails  // バックエンドに渡す
+      },
+      // includeDetails=true の場合は長めのタイムアウト
+      timeout: includeDetails ? 60000 : 15000
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('リクエストがタイムアウトしました。もう一度お試しください。');
+      } else if (error.response) {
+        throw new Error(`サーバーエラー: ${error.response.status}`);
+      } else if (error.request) {
+        throw new Error('バックエンドに接続できません。サーバーが起動しているか確認してください。');
+      }
+    }
+    throw error;
   }
-  return response.json();
 };
 
 // 採点結果を取得
 export const getCompletedComparisons = async (): Promise<any[]> => {
-  const response = await fetch(`${API_BASE_URL}/scoring/comparisons/completed`);
-  if (!response.ok) {
-    // エラーが発生しても空配列を返す
+  try {
+    // 正しいエンドポイント: /scoring/comparisons
+    const response = await api.get('/scoring/comparisons', {
+      params: {
+        status: 'completed' // フィルタでcompletedのみ取得
+      },
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error) {
+    // エラーが発生しても空配列を返す（採点結果はオプショナル）
+    console.warn('Failed to fetch comparisons:', error);
     return [];
   }
-  return response.json();
 };
 
 export const exportAnalysisData = async (analysisId: string): Promise<void> => {

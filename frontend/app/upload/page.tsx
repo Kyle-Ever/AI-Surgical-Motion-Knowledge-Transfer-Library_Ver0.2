@@ -429,10 +429,10 @@ export default function UploadPage() {
               <div className="text-left">
                 <h3 className="font-semibold mb-2">視線解析<br/>（DeepGaze III）</h3>
                 <p className="text-sm text-gray-600">
-                  運転中などの動画から視線注目度を予測
+                  手術中や内視鏡での先生の視線をシミュレーション
                 </p>
                 <p className="text-xs text-gray-500 mt-2">
-                  検出対象: サリエンシーマップ + 固視点
+                  検出対象: ゲーズプロット + 視線のヒートマップ
                 </p>
               </div>
             </button>
@@ -588,7 +588,9 @@ export default function UploadPage() {
             <div className="flex justify-between">
               <span className="text-gray-600">検出対象:</span>
               <span className="font-medium">
-                {videoType === 'external'
+                {videoType === 'eye_gaze'
+                  ? 'ゲーズプロット + 視線のヒートマップ'
+                  : videoType === 'external'
                   ? '手の骨格（21ポイント）'
                   : (instrumentSelectionMode === 'sam' && samSelectedInstruments.length > 0) || selectedInstruments.length > 0
                   ? '手の骨格 + 選択した器具'

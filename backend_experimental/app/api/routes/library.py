@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
 import csv
 import io
@@ -27,7 +28,7 @@ async def get_completed_analyses(
     """Get list of completed analyses with video information - sorted by created_at desc"""
 
     analyses = db.query(AnalysisResult).filter(
-        AnalysisResult.status == AnalysisStatus.COMPLETED
+        func.lower(AnalysisResult.status) == 'completed'
     ).order_by(AnalysisResult.created_at.desc()).offset(skip).limit(limit).all()
 
     result = []
@@ -53,7 +54,6 @@ async def get_completed_analyses(
                 "filename": video.filename,
                 "original_filename": video.original_filename,
                 "duration": video.duration,
-                "file_size": video.file_size,
                 "created_at": video.created_at
             } if video else None
         }
@@ -99,7 +99,6 @@ async def export_analysis(
         writer.writerow(["Video Information"])
         writer.writerow(["Filename", video.original_filename])
         writer.writerow(["Duration", f"{video.duration:.2f} seconds" if video.duration else "N/A"])
-        writer.writerow(["File Size", f"{video.file_size / (1024*1024):.2f} MB" if video.file_size else "N/A"])
         writer.writerow([])
 
     writer.writerow(["Analysis Metrics"])

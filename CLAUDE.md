@@ -63,13 +63,25 @@ This project uses the SuperClaude framework for enhanced AI capabilities.
 - If venv311 doesn't exist: Run `start_backend_experimental.bat` to auto-create with Python 3.11
 - Required Python 3.11 installation path: `C:\Users\ajksk\AppData\Local\Programs\Python\Python311`
 
-### CORS Configuration (Development)
+### CORS Configuration
 **🚨 CRITICAL: Upload feature requires these settings to work**
-- **Backend**: `allow_origins=["*"]` in `backend_experimental/app/main.py`
-  - This is ALREADY configured correctly in the current codebase
-  - DO NOT change this setting unless deploying to production
-- **Frontend**: `.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:8001/api/v1`
-- **Backend** `.env`: `BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","http://localhost:8001"]`
+
+**ngrokデュアルドメイン構成（本番・展示会用）**:
+- **Backend CORS** (`backend_experimental/app/main.py`):
+  ```python
+  allow_origins=[
+      "https://mindmotionai.ngrok-free.dev",  # フロントエンド
+      "https://dev.mindmotionai.ngrok-free.dev",  # バックエンド
+      "http://localhost:3000",  # ローカル開発用
+      "http://localhost:8001",  # ローカルバックエンド
+  ]
+  ```
+- **Frontend** (`.env.local`):
+  ```bash
+  NEXT_PUBLIC_API_URL=https://dev.mindmotionai.ngrok-free.dev/api/v1
+  NEXT_PUBLIC_WS_URL=wss://dev.mindmotionai.ngrok-free.dev/ws
+  ```
+- **起動方法**: `start_dual_ngrok.bat` を実行
 - **Common Issue**: If uploads fail with CORS errors, verify these settings first
 
 ### Environment Variables
@@ -85,9 +97,14 @@ USE_SAM2_VIDEO_API=true  # Enable SAM2 Video API
 ```
 
 **Frontend (.env.local)**
-```
-NEXT_PUBLIC_API_URL=http://localhost:8001/api/v1
-NEXT_PUBLIC_WS_URL=ws://localhost:8001
+```bash
+# ngrokデュアルドメイン構成
+NEXT_PUBLIC_API_URL=https://dev.mindmotionai.ngrok-free.dev/api/v1
+NEXT_PUBLIC_WS_URL=wss://dev.mindmotionai.ngrok-free.dev/ws
+
+# ローカル開発時は以下に変更:
+# NEXT_PUBLIC_API_URL=/api/v1  # Next.js APIプロキシ経由
+# NEXT_PUBLIC_WS_URL=ws://localhost:8001
 ```
 
 ## Commands
@@ -96,17 +113,22 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8001
 **📖 詳細は [START_HERE.md](START_HERE.md) を参照**
 
 ```bash
-# 🟢 推奨: フロントエンド + Experimentalバックエンド (Port 3000 + 8001)
-start_both_experimental.bat
+# 🌐 推奨: ngrokデュアルドメイン構成（展示会・本番用）
+start_dual_ngrok.bat
+# → フロントエンド: https://mindmotionai.ngrok-free.dev
+# → バックエンド: https://dev.mindmotionai.ngrok-free.dev
 
-# 🌐 公開デモ・外部アクセス用（ngrok付き）
-start_both_experimental_with_ngrok.bat
+# 🟢 ローカル開発: フロントエンド + Experimentalバックエンド (Port 3000 + 8001)
+start_both_experimental.bat
 
 # 🔵 Experimentalバックエンドのみ (Port 8001)
 start_backend_experimental.bat
 
-# 🔴 全サーバー停止（トラブル時）
+# 🔴 全サーバー停止（通常のトラブル時）
 kill_all_servers.bat
+
+# ⚠️ 完全終了（慎重に使用、確認プロンプト付き）
+kill_all_processes.bat
 
 # Frontend only (手動起動が必要な場合)
 cd frontend
@@ -115,41 +137,54 @@ npm run dev         # Start development server (Port 3000)
 ```
 
 **重要:**
+- **ngrok $20プラン**: デュアルドメイン構成でフロントエンド・バックエンド両方を公開
+- **ローカル開発**: `start_both_experimental.bat` でAPIプロキシ経由
 - Experimentalバックエンド (Port 8001) を使用
-- 旧バックエンド (Port 8000) は非推奨
 - Python 3.11必須（`backend_experimental/venv311/`）
-- ngrok付き起動でインターネット経由アクセス可能（デモ用）
+
+**バッチファイルの使い分け:**
+- `kill_all_servers.bat`: 通常のトラブル時に使用（確認なしで即座に実行）
+- `kill_all_processes.bat`: より確実な終了が必要な場合（実行前に確認プロンプト表示）
 
 ### Testing
 ```bash
-# Frontend E2E (Playwright)
+# Frontend E2E (Playwright) - ALWAYS cd to frontend first
 cd frontend
 npm run test              # Headless mode - all tests
 npm run test:headed       # With browser window
 npm run test:ui           # Interactive UI mode
 npm run test:debug        # Debug mode with Playwright Inspector
 npm run test:report       # Show last test results HTML report
-npx playwright test upload.spec.ts  # Single file
-npx playwright test --grep "upload"  # Tests matching pattern
-npx playwright test tests/e2e-v2-upload.spec.ts  # Specific test file
+
+# Single test file execution
+npx playwright test tests/e2e-v2-upload.spec.ts
+npx playwright test tests/experimental-e2e.spec.ts
+npx playwright test tests/gaze-dashboard-test.spec.ts
+
+# Pattern matching
+npx playwright test --grep "upload"
+npx playwright test --grep "dashboard"
 
 # Frontend lint & type check
 npm run lint              # ESLint check
 npm run build            # Full build with type check
 npx tsc --noEmit         # TypeScript check only
 
-# Backend API tests (Experimental)
+# Backend API tests (Experimental) - ALWAYS cd to backend_experimental first
 cd backend_experimental
 ./venv311/Scripts/python.exe test_api.py           # Basic API functionality
 ./venv311/Scripts/python.exe tests/unit/test_frame_extraction_service.py  # Frame extraction
 ./venv311/Scripts/python.exe tests/integration/test_analysis_pipeline_25fps.py  # 25fps pipeline
 
-# Database operations
+# Database operations - Execute from backend_experimental directory
 ./venv311/Scripts/python.exe check_db.py           # View database contents
 ./venv311/Scripts/python.exe check_analysis_data.py # Check analysis results
 ./venv311/Scripts/python.exe verify_fix.py         # Verify latest analysis data structure
-sqlite3 aimotion.db ".tables"                      # Direct SQLite access
-sqlite3 aimotion.db "SELECT id, status, created_at FROM analyses ORDER BY created_at DESC LIMIT 5;"  # Recent analyses
+
+# Direct SQLite access
+sqlite3 aimotion.db ".tables"
+sqlite3 aimotion.db "SELECT id, status, created_at FROM analyses ORDER BY created_at DESC LIMIT 5;"
+sqlite3 aimotion.db "SELECT COUNT(*) FROM videos;"
 ```
 
 ## High-Level Architecture
@@ -233,15 +268,18 @@ const useVideoStore = create((set) => ({
 
 ### Backend
 - **Python**: 3.11 ONLY (3.12+ breaks MediaPipe/OpenCV)
+  - Required path: `C:\Users\ajksk\AppData\Local\Programs\Python\Python311`
+  - Virtual env: `backend_experimental\venv311\`
 - **Framework**: FastAPI with async/await, SQLAlchemy ORM
 - **AI Libraries**:
-  - MediaPipe (hand tracking)
-  - YOLOv8 (instrument detection)
+  - MediaPipe >=0.10.0 (hand tracking)
+  - YOLOv8 (ultralytics==8.0.200, instrument detection)
   - SAM & SAM2 (segmentation & video tracking)
   - DeepGaze III (eye gaze analysis)
   - PyTorch with CUDA 11.8 (RTX 3060 GPU support)
 - **Critical Dependencies**: `numpy<2`, `ultralytics==8.0.200`, `mediapipe>=0.10.0`
 - **Database**: SQLite with migrations via Alembic
+- **Important**: Always use `./venv311/Scripts/python.exe` for backend operations
 
 ### Frontend
 - **Framework**: Next.js 15.5.2 with App Router
@@ -251,13 +289,30 @@ const useVideoStore = create((set) => ({
 - **Charts**: Chart.js v4.5.0, recharts v3.2.1
 - **3D Rendering**: Three.js with @react-three/fiber
 - **HTTP Client**: Axios v1.11.0
+- **Testing**: Playwright v1.55.0 (expects Japanese UI text)
 
 ### Infrastructure
 - **Ports**: Backend 8001 (Experimental), Frontend 3000
 - **File Limits**: 1GB max upload, .mp4 format only
 - **WebSocket**: Real-time progress updates during analysis
-- **Testing**: Playwright v1.55.0 (expects Japanese UI text)
+- **OS**: Windows 10/11 (batch files use Windows commands)
 - **Note**: Legacy backend (Port 8000) is deprecated
+
+### Common Development Paths
+```bash
+# Working directories
+cd frontend                    # Frontend development
+cd backend_experimental        # Backend development
+
+# Python executable
+./venv311/Scripts/python.exe   # Backend Python (from backend_experimental/)
+
+# Database
+backend_experimental/aimotion.db  # SQLite database file
+
+# Video uploads
+backend_experimental/data/uploads/  # Video storage directory
+```
 
 ## Git Commit Guidelines
 **Large File Exclusion**
@@ -277,16 +332,23 @@ netstat -ano | findstr :8001    # Experimental Backend
 # Kill specific process
 taskkill /PID <process_id> /F
 
-# Kill all servers (recommended)
+# Kill all servers (recommended for normal issues)
 kill_all_servers.bat
 
-# Kill all Node.js/Python (use with caution)
+# Complete shutdown (use if kill_all_servers.bat doesn't work)
+kill_all_processes.bat
+
+# Manual process kill (use with extreme caution - affects ALL Node.js/Python processes)
 taskkill /F /IM node.exe
 taskkill /F /IM python.exe
 
 # Clear frontend cache after code changes
 cd frontend && rmdir /s /q .next
 npm run dev
+
+# Windows-specific directory operations
+# ❌ Wrong (Linux): rm -rf .next
+# ✅ Correct (Windows): rmdir /s /q .next
 ```
 
 ### Common Errors
@@ -433,13 +495,25 @@ netstat -ano | findstr :8001
 tasklist | findstr node
 tasklist | findstr python
 
-# Database check
+# Database check (from backend_experimental directory)
 cd backend_experimental
 sqlite3 aimotion.db "SELECT * FROM videos;"
 sqlite3 aimotion.db "SELECT * FROM analyses WHERE status='failed';"
+sqlite3 aimotion.db "SELECT id, status, created_at FROM analyses ORDER BY created_at DESC LIMIT 5;"
 
-# API health
+# Python scripts for debugging (from backend_experimental directory)
+./venv311/Scripts/python.exe check_db.py
+./venv311/Scripts/python.exe check_analysis_data.py
+./venv311/Scripts/python.exe verify_fix.py
+
+# API health check
 curl http://localhost:8001/api/v1/health
+curl http://localhost:8001/docs  # Interactive API documentation
+
+# Frontend debugging
+cd frontend
+npm run build  # Check for TypeScript/build errors
+npx tsc --noEmit  # TypeScript check only
 ```
 
 ## Project-Specific Notes
@@ -477,34 +551,90 @@ Video Upload → Frame Extraction → Batch Detection → Format Conversion → 
 
 ### File Structure
 ```
-backend_experimental/   # CURRENT: Experimental backend (Port 8001)
-  app/
-    api/routes/         # API endpoint handlers
-    ai_engine/          # AI processing (MediaPipe, YOLOv8, SAM)
-      processors/       # skeleton_detector.py, sam_tracker.py
-    services/           # Business logic (analysis, scoring, instrument tracking)
-    models/             # SQLAlchemy ORM models
-    schemas/            # Pydantic schemas for validation
-    core/               # Config, WebSocket, error handlers
-  venv311/              # Python 3.11 virtual environment (REQUIRED)
-  data/uploads/         # Video upload directory
-  aimotion.db           # SQLite database
-
-frontend/
-  app/                  # Next.js App Router pages
-  components/           # React components
-  lib/                  # Utilities and API client
-  hooks/                # Custom React hooks (useScoring, useAnalysisAPI, etc.)
-  store/                # Zustand state management
-  tests/                # Playwright E2E tests
-
-docs/                   # Design documentation (Japanese)
-  00_overview/          # Project overview
-  01_architecture/      # Architecture design
-  02_database/          # Database schema
-  03_api/               # API specifications
-  04_frontend/          # Frontend design
-  06_development/       # Development setup
+AI Surgical Motion Knowledge Transfer Library_Ver0.2/
+├── CLAUDE.md                                # This file - project guide
+├── START_HERE.md                            # Quick start guide
+├── start_both_experimental.bat              # 🟢 Main startup script
+├── start_both_experimental_with_ngrok.bat   # 🌐 Public demo startup
+├── start_backend_experimental.bat           # Backend only
+├── kill_all_servers.bat                     # 🔴 Quick shutdown
+├── kill_all_processes.bat                   # ⚠️ Complete shutdown
+│
+├── backend_experimental/                    # CURRENT: Experimental backend (Port 8001)
+│   ├── app/
+│   │   ├── api/routes/                     # API endpoint handlers
+│   │   │   ├── analysis.py                 # Analysis endpoints
+│   │   │   ├── videos.py                   # Video upload/management
+│   │   │   └── scoring.py                  # Scoring endpoints
+│   │   ├── ai_engine/processors/           # AI processing modules
+│   │   │   ├── skeleton_detector.py        # MediaPipe hand/body tracking
+│   │   │   ├── sam_tracker.py              # SAM segmentation
+│   │   │   ├── sam2_tracker_video.py       # SAM2 video API tracking
+│   │   │   ├── gaze_analyzer.py            # DeepGaze III eye gaze
+│   │   │   └── enhanced_hand_detector.py   # Improved detection
+│   │   ├── services/                       # Business logic layer
+│   │   │   ├── analysis_service_v2.py      # Main orchestration
+│   │   │   ├── frame_extraction_service.py # Video frame extraction
+│   │   │   ├── scoring_service.py          # Motion metrics
+│   │   │   └── instrument_tracking_service.py
+│   │   ├── models/                         # SQLAlchemy ORM models
+│   │   ├── schemas/                        # Pydantic validation schemas
+│   │   └── core/                           # Core infrastructure
+│   │       ├── config.py                   # Configuration
+│   │       └── websocket.py                # WebSocket manager
+│   ├── venv311/                            # Python 3.11 venv (REQUIRED)
+│   ├── data/uploads/                       # Video storage (created at runtime)
+│   ├── aimotion.db                         # SQLite database
+│   ├── requirements.txt                    # Python dependencies
+│   ├── check_db.py                         # Database inspection tool
+│   └── verify_fix.py                       # Data validation tool
+│
+├── frontend/                               # Next.js App Router (Port 3000)
+│   ├── app/                                # Next.js pages
+│   │   ├── page.tsx                        # Home page
+│   │   ├── upload/page.tsx                 # Upload page
+│   │   ├── analysis/[id]/                  # Analysis detail
+│   │   ├── dashboard/[id]/                 # Dashboard view
+│   │   └── library/page.tsx                # Video library
+│   ├── components/                         # React components
+│   │   ├── GazeDashboardClient.tsx         # 🎨 Custom gaze dashboard
+│   │   ├── GazeDashboardClient.custom.tsx  # Backup of custom design
+│   │   └── ...
+│   ├── lib/                                # Utilities
+│   │   └── api.ts                          # API client
+│   ├── hooks/                              # Custom React hooks
+│   │   ├── useApi.ts                       # API hook
+│   │   ├── useAnalysisAPI.ts               # Analysis operations
+│   │   └── useScoring.ts                   # Scoring operations
+│   ├── store/                              # Zustand state management
+│   ├── tests/                              # Playwright E2E tests
+│   │   ├── e2e-v2-upload.spec.ts
+│   │   ├── experimental-e2e.spec.ts
+│   │   └── gaze-dashboard-test.spec.ts
+│   ├── package.json                        # Node.js dependencies
+│   ├── playwright.config.ts                # Playwright configuration
+│   └── .env.local                          # Frontend environment variables
+│
+├── docs/                                   # Design documentation (Japanese)
+│   ├── 00_overview/
+│   │   └── 00_project_overview.md          # 📚 START HERE for architecture
+│   ├── 01_architecture/
+│   │   └── 01_architecture_design.md       # System architecture
+│   ├── 02_database/
+│   │   └── 02_database_design.md           # Database schema
+│   ├── 03_api/
+│   │   └── 03_api_design.md                # API specifications
+│   ├── 04_frontend/
+│   │   └── 04_frontend_design.md           # Frontend design patterns
+│   ├── 06_development/
+│   │   └── 06_development_setup.md         # Development setup guide
+│   ├── POST_MORTEM_FILE_UPLOAD_BUTTON.md   # Bug postmortem
+│   ├── POST_MORTEM_SKELETON_FRAME_INDEX.md # Data pipeline bug
+│   └── DEBUGGING_PROTOCOL.md               # Mandatory debugging steps
+│
+└── claudedocs/                             # Claude-generated reports
+    ├── SAM2_INSTRUMENT_DETECTION_FIX.md
+    └── ... (technical reports and analyses)
 ```
 
 ## 🛡️ データパイプライン品質保証
