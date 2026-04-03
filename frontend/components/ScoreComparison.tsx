@@ -20,7 +20,7 @@ export default function ScoreComparison({ analysisId, className = '', onComparis
 
   // モックデータを生成
   const mockResult = {
-    overall_score: 78,
+    overall_score: 85,
     scores: {
       speed_score: 82,
       smoothness_score: 75,
@@ -174,13 +174,13 @@ export default function ScoreComparison({ analysisId, className = '', onComparis
               </div>
             </div>
 
-            {/* 個別スコア */}
+            {/* 個別スコア - 3パラメータのみ */}
             <div className="space-y-2">
               {/* 速度スコア */}
               <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                 <div className="flex items-center">
                   <div className="w-2 h-6 bg-blue-500 rounded mr-2"></div>
-                  <span className="text-xs font-medium">動作速度</span>
+                  <span className="text-xs font-medium">速度</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className={`text-sm font-semibold ${getScoreColor(showMockData ? mockResult.scores.speed_score : result?.speed_score)}`}>
@@ -204,25 +204,11 @@ export default function ScoreComparison({ analysisId, className = '', onComparis
                 </div>
               </div>
 
-              {/* 安定性スコア */}
-              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-2 h-6 bg-yellow-500 rounded mr-2"></div>
-                  <span className="text-xs font-medium">安定性</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`text-sm font-semibold ${getScoreColor(showMockData ? mockResult.scores.stability_score : result?.stability_score)}`}>
-                    {showMockData ? mockResult.scores.stability_score : (result?.stability_score ? Math.round(result.stability_score) : '--')}
-                  </span>
-                  {getScoreTrend(showMockData ? mockResult.scores.stability_score : result?.stability_score)}
-                </div>
-              </div>
-
-              {/* 効率性スコア */}
+              {/* 正確性スコア */}
               <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                 <div className="flex items-center">
                   <div className="w-2 h-6 bg-purple-500 rounded mr-2"></div>
-                  <span className="text-xs font-medium">効率性</span>
+                  <span className="text-xs font-medium">正確性</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className={`text-sm font-semibold ${getScoreColor(showMockData ? mockResult.scores.efficiency_score : result?.efficiency_score)}`}>
@@ -232,25 +218,6 @@ export default function ScoreComparison({ analysisId, className = '', onComparis
                 </div>
               </div>
             </div>
-
-            {/* DTW距離（類似度） */}
-            {((showMockData && mockResult.metrics?.dtw_distance !== undefined) ||
-              (!showMockData && result?.dtw_distance !== undefined)) && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">動作パターン類似度</span>
-                  <div className="flex items-center">
-                    <Target className="w-4 h-4 mr-1 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-600">
-                      {(() => {
-                        const distance = showMockData ? mockResult.metrics.dtw_distance : result?.dtw_distance
-                        return distance < 0.3 ? '高' : distance < 0.6 ? '中' : '低'
-                      })()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )}
 

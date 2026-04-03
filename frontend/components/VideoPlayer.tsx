@@ -442,7 +442,19 @@ export default function VideoPlayer({
   // 動画のメタデータ読み込み完了
   const handleLoadedMetadata = () => {
     if (!videoRef.current) return
-    setDuration(videoRef.current.duration)
+
+    // skeleton_data の最後のタイムスタンプを使って duration を設定
+    let actualDuration = videoRef.current.duration
+    if (skeletonData.length > 0) {
+      const lastTimestamp = skeletonData[skeletonData.length - 1].timestamp
+      actualDuration = Math.max(actualDuration, lastTimestamp)
+      console.log(`[VideoPlayer] Using skeleton data duration: ${lastTimestamp}s (video duration: ${videoRef.current.duration}s)`)
+    } else if (toolData.length > 0) {
+      const lastTimestamp = toolData[toolData.length - 1].timestamp
+      actualDuration = Math.max(actualDuration, lastTimestamp)
+      console.log(`[VideoPlayer] Using tool data duration: ${lastTimestamp}s (video duration: ${videoRef.current.duration}s)`)
+    }
+    setDuration(actualDuration)
 
     // 🔧 追加: 動画の実際のFPSを推定
     // duration と skeletonData/toolData から FPS を推定

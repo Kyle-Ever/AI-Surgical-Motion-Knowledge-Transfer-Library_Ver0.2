@@ -41,7 +41,8 @@ class SAMTrackerUnified:
     def __init__(self,
                  model_type: str = "vit_h",
                  checkpoint_path: Optional[str] = None,
-                 device: str = "cuda"):
+                 device: str = "cuda",
+                 use_mock: bool = False):
         """
         初期化
 
@@ -49,7 +50,24 @@ class SAMTrackerUnified:
             model_type: SAMモデルタイプ ("vit_h" 推奨, "vit_l", "vit_b")
             checkpoint_path: モデルチェックポイントのパス
             device: 使用デバイス ("cuda" 推奨 for RTX 3060, "cpu" フォールバック)
+            use_mock: Trueの場合、SAMモデルをロードせずダミー結果を返す
         """
+        self.use_mock = use_mock
+
+        if use_mock or not SAM_AVAILABLE:
+            if not SAM_AVAILABLE and not use_mock:
+                logger.warning("SAM library not available. Running in mock mode.")
+            else:
+                logger.info("SAMTrackerUnified initialized in mock mode")
+            self.use_mock = True
+            self.model_type = model_type
+            self.device = device
+            self.predictor = None
+            self.mask_generator = None
+            self.tracking_history = deque(maxlen=30)
+            self.frame_count = 0
+            return
+
         if not SAM_AVAILABLE:
             raise RuntimeError(
                 "SAM library is not installed. "
@@ -116,11 +134,11 @@ class SAMTrackerUnified:
                 if self.model_type == "vit_h":
                     checkpoint_path = Path("sam_vit_h_4b8939.pth")
                     if not checkpoint_path.exists():
-                        checkpoint_path = Path("backend/sam_vit_h_4b8939.pth")
+                        checkpoint_path = Path("backend_experimental/sam_vit_h_4b8939.pth")
                 elif self.model_type == "vit_b":
                     checkpoint_path = Path("sam_b.pt")
                     if not checkpoint_path.exists():
-                        checkpoint_path = Path("backend/sam_b.pt")
+                        checkpoint_path = Path("backend_experimental/sam_b.pt")
                 else:
                     raise ValueError(f"Unsupported model_type: {self.model_type}")
             else:
@@ -135,7 +153,7 @@ class SAMTrackerUnified:
 
                 raise FileNotFoundError(
                     f"SAM {self.model_type} checkpoint not found at {checkpoint_path}. "
-                    f"Please download from {download_url} or run backend/download_sam_vit_h.py"
+                    f"Please download from {download_url} or run backend_experimental/download_sam_vit_h.py"
                 )
 
             logger.info(f"Loading SAM {self.model_type} model from {checkpoint_path}")
@@ -170,6 +188,10 @@ class SAMTrackerUnified:
         Args:
             image: 入力画像 (BGR)
         """
+        if self.use_mock:
+            self._mock_image = image
+            return
+
         # BGRからRGBに変換
         if len(image.shape) == 3 and image.shape[2] == 3:
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -214,6 +236,9 @@ class SAMTrackerUnified:
                 "bbox": [x1, y1, x2, y2]
             }
         """
+        if self.use_mock:
+            return self._mock_segment_result()
+
         if not self.predictor:
             raise RuntimeError("SAM predictor not initialized")
 
@@ -267,6 +292,9 @@ class SAMTrackerUnified:
         Returns:
             セグメンテーション結果
         """
+        if self.use_mock:
+            return self._mock_segment_result()
+
         if not self.predictor:
             raise RuntimeError("SAM predictor not initialized")
 
@@ -1215,3 +1243,73 @@ class SAMTrackerUnified:
                 "rect_bbox": rect_bbox,
                 "area_reduction": 0.0
             }
+
+    def _mock_segment_result(self) -> Dict[str, Any]:
+        """モックモード用のダミーセグメンテーション結果"""
+        h, w = getattr(self, '_mock_image', np.zeros((480, 640, 3))).shape[:2]
+        return {
+            "mask": np.zeros((h, w), dtype=bool),
+            "score": 0.0,
+            "bbox": [0, 0, 0, 0],
+            "area": 0
+        }
+
+    def visualize_result(self,
+                        image: np.ndarray,
+                        result: Dict[str, Any],
+                        color: Tuple[int, int, int] = (0, 255, 0),
+                        alpha: float = 0.5,
+                        box: Optional[Tuple[int, int, int, int]] = None) -> np.ndarray:
+        """
+        セグメンテーション結果を可視化
+
+        Args:
+            image: 元画像
+            result: セグメンテーション結果
+            color: マスクの色
+            alpha: 透明度
+            box: オプションのバウンディングボックス
+
+        Returns:
+            可視化された画像
+        """
+        vis_image = image.copy()
+
+        if isinstance(result, dict):
+            if result.get("mask") is not None:
+                mask = result["mask"]
+                colored_mask = np.zeros_like(vis_image)
+                colored_mask[mask] = color
+                vis_image = cv2.addWeighted(
+                    vis_image, 1 - alpha,
+                    colored_mask, alpha,
+                    0
+                )
+
+            if result.get("bbox"):
+                bbox = result["bbox"]
+                cv2.rectangle(
+                    vis_image,
+                    (bbox[0], bbox[1]),
+                    (bbox[2], bbox[3]),
+                    color, 2
+                )
+        elif isinstance(result, np.ndarray):
+            mask = result
+            colored_mask = np.zeros_like(vis_image)
+            colored_mask[mask > 0] = color
+            vis_image = cv2.addWeighted(
+                vis_image, 1 - alpha,
+                colored_mask, alpha,
+                0
+            )
+
+        if box:
+            cv2.rectangle(
+                vis_image,
+                (box[0], box[1]),
+                (box[2], box[3]),
+                color, 2
+            )
+
+        return vis_image

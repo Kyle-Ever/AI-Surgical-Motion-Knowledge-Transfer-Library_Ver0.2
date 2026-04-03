@@ -17,7 +17,7 @@ test.describe('E2E V2: 動画アップロードフロー', () => {
     await expect(fileInput).toBeAttached();
 
     // 3. テスト動画ファイルをアップロード
-    const testVideoPath = path.resolve(__dirname, '../../backend/data/uploads/test_video.mp4');
+    const testVideoPath = path.resolve(__dirname, '../../backend_experimental/data/uploads/test_video.mp4');
     await fileInput.setInputFiles(testVideoPath);
 
     // 4. ファイル名表示確認

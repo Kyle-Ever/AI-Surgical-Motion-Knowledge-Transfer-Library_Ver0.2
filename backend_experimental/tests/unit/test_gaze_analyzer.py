@@ -515,7 +515,7 @@ class TestNonInterferenceWithExistingSystems:
         """GazeAnalyzerのインポートがSAMTrackerに影響しないこと"""
         try:
             from app.ai_engine.processors.gaze_analyzer import GazeAnalyzer
-            from app.ai_engine.processors.sam_tracker import SAMTracker
+            from app.ai_engine.processors.sam_tracker_unified import SAMTrackerUnified as SAMTracker
 
             # 両方インポート可能
             assert GazeAnalyzer is not None

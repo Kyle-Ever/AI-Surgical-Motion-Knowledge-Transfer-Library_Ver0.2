@@ -77,7 +77,7 @@ export default function ComparisonDashboard() {
           reference: 94.0,
           diff: (result.smoothness_score || 92.1) - 94.0
         },
-        stability: {
+        accuracy: {
           value: result.stability_score || 85.7,
           reference: 93.0,
           diff: (result.stability_score || 85.7) - 93.0

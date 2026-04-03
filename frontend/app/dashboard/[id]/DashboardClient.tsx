@@ -84,7 +84,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
           return
         }
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
         const response = await fetch(`${apiUrl}/analysis/${analysisId}`)
         if (!response.ok) {
           throw new Error(`解析データの取得に失敗しました: ${response.status}`)
@@ -153,7 +153,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
       setSelectedReferenceId(referenceId)
 
       // 比較を実行
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
       const response = await fetch(`${apiUrl}/scoring/compare`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -218,7 +218,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
 
   const handleExport = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
       const response = await fetch(`${apiUrl}/analysis/${analysisId}/export`)
       if (response.ok) {
         const blob = await response.blob()
@@ -310,7 +310,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
             解析動画
           </h2>
           <VideoPlayer
-            videoUrl={analysisData?.video_id ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/videos/${analysisData.video_id}/stream` : undefined}
+            videoUrl={analysisData?.video_id ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'}/videos/${analysisData.video_id}/stream` : undefined}
             skeletonData={analysisData?.skeleton_data || []}
             toolData={analysisData?.instrument_data || []}
             videoType={analysisData?.video_type}
@@ -340,74 +340,6 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
         <FeedbackPanel comparisonId={comparisonId} />
       </div>
 
-
-      {/* 器具の動きセクション - 器具ありの場合のみ表示、外部分析では完全に非表示 */}
-      {(analysisData?.video_type === 'internal' || analysisData?.video_type === 'external_with_instruments') && (
-        <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4 flex items-center">
-            <Wrench className="w-5 h-5 mr-2" />
-            器具の動き分析
-          </h2>
-
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            {analysisData?.instrument_data && analysisData.instrument_data.length > 0 ? (
-              <div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-sm text-gray-600">検出フレーム数</div>
-                    <div className="text-2xl font-semibold text-purple-600">
-                      {analysisData.instrument_data.length}
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-sm text-gray-600">総フレーム数</div>
-                    <div className="text-2xl font-semibold text-gray-700">
-                      {analysisData.total_frames || '--'}
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-sm text-gray-600">検出タイプ</div>
-                    <div className="text-xl font-semibold text-purple-600">
-                      {analysisData.video_type === 'external_with_instruments' ? '外部カメラ' : '内部カメラ'}
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-sm text-gray-600">検出精度</div>
-                    <div className="text-2xl font-semibold text-green-600">
-                      {analysisData.instrument_data[0]?.detections?.[0]?.confidence
-                        ? `${(analysisData.instrument_data[0].detections[0].confidence * 100).toFixed(0)}%`
-                        : '--'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 器具検出タイムライン */}
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">器具検出タイムライン</h4>
-                  <div className="h-20 bg-gray-100 rounded-lg p-2">
-                    <div className="relative h-full">
-                      {analysisData.instrument_data.slice(0, 100).map((item: any, index: number) => (
-                        <div
-                          key={index}
-                          className="absolute h-full w-1 bg-purple-500 opacity-50"
-                          style={{
-                            left: `${(item.frame_number / (analysisData.total_frames || 1)) * 100}%`
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-gray-500 text-center py-8">
-                <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-                器具データがありません
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* サマリー */}
       <div className="bg-gray-50 rounded-lg p-6 mb-8">

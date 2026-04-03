@@ -155,10 +155,9 @@ export default function ScoringResultPage() {
         <h2 className="text-lg font-semibold mb-4">詳細スコア</h2>
         <div className="space-y-4">
           {[
-            { key: 'speed_score', label: '動作速度', icon: '⚡' },
+            { key: 'speed_score', label: '速度', icon: '⚡' },
             { key: 'smoothness_score', label: '滑らかさ', icon: '〜' },
-            { key: 'stability_score', label: '安定性', icon: '⚖️' },
-            { key: 'efficiency_score', label: '効率性', icon: '📈' }
+            { key: 'efficiency_score', label: '正確性', icon: '🎯' }
           ].map((item) => {
             const score = result[item.key as keyof typeof result] as number | undefined
             return (

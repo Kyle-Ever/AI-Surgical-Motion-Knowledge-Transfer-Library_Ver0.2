@@ -4,7 +4,7 @@ import path from 'path'
 test.describe('実験版SAM2統合テスト', () => {
   test('動画アップロード→器具選択→解析実行→35%突破確認', async ({ page }) => {
     // テストビデオファイルのパス
-    const videoPath = path.join(__dirname, '../../backend/data/uploads/00a2baec-b2f0-4b74-abe1-3305d66f75f9.mp4')
+    const videoPath = path.join(__dirname, '../../backend_experimental/data/uploads/00a2baec-b2f0-4b74-abe1-3305d66f75f9.mp4')
 
     console.log('=== テスト開始 ===')
     console.log(`使用するビデオ: ${videoPath}`)

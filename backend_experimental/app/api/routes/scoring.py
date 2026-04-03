@@ -338,3 +338,38 @@ async def get_comparisons(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch comparisons: {str(e)}"
         )
+
+
+@router.delete(
+    "/comparisons/{comparison_id}",
+    summary="Delete comparison result",
+    responses={
+        404: {"description": "Comparison not found"},
+        200: {"description": "Comparison deleted successfully"}
+    }
+)
+async def delete_comparison(
+    comparison_id: str,
+    db: Session = Depends(get_db)
+):
+    """採点結果を削除"""
+
+    # 採点結果を検索
+    comparison = db.query(ComparisonResult).filter(
+        ComparisonResult.id == comparison_id
+    ).first()
+
+    if not comparison:
+        raise HTTPException(
+            status_code=404,
+            detail="Comparison not found"
+        )
+
+    # 削除実行
+    db.delete(comparison)
+    db.commit()
+
+    return {
+        "message": "Comparison deleted successfully",
+        "id": comparison_id
+    }

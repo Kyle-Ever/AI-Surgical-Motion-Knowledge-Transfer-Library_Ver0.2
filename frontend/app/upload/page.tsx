@@ -118,9 +118,19 @@ export default function UploadPage() {
   }
 
   const handleVideoUpload = async () => {
-    if (!file || !videoType) return null
+    console.log('DEBUG: handleVideoUpload called', {
+      hasFile: !!file,
+      videoType,
+      fileName: file?.name
+    })
+
+    if (!file || !videoType) {
+      console.log('DEBUG: Upload failed - missing file or videoType', { hasFile: !!file, videoType })
+      return null
+    }
 
     try {
+      console.log('DEBUG: Starting video upload...')
       // Upload video
       const uploadResponse = await uploadVideo(file, {
         video_type: videoType,
@@ -130,15 +140,17 @@ export default function UploadPage() {
         memo: formData.memo
       })
 
+      console.log('DEBUG: Upload successful', { videoId: uploadResponse.video_id })
       return uploadResponse.video_id
     } catch (e: any) {
-      console.error(e)
+      console.error('DEBUG: Upload error:', e)
       alert(e?.message || 'Upload failed')
       return null
     }
   }
 
   const handleStartAnalysis = async () => {
+    console.log('DEBUG: handleStartAnalysis called', { file: !!file, videoType, uploadedVideoId })
     if (!file || !videoType) return
 
     try {
@@ -179,7 +191,8 @@ export default function UploadPage() {
 
         // Save instruments to backend if any were selected
         if (instruments.length > 0) {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
+          console.log('DEBUG: Uploading to', apiUrl);
           const instrumentsResponse = await fetch(
             `${apiUrl}/videos/${videoId}/instruments`,
             {
@@ -199,7 +212,10 @@ export default function UploadPage() {
       }
 
       // Start analysis (instruments are already saved to file)
+      console.log('DEBUG: Calling startAnalysis with videoId:', videoId);
       const analysisResponse = await startAnalysis(videoId)
+      console.log('DEBUG: startAnalysis response:', JSON.stringify(analysisResponse));
+      console.log('DEBUG: Redirecting to:', `/analysis/${analysisResponse.id}`);
       router.push(`/analysis/${analysisResponse.id}`)
     } catch (e: any) {
       console.error(e)
@@ -244,9 +260,8 @@ export default function UploadPage() {
             {!file ? (
               <div
                 {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
-                  isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'
-                }`}
+                className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'
+                  }`}
               >
                 <input {...getInputProps()} data-testid="file-input" />
                 <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
@@ -365,14 +380,13 @@ export default function UploadPage() {
           <div className="grid grid-cols-2 gap-4">
             <button
               onClick={() => setVideoType('external_no_instruments')}
-              className={`p-6 rounded-lg border-2 transition-all ${
-                videoType === 'external_no_instruments'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-6 rounded-lg border-2 transition-all ${videoType === 'external_no_instruments'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               <div className="text-left">
-                <h3 className="font-semibold mb-2">外部カメラ<br/>（器具なし）</h3>
+                <h3 className="font-semibold mb-2">外部カメラ<br />（器具なし）</h3>
                 <p className="text-sm text-gray-600">
                   手術者の手の動きを外部から撮影
                 </p>
@@ -383,14 +397,13 @@ export default function UploadPage() {
             </button>
             <button
               onClick={() => setVideoType('external_with_instruments')}
-              className={`p-6 rounded-lg border-2 transition-all ${
-                videoType === 'external_with_instruments'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-6 rounded-lg border-2 transition-all ${videoType === 'external_with_instruments'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               <div className="text-left">
-                <h3 className="font-semibold mb-2">外部カメラ<br/>（器具あり）</h3>
+                <h3 className="font-semibold mb-2">外部カメラ<br />（器具あり）</h3>
                 <p className="text-sm text-gray-600">
                   器具を使用した手術の外部撮影
                 </p>
@@ -401,14 +414,13 @@ export default function UploadPage() {
             </button>
             <button
               onClick={() => setVideoType('internal')}
-              className={`p-6 rounded-lg border-2 transition-all ${
-                videoType === 'internal'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-6 rounded-lg border-2 transition-all ${videoType === 'internal'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               <div className="text-left">
-                <h3 className="font-semibold mb-2">内視鏡<br/>（術野カメラ）</h3>
+                <h3 className="font-semibold mb-2">内視鏡<br />（術野カメラ）</h3>
                 <p className="text-sm text-gray-600">
                   内視鏡による術野の映像
                 </p>
@@ -419,15 +431,14 @@ export default function UploadPage() {
             </button>
             <button
               onClick={() => setVideoType('eye_gaze')}
-              className={`p-6 rounded-lg border-2 transition-all ${
-                videoType === 'eye_gaze'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-6 rounded-lg border-2 transition-all ${videoType === 'eye_gaze'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
               data-testid="eye-gaze-button"
             >
               <div className="text-left">
-                <h3 className="font-semibold mb-2">視線解析<br/>（DeepGaze III）</h3>
+                <h3 className="font-semibold mb-2">視線解析<br />（DeepGaze III）</h3>
                 <p className="text-sm text-gray-600">
                   手術中や内視鏡での先生の視線をシミュレーション
                 </p>
@@ -464,35 +475,43 @@ export default function UploadPage() {
             <div className="flex items-center space-x-4 mb-6">
               <button
                 onClick={() => setInstrumentSelectionMode('checkbox')}
-                className={`flex items-center px-4 py-2 rounded-md ${
-                  instrumentSelectionMode === 'checkbox'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`flex items-center px-4 py-2 rounded-md ${instrumentSelectionMode === 'checkbox'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 <List className="w-4 h-4 mr-2" />
                 リストから選択
               </button>
               <button
                 onClick={async () => {
+                  console.log('DEBUG: SAM button clicked', {
+                    uploadedVideoId,
+                    hasFile: !!file,
+                    videoType,
+                    step
+                  })
+
                   // Upload video first if not already uploaded
                   if (!uploadedVideoId) {
                     const videoId = await handleVideoUpload()
+                    console.log('DEBUG: handleVideoUpload returned:', videoId)
                     if (videoId) {
                       setUploadedVideoId(videoId)
                       setInstrumentSelectionMode('sam')
                     } else {
+                      console.log('DEBUG: Upload failed, showing alert')
                       alert('動画のアップロードが必要です')
                     }
                   } else {
+                    console.log('DEBUG: Video already uploaded, switching to SAM mode')
                     setInstrumentSelectionMode('sam')
                   }
                 }}
-                className={`flex items-center px-4 py-2 rounded-md ${
-                  instrumentSelectionMode === 'sam'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`flex items-center px-4 py-2 rounded-md ${instrumentSelectionMode === 'sam'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 <Camera className="w-4 h-4 mr-2" />
                 映像から直接選択 (SAM)
@@ -564,9 +583,9 @@ export default function UploadPage() {
               <span className="text-gray-600">映像タイプ:</span>
               <span className="font-medium">
                 {videoType === 'eye_gaze' ? '視線解析（DeepGaze III）' :
-                 videoType === 'external_no_instruments' ? '外部カメラ（器具なし）' :
-                 videoType === 'external_with_instruments' ? '外部カメラ（器具あり）' :
-                 videoType === 'external' ? '外部（手元カメラ）' : '内視鏡（術野カメラ）'}
+                  videoType === 'external_no_instruments' ? '外部カメラ（器具なし）' :
+                    videoType === 'external_with_instruments' ? '外部カメラ（器具あり）' :
+                      videoType === 'external' ? '外部（手元カメラ）' : '内視鏡（術野カメラ）'}
               </span>
             </div>
 
@@ -577,10 +596,10 @@ export default function UploadPage() {
                   {instrumentSelectionMode === 'sam' && samSelectedInstruments.length > 0
                     ? samSelectedInstruments.map(inst => inst.name).join(', ')
                     : selectedInstruments.length > 0
-                    ? selectedInstruments
+                      ? selectedInstruments
                         .map(id => availableInstruments.find(i => i.id === id)?.name)
                         .join(', ')
-                    : 'なし（器具検出を行いません）'}
+                      : 'なし（器具検出を行いません）'}
                 </span>
               </div>
             )}
@@ -591,10 +610,10 @@ export default function UploadPage() {
                 {videoType === 'eye_gaze'
                   ? 'ゲーズプロット + 視線のヒートマップ'
                   : videoType === 'external'
-                  ? '手の骨格（21ポイント）'
-                  : (instrumentSelectionMode === 'sam' && samSelectedInstruments.length > 0) || selectedInstruments.length > 0
-                  ? '手の骨格 + 選択した器具'
-                  : '手の骨格のみ'}
+                    ? '手の骨格（21ポイント）'
+                    : (instrumentSelectionMode === 'sam' && samSelectedInstruments.length > 0) || selectedInstruments.length > 0
+                      ? '手の骨格 + 選択した器具'
+                      : '手の骨格のみ'}
               </span>
             </div>
           </div>

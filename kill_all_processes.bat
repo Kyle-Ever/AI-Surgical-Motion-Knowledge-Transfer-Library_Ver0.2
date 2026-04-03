@@ -28,13 +28,6 @@ echo ========================================
 echo [1/6] バックエンドロックファイルを削除中...
 echo ========================================
 
-if exist "backend\.server.lock" (
-    del /f "backend\.server.lock" 2>nul
-    echo    ✓ backend\.server.lock 削除
-) else (
-    echo    - backend\.server.lock なし
-)
-
 if exist "backend_experimental\.server.lock" (
     del /f "backend_experimental\.server.lock" 2>nul
     echo    ✓ backend_experimental\.server.lock 削除

@@ -64,7 +64,7 @@ export default function InstrumentSelector({
     const loadThumbnail = async () => {
       try {
         setIsLoading(true)
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
         const response = await fetch(`${apiUrl}/videos/${videoId}/thumbnail`)
         if (!response.ok) {
           throw new Error('Failed to load thumbnail')
@@ -72,7 +72,7 @@ export default function InstrumentSelector({
         const blob = await response.blob()
         const url = URL.createObjectURL(blob)
         setThumbnailUrl(url)
-        
+
         // Load image for canvas
         const img = new Image()
         img.onload = () => {
@@ -114,7 +114,7 @@ export default function InstrumentSelector({
       setError(null)
 
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
         // Use SAM2 automatic mask generation for better accuracy
         const response = await fetch(
           `${apiUrl}/videos/${videoId}/detect-instruments-sam2`,
@@ -283,7 +283,7 @@ export default function InstrumentSelector({
       setError(null)
 
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
         const response = await fetch(
           `${apiUrl}/videos/${videoId}/segment-from-detection`,
           {
@@ -374,7 +374,7 @@ export default function InstrumentSelector({
 
   const performSegmentation = async () => {
     if ((selectionMode === 'point' && points.length === 0) ||
-        (selectionMode === 'box' && !box)) {
+      (selectionMode === 'box' && !box)) {
       return
     }
 
@@ -409,7 +409,7 @@ export default function InstrumentSelector({
 
       console.log('Sending segmentation request:', JSON.stringify(requestBody, null, 2))
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
       const response = await fetch(
         `${apiUrl}/videos/${videoId}/segment`,
         {
@@ -486,7 +486,7 @@ export default function InstrumentSelector({
 
     try {
       // Register instruments on backend
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
       const response = await fetch(
         `${apiUrl}/videos/${videoId}/instruments`,
         {
@@ -527,17 +527,16 @@ export default function InstrumentSelector({
     <div className="space-y-4">
       <div className="bg-white rounded-lg shadow-sm p-4">
         <h2 className="text-lg font-semibold mb-4">器具をクリックまたはボックスで選択</h2>
-        
+
         {/* Selection mode toggle */}
         <div className="flex items-center space-x-4 mb-4">
           <button
             onClick={() => setSelectionMode('auto')}
             disabled={isDetecting}
-            className={`flex items-center px-3 py-2 rounded-md ${
-              selectionMode === 'auto'
+            className={`flex items-center px-3 py-2 rounded-md ${selectionMode === 'auto'
                 ? 'bg-green-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            } disabled:opacity-50`}
+              } disabled:opacity-50`}
           >
             {isDetecting ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -548,22 +547,20 @@ export default function InstrumentSelector({
           </button>
           <button
             onClick={() => setSelectionMode('point')}
-            className={`flex items-center px-3 py-2 rounded-md ${
-              selectionMode === 'point'
+            className={`flex items-center px-3 py-2 rounded-md ${selectionMode === 'point'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+              }`}
           >
             <MousePointer className="w-4 h-4 mr-2" />
             ポイント選択
           </button>
           <button
             onClick={() => setSelectionMode('box')}
-            className={`flex items-center px-3 py-2 rounded-md ${
-              selectionMode === 'box'
+            className={`flex items-center px-3 py-2 rounded-md ${selectionMode === 'box'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+              }`}
           >
             <Square className="w-4 h-4 mr-2" />
             ボックス選択

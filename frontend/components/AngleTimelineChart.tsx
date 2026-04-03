@@ -68,7 +68,7 @@ function calculateHandAngle(landmarks: any[]): number | null {
 
 /**
  * 器具の角度を計算（バウンディングボックスの対角線の傾き）
- * @returns 0-180度の角度
+ * @returns 0-360度の角度
  */
 function calculateInstrumentAngle(bbox: number[]): number | null {
   if (!bbox || bbox.length < 4) return null
@@ -80,8 +80,8 @@ function calculateInstrumentAngle(bbox: number[]): number | null {
   // 対角線の角度を計算
   let angle = Math.atan2(dy, dx) * (180 / Math.PI)
 
-  // 0-180度に正規化
-  if (angle < 0) angle += 180
+  // 0-360度に正規化（手の角度と同じ範囲）
+  if (angle < 0) angle += 360
 
   return angle
 }
@@ -100,6 +100,13 @@ export default function AngleTimelineChart({
 
   // 角度データを計算
   const angleData = useMemo(() => {
+    console.log('[AngleTimelineChart] Input data:', {
+      skeletonDataLength: skeletonData?.length || 0,
+      instrumentDataLength: instrumentData?.length || 0,
+      showInstrument,
+      videoType
+    })
+
     if (!skeletonData || skeletonData.length === 0) {
       return { timestamps: [], leftHand: [], rightHand: [], instrument: [] }
     }
@@ -141,7 +148,13 @@ export default function AngleTimelineChart({
         if (instrumentFrame && instrumentFrame.detections && instrumentFrame.detections.length > 0) {
           // 最初の器具の角度を使用
           const firstInstrument = instrumentFrame.detections[0]
-          instrument.push(calculateInstrumentAngle(firstInstrument.bbox))
+          const angle = calculateInstrumentAngle(firstInstrument.bbox)
+          instrument.push(angle)
+
+          // デバッグ: 最初の数フレームのみログ出力
+          if (timestamps.length <= 5) {
+            console.log(`[AngleTimelineChart] Frame ${frame.frame_number}: instrument angle = ${angle}`, firstInstrument.bbox)
+          }
         } else {
           instrument.push(null)
         }
@@ -175,6 +188,29 @@ export default function AngleTimelineChart({
 
     return closestIndex
   }, [angleData.timestamps, currentVideoTime])
+
+  // Y軸の範囲を動的に計算（最大180度に固定）
+  const yAxisRange = useMemo(() => {
+    const allAngles = [
+      ...angleData.leftHand.filter(v => v !== null) as number[],
+      ...angleData.rightHand.filter(v => v !== null) as number[],
+      ...(showInstrument ? angleData.instrument.filter(v => v !== null) as number[] : [])
+    ]
+
+    if (allAngles.length === 0) {
+      return { min: 0, max: 180 }
+    }
+
+    const minAngle = Math.min(...allAngles)
+
+    // 余白を追加（最低10度）
+    const padding = 10
+
+    return {
+      min: Math.max(0, Math.floor(minAngle - padding)),
+      max: 180 // 最大値を180度に固定
+    }
+  }, [angleData.leftHand, angleData.rightHand, angleData.instrument, showInstrument])
 
   // Chart.jsのデータセット（現在時刻までのデータのみ表示）
   const chartData = useMemo(() => {
@@ -225,18 +261,35 @@ export default function AngleTimelineChart({
 
     // 器具データを追加（条件付き）
     if (showInstrument && angleData.instrument.some(v => v !== null)) {
+      console.log('[AngleTimelineChart] Adding instrument dataset:', {
+        showInstrument,
+        totalInstrumentPoints: angleData.instrument.filter(v => v !== null).length,
+        visibleInstrumentPoints: visibleInstrument.filter(v => v !== null).length,
+        currentDataIndex,
+        visibleInstrumentSample: visibleInstrument.slice(0, 5)
+      })
+
       datasets.push({
         label: '器具',
         data: [...visibleInstrument, ...nullArray],
         borderColor: 'rgb(239, 68, 68)', // red-500
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        backgroundColor: 'rgba(239, 68, 68, 0.3)',
         tension: 0.3,
-        spanGaps: false,
-        borderWidth: 2,
-        pointRadius: 0,
-        pointHoverRadius: 4,
+        spanGaps: true, // nullの区間も線でつなぐ
+        borderWidth: 3, // 線を太く
+        pointRadius: 2, // ポイントマーカーを表示
+        pointHoverRadius: 5,
+        pointBackgroundColor: 'rgb(239, 68, 68)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1,
       })
     }
+
+    console.log('[AngleTimelineChart] Final chart data:', {
+      labelsCount: angleData.timestamps.length,
+      datasetsCount: datasets.length,
+      datasetLabels: datasets.map(d => d.label)
+    })
 
     return {
       labels: angleData.timestamps.map(t => t.toFixed(1)),
@@ -304,10 +357,10 @@ export default function AngleTimelineChart({
           display: true,
           text: '角度 (度)',
         },
-        min: 0,
-        max: 360,
+        min: yAxisRange.min,
+        max: yAxisRange.max,
         ticks: {
-          stepSize: 60,
+          stepSize: Math.max(10, Math.ceil((yAxisRange.max - yAxisRange.min) / 6)), // 動的にステップサイズを調整
         },
         grid: {
           display: true,

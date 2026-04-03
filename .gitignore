@@ -8,13 +8,8 @@ __pycache__/
 
 # Environments
 venv/
-backend/venv/
-backend/venv311/
-backend/venv311_new/
-backend/venv311_new_disabled/
 backend_experimental/venv311/
 .env
-backend/.env
 backend_experimental/.env
 
 # OS files
@@ -34,10 +29,6 @@ dist/
 build/
 
 # App data
-backend/aimotion.db
-backend/data/uploads/
-backend/data/temp/
-backend/nul
 backend_experimental/data/uploads/
 backend_experimental/data/temp/
 data/uploads/
@@ -45,19 +36,14 @@ data/temp/
 *.db
 *.log
 response.json
-backend/*.json
 backend_experimental/*.json
 
 # Misc
 .claude/
 
-backend/_*.py
 nul
 frontend/nul
 # Large model files
-backend/sam_b.pt
-backend/yolov8n.pt
-backend/yolov8n-pose.pt
 *.pt
 *.pth
 *.mp4

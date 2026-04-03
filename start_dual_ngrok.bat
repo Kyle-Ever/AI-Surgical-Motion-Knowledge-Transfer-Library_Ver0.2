@@ -44,7 +44,7 @@ if not exist "%PYTHON_PATH%" (
 REM バックエンドの起動（Python 3.11使用）
 echo.
 echo [2/4] バックエンド起動中 (Port 8001)...
-cd backend_experimental
+cd backend
 
 REM venv311が存在しない場合は作成
 if not exist venv311 (
@@ -67,7 +67,7 @@ REM サーバーロックファイルを削除（複数起動防止機構）
 if exist .server.lock del .server.lock
 
 REM バックエンドサーバーを起動
-start "Backend Experimental (Port 8001)" cmd /k "cd /d %CD% && venv311\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001"
+start "Backend (Port 8001)" cmd /k "cd /d %CD% && venv311\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001"
 
 cd ..
 timeout /t 3 /nobreak >nul

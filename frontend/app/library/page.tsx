@@ -156,10 +156,19 @@ export default function LibraryPage() {
 
     if (window.confirm('この解析結果を削除しますか？')) {
       try {
+        // アイテムのタイプを特定（解析結果 or 採点結果）
+        const item = libraryItems.find(i => i.id === itemId)
+        const itemType = item?.type || 'analysis' // デフォルトは解析結果
+
         // APIコールで実際に削除
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-        const deleteUrl = `${apiUrl}/analysis/${itemId}`
 
+        // タイプに応じて適切なエンドポイントを使用
+        const deleteUrl = itemType === 'comparison'
+          ? `${apiUrl}/scoring/comparisons/${itemId}`
+          : `${apiUrl}/analysis/${itemId}`
+
+        console.log(`[DELETE] Item type: ${itemType}`)
         console.log(`[DELETE] Attempting to delete: ${deleteUrl}`)
 
         const response = await fetch(deleteUrl, {

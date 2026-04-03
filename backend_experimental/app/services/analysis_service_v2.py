@@ -24,6 +24,7 @@ from app.ai_engine.processors.sam2_tracker_video import SAM2TrackerVideo  # 実�
 from app.ai_engine.processors.gaze_analyzer import GazeAnalyzer  # 視線解析
 from .metrics_calculator import MetricsCalculator
 from .frame_extraction_service import FrameExtractionService, ExtractionConfig, ExtractionResult
+from .realtime_metrics_service import RealtimeMetricsService
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +177,7 @@ class AnalysisServiceV2:
 
             # 7. スコアリング
             await self._update_status(analysis_result, "report_generation", db, progress=85)
-            scores = await self._calculate_scores(metrics)
+            scores = await self._calculate_scores(metrics, detection_results)
 
             # 8. 結果の保存
             await self._update_status(analysis_result, "report_generation", db, progress=90)
@@ -496,6 +497,7 @@ class AnalysisServiceV2:
                 logger.info("[ANALYSIS] SAM2 enabled for higher accuracy (+2% Dice, -21% HD95)")
 
                 self.detectors['sam'] = sam_detector
+                instruments_converted = []
 
                 # 器具の初期化
                 if instruments and len(instruments) > 0 and len(frames) > 0:
@@ -506,16 +508,15 @@ class AnalysisServiceV2:
                         sam_detector.initialize_instruments(frames[0], instruments_converted)
                     except Exception as e:
                         logger.error(f"[ANALYSIS] Failed to initialize instruments from user selection: {e}")
-                        logger.info("[ANALYSIS] Falling back to automatic instrument detection")
-                        sam_detector.auto_detect_instruments(frames[0], max_instruments=5)
+                        logger.warning("[ANALYSIS] SAM2 auto-detection is not supported in this version. Skipping.")
                 elif len(frames) > 0:
-                    logger.info("[ANALYSIS] No user selection, using automatic instrument detection")
-                    sam_detector.auto_detect_instruments(frames[0], max_instruments=5)
+                    logger.info("[ANALYSIS] No user selection. SAM2 auto-detection is not supported in this version.")
                 else:
                     logger.warning("[ANALYSIS] No frames available for instrument initialization")
 
                 logger.info(f"[ANALYSIS] Running SAM detect_batch on {len(frames)} frames...")
-                instrument_results = sam_detector.detect_batch(frames)
+                # 修正: instruments引数を渡す
+                instrument_results = sam_detector.detect_batch(frames, instruments_converted)
                 logger.info(f"[ANALYSIS] SAM detection completed, got {len(instrument_results)} results")
             else:
                 # SAM1（既存実装）
@@ -814,34 +815,67 @@ class AnalysisServiceV2:
         logger.info(f"Calculated metrics: {list(metrics.keys())}")
         return metrics
 
-    async def _calculate_scores(self, metrics: Dict) -> Dict:
-        """スコア計算"""
+    async def _calculate_scores(self, metrics: Dict, detection_results: Dict) -> Dict:
+        """
+        スコア計算
+
+        Args:
+            metrics: メトリクスデータ
+            detection_results: 検出結果（skeleton_dataを含む）
+
+        Returns:
+            スコア辞書
+        """
         scores = {
             'overall_score': 0,
-            'efficiency_score': 0,
+            'speed_score': 0,
             'smoothness_score': 0,
-            'accuracy_score': 0
+            'accuracy_score': 0,
+            'efficiency_score': 0
         }
 
-        if 'skeleton_metrics' in metrics:
-            skeleton_metrics = metrics['skeleton_metrics']
+        # 新しい3パラメータ計算（RealtimeMetricsService使用）
+        skeleton_data = detection_results.get('skeleton_data', [])
+        if skeleton_data:
+            fps = self.video_info.get('fps', 30)
+            realtime_service = RealtimeMetricsService(fps=fps)
+            three_params = realtime_service.calculate_three_parameters(skeleton_data)
 
-            # シンプルなスコア計算（将来的に改善）
-            if 'velocity' in skeleton_metrics:
-                avg_velocity = skeleton_metrics['velocity'].get('average', 0)
-                scores['efficiency_score'] = min(100, avg_velocity * 10)
+            scores['speed_score'] = three_params['speed_score']
+            scores['smoothness_score'] = three_params['smoothness_score']
+            scores['accuracy_score'] = three_params['accuracy_score']
 
-            if 'jerk' in skeleton_metrics:
-                avg_jerk = skeleton_metrics['jerk'].get('average', 0)
-                scores['smoothness_score'] = max(0, 100 - avg_jerk * 5)
-
-            # 総合スコア
+            # 総合スコア（3パラメータの平均）
             scores['overall_score'] = (
-                scores['efficiency_score'] * 0.4 +
-                scores['smoothness_score'] * 0.6
-            )
+                scores['speed_score'] +
+                scores['smoothness_score'] +
+                scores['accuracy_score']
+            ) / 3.0
 
-        logger.info(f"Calculated scores: {scores}")
+            logger.info(f"[SCORES] 3-parameter calculation: speed={scores['speed_score']:.2f}, smoothness={scores['smoothness_score']:.2f}, accuracy={scores['accuracy_score']:.2f}")
+        else:
+            logger.warning("[SCORES] No skeleton_data available, using fallback calculation")
+
+            # 従来のフォールバック計算
+            if 'skeleton_metrics' in metrics:
+                skeleton_metrics = metrics['skeleton_metrics']
+
+                if 'velocity' in skeleton_metrics:
+                    avg_velocity = skeleton_metrics['velocity'].get('average', 0)
+                    scores['efficiency_score'] = min(100, avg_velocity * 10)
+                    scores['speed_score'] = scores['efficiency_score']
+
+                if 'jerk' in skeleton_metrics:
+                    avg_jerk = skeleton_metrics['jerk'].get('average', 0)
+                    scores['smoothness_score'] = max(0, 100 - avg_jerk * 5)
+
+                # 総合スコア
+                scores['overall_score'] = (
+                    scores['efficiency_score'] * 0.4 +
+                    scores['smoothness_score'] * 0.6
+                )
+
+        logger.info(f"[SCORES] Final calculated scores: {scores}")
         return scores
 
     async def _save_results(

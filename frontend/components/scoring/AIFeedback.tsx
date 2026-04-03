@@ -53,9 +53,9 @@ const AIFeedback: React.FC<AIFeedbackProps> = ({ comparisonId, onSeek }) => {
       timeRange: '2:30-2:45',
       startTime: 150,
       endTime: 165,
-      description: '左右の手の協調性低下（同期率: 65%）',
+      description: '左右の手の正確性低下（正確率: 65%）',
       severity: 'medium',
-      metric: '協調性'
+      metric: '正確性'
     }
   ];
 

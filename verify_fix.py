@@ -15,8 +15,7 @@ def verify_latest_analysis():
     """最新の解析データを検証"""
     conn = None
     try:
-        import os
-        db_path = 'backend/aimotion.db' if os.path.exists('backend/aimotion.db') else 'aimotion.db'
+        db_path = 'aimotion.db'
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 

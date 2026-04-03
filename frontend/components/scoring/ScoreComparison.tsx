@@ -15,7 +15,7 @@ interface ScoreComparisonProps {
     total: ScoreData;
     speed: ScoreData;
     smoothness: ScoreData;
-    stability: ScoreData;
+    accuracy: ScoreData;
   };
 }
 
@@ -84,9 +84,9 @@ const ScoreComparison: React.FC<ScoreComparisonProps> = ({ scores }) => {
         delay={0.2}
       />
       <ScoreCard
-        title="安定性"
+        title="正確性"
         icon={<Scale size={16} />}
-        score={scores.stability}
+        score={scores.accuracy}
         color="text-yellow-600"
         delay={0.3}
       />

@@ -1,222 +1,440 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Activity, TrendingUp, Target, Timer } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 
 // 動的インポート（Chart.jsのSSR対策）
 const AngleTimelineChart = dynamic(() => import('./AngleTimelineChart'), { ssr: false })
 
+console.log('🔴🔴🔴 MOTION ANALYSIS PANEL LOADED - WITH REALTIME BARS 🔴🔴🔴')
+console.log('=== MOTION ANALYSIS PANEL DEBUG ===')
+console.log('File: MotionAnalysisPanel.tsx')
+console.log('Timestamp:', new Date().toISOString())
+console.log('Version: 3-PARAMETER-REALTIME-BARS')
+console.log('===================================')
+
 interface MotionAnalysisPanelProps {
   analysisData: any
+  videoType: string
   currentVideoTime: number
-  videoType?: string  // 'external_no_instruments' | 'external_with_instruments' | 'internal'
-  className?: string
 }
 
-interface MotionMetrics {
-  handTechnique: {
-    speed: number
-    smoothness: number
-    precision: number
-    coordination: number
-  }
-  instrumentMotion: {
-    stability: number
-    efficiency: number
-    accuracy: number
-    control: number
-  }
+interface HandMetrics {
+  total_distance: number
+  average_speed: number
+  max_speed: number
+  acceleration: number
+  direction_changes: number
+  smoothness: number
+  path_efficiency: number
 }
 
-export default function MotionAnalysisPanel({
+interface InstrumentMetrics {
+  total_distance: number
+  average_speed: number
+  max_speed: number
+  smoothness: number
+}
+
+interface Metrics {
+  handTechnique: HandMetrics
+  instrumentMotion: InstrumentMetrics
+}
+
+interface RealtimeMetrics {
+  speed: number
+  smoothness: number
+  accuracy: number
+}
+
+const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
   analysisData,
-  currentVideoTime,
   videoType,
-  className = ''
-}: MotionAnalysisPanelProps) {
-  const [currentMetrics, setCurrentMetrics] = useState<MotionMetrics>({
+  currentVideoTime
+}) => {
+  const [metrics, setMetrics] = useState<Metrics>({
     handTechnique: {
-      speed: 15,
-      smoothness: 80,
-      precision: 85,
-      coordination: 82
+      total_distance: 0,
+      average_speed: 0,
+      max_speed: 0,
+      acceleration: 0,
+      direction_changes: 0,
+      smoothness: 0,
+      path_efficiency: 0
     },
     instrumentMotion: {
-      stability: 88,
-      efficiency: 78,
-      accuracy: 90,
-      control: 85
+      total_distance: 0,
+      average_speed: 0,
+      max_speed: 0,
+      smoothness: 0
     }
   })
 
-  // 器具の動きセクションを表示するかどうか
-  const showInstrumentMetrics =
-    videoType === 'external_with_instruments' ||
-    videoType === 'internal'
+  const [realtimeMetrics, setRealtimeMetrics] = useState<RealtimeMetrics>({
+    speed: 0,
+    smoothness: 0,
+    accuracy: 0
+  })
 
-  // 🔍 デバッグ: コンポーネント初期化
+  const [instrumentRealtimeMetrics, setInstrumentRealtimeMetrics] = useState<RealtimeMetrics>({
+    speed: 0,
+    smoothness: 0,
+    accuracy: 0
+  })
+
   useEffect(() => {
-    console.log('[MotionAnalysisPanel] Component mounted', {
-      videoType,
-      showInstrumentMetrics
-    })
-  }, [videoType, showInstrumentMetrics])
+    console.log('[MotionAnalysisPanel] Component mounted', { videoType, showInstrumentMetrics: videoType === 'external_with_instruments' })
+  }, [videoType])
 
-  // 🔍 デバッグ: メトリクス更新（モックデータ使用）
   useEffect(() => {
     console.log('[MotionAnalysisPanel] Updating metrics', { currentVideoTime })
 
-    // 🎨 モックデータ生成: より大きな変動でリアルな動きを再現
-    // TODO: 実データ対応時は skeleton_data から計算
-    const time = currentVideoTime
+    if (analysisData?.skeleton_data) {
+      const skeletonData = analysisData.skeleton_data
 
-    // ランダム要素を追加（より自然な変動）
-    const randomFactor1 = Math.sin(time * 1.7) * Math.cos(time * 0.9)
-    const randomFactor2 = Math.cos(time * 2.3) * Math.sin(time * 1.1)
-    const randomFactor3 = Math.sin(time * 1.5) * Math.cos(time * 1.9)
+      // Hand technique metrics calculation
+      const handMetrics: HandMetrics = {
+        total_distance: skeletonData.total_distance || 0,
+        average_speed: skeletonData.average_speed || 0,
+        max_speed: skeletonData.max_speed || 0,
+        acceleration: skeletonData.average_acceleration || 0,
+        direction_changes: skeletonData.direction_changes || 0,
+        smoothness: skeletonData.smoothness || 0,
+        path_efficiency: skeletonData.path_efficiency || 0
+      }
 
-    const newMetrics: MotionMetrics = {
-      handTechnique: {
-        // 速度: 5-35 cm/s (大きな振幅)
-        speed: 20 + Math.sin(time * 0.8) * 12 + randomFactor1 * 3,
-        // 滑らかさ: 60-95% (中程度の変動)
-        smoothness: 77.5 + Math.cos(time * 0.6) * 15 + randomFactor2 * 2.5,
-        // 精密度: 65-98% (大きな変動)
-        precision: 81.5 + Math.sin(time * 0.9) * 16.5 + randomFactor3 * 3,
-        // 協調性: 55-95% (非常に大きな変動)
-        coordination: 75 + Math.cos(time * 0.7) * 18 + randomFactor1 * 2
-      },
-      instrumentMotion: {
-        // 安定性: 70-100% (中程度の変動)
-        stability: 85 + Math.sin(time * 0.5) * 13 + randomFactor2 * 2,
-        // 効率性: 50-95% (大きな変動)
-        efficiency: 72.5 + Math.cos(time * 0.85) * 20 + randomFactor3 * 2.5,
-        // 正確性: 75-100% (中程度の変動)
-        accuracy: 87.5 + Math.sin(time * 0.65) * 11 + randomFactor1 * 1.5,
-        // 制御性: 60-100% (大きな変動)
-        control: 80 + Math.cos(time * 0.75) * 18 + randomFactor2 * 2
+      // Instrument metrics calculation
+      let instrumentMetrics: InstrumentMetrics = {
+        total_distance: 0,
+        average_speed: 0,
+        max_speed: 0,
+        smoothness: 0
+      }
+
+      if (videoType === 'external_with_instruments' && analysisData.instruments_data) {
+        instrumentMetrics = {
+          total_distance: analysisData.instruments_data.total_distance || 0,
+          average_speed: analysisData.instruments_data.average_speed || 0,
+          max_speed: analysisData.instruments_data.max_speed || 0,
+          smoothness: analysisData.instruments_data.smoothness || 0
+        }
+      }
+
+      console.log('[MotionAnalysisPanel] New metrics:', { handTechnique: handMetrics, instrumentMotion: instrumentMetrics })
+      setMetrics({ handTechnique: handMetrics, instrumentMotion: instrumentMetrics })
+
+      // リアルタイムメトリクス計算（現在のビデオ時間まで）
+      calculateRealtimeMetrics(analysisData.skeleton_data, currentVideoTime)
+
+      // 器具のリアルタイムメトリクス計算（器具ありモードのみ）
+      if (videoType === 'external_with_instruments' && analysisData.instrument_data) {
+        calculateInstrumentRealtimeMetrics(analysisData.instrument_data, currentVideoTime)
+      }
+    }
+  }, [analysisData, currentVideoTime, videoType])
+
+  const calculateRealtimeMetrics = (skeletonData: any[], currentTime: number) => {
+    if (!skeletonData || skeletonData.length === 0) return
+
+    // 現在時刻までのデータをフィルタ
+    const currentFrameData = skeletonData.filter((frame: any) => {
+      const frameTime = frame.timestamp || 0
+      return frameTime <= currentTime
+    })
+
+    if (currentFrameData.length < 2) {
+      setRealtimeMetrics({ speed: 0, smoothness: 0, accuracy: 0 })
+      return
+    }
+
+    // 手首位置を抽出
+    const positions: Array<{ x: number; y: number; timestamp: number } | null> = []
+    currentFrameData.forEach((frame: any) => {
+      if (frame.hands && frame.hands.length > 0 && frame.hands[0].landmarks && frame.hands[0].landmarks.length > 0) {
+        positions.push({
+          x: frame.hands[0].landmarks[0].x,
+          y: frame.hands[0].landmarks[0].y,
+          timestamp: frame.timestamp || 0
+        })
+      } else {
+        positions.push(null)
+      }
+    })
+
+    const validPositionCount = positions.filter(p => p !== null).length
+    console.log('[REALTIME] Valid positions:', validPositionCount, '/', currentFrameData.length)
+
+    if (validPositionCount < 2) {
+      setRealtimeMetrics({ speed: 0, smoothness: 0, accuracy: 0 })
+      return
+    }
+
+    // 速度計算（ピクセル/秒）
+    const velocities: number[] = []
+    for (let i = 1; i < positions.length; i++) {
+      if (positions[i] && positions[i - 1]) {
+        const dx = positions[i]!.x - positions[i - 1]!.x
+        const dy = positions[i]!.y - positions[i - 1]!.y
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        const dt = positions[i]!.timestamp - positions[i - 1]!.timestamp
+        const velocity = dt > 0 ? distance / dt : 0
+        velocities.push(velocity)
       }
     }
 
-    console.log('[MotionAnalysisPanel] New metrics:', newMetrics)
-    setCurrentMetrics(newMetrics)
-  }, [currentVideoTime])
+    const avgVelocity = velocities.length > 0
+      ? velocities.reduce((a, b) => a + b, 0) / velocities.length
+      : 0
 
-  // メトリクスバーコンポーネント
-  const MetricBar = ({ label, value, unit, icon: Icon, color }: any) => (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs">
-        <span className="flex items-center gap-1 text-gray-600">
-          <Icon className="w-3 h-3" />
-          {label}
-        </span>
-        <span className="font-medium text-gray-900">
-          {value.toFixed(1)} {unit}
-        </span>
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-2">
-        <div
-          className={`${color} h-2 rounded-full transition-all duration-300`}
-          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-        />
-      </div>
-    </div>
-  )
+    // 滑らかさ計算（速度の安定性）
+    // 方法: 速度の変動係数 (CV = stdDev / mean) を使用
+    const velocityMean = velocities.length > 0
+      ? velocities.reduce((a, b) => a + b, 0) / velocities.length
+      : 0
 
-  return (
-    <div className={`bg-white rounded-lg shadow-sm p-6 ${className}`}>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Activity className="w-5 h-5 text-blue-500" />
-          手技の動き分析
-        </h2>
-      </div>
+    const velocityStdDev = velocities.length > 0
+      ? Math.sqrt(velocities.reduce((sum, v) => sum + ((v - velocityMean) ** 2), 0) / velocities.length)
+      : 0
 
-      <div className={`grid ${showInstrumentMetrics ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
-        {/* 手技の動き */}
-        <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-gray-600 uppercase">手技の動き</h4>
-          <MetricBar
-            label="速度"
-            value={currentMetrics.handTechnique.speed}
-            unit="cm/s"
-            icon={TrendingUp}
-            color="bg-blue-500"
-          />
-          <MetricBar
-            label="滑らかさ"
-            value={currentMetrics.handTechnique.smoothness}
-            unit="%"
-            icon={Activity}
-            color="bg-green-500"
-          />
-          <MetricBar
-            label="精密度"
-            value={currentMetrics.handTechnique.precision}
-            unit="%"
-            icon={Target}
-            color="bg-purple-500"
-          />
-          <MetricBar
-            label="協調性"
-            value={currentMetrics.handTechnique.coordination}
-            unit="%"
-            icon={Timer}
-            color="bg-orange-500"
+    // 変動係数が小さいほど滑らか (CV: 0-10の範囲を想定)
+    const velocityCV = velocityMean > 0 ? velocityStdDev / velocityMean : 0
+
+    // CVを0-100スケールに変換（対数スケール）
+    // CV=0で100点、CV=1で約69点、CV=5で約38点、CV=10で約10点
+    const smoothness = velocityCV > 0
+      ? Math.max(0, Math.min(100, 100 * Math.exp(-velocityCV / 3)))
+      : 100
+
+    console.log('[REALTIME DEBUG] velocities:', velocities.length, 'velocityMean:', velocityMean.toFixed(2), 'velocityStdDev:', velocityStdDev.toFixed(2), 'velocityCV:', velocityCV.toFixed(4), 'smoothness:', smoothness.toFixed(2))
+
+    // 正確性計算（経路の直線性と無駄のなさ）
+    // 方法: 全体の経路効率を使用し、より広い範囲で評価
+    const validPositions = positions.filter(p => p !== null) as Array<{ x: number; y: number }>
+    let pathEfficiency = 0
+
+    if (validPositions.length >= 2) {
+      // 全体の始点から終点までの直線距離
+      const start = validPositions[0]
+      const end = validPositions[validPositions.length - 1]
+      const straightDistance = Math.sqrt(
+        (end.x - start.x) ** 2 + (end.y - start.y) ** 2
+      )
+
+      // 実際の経路距離
+      let actualDistance = 0
+      for (let i = 1; i < validPositions.length; i++) {
+        const dx = validPositions[i].x - validPositions[i - 1].x
+        const dy = validPositions[i].y - validPositions[i - 1].y
+        actualDistance += Math.sqrt(dx * dx + dy * dy)
+      }
+
+      if (actualDistance > 0.001 && straightDistance > 0.001) {
+        // 経路効率（0-1の範囲、1が完全に直線）
+        const efficiency = straightDistance / actualDistance
+
+        // スコアリング: 効率をより穏やかに変換（さらに甘く）
+        // 効率0.8で100点、0.6で87点、0.4で75点、0.2で63点
+        pathEfficiency = Math.max(0, Math.min(100,
+          Math.pow(efficiency, 0.3) * 100
+        ))
+
+        console.log('[ACCURACY DEBUG] straightDist:', straightDistance.toFixed(2), 'actualDist:', actualDistance.toFixed(2), 'efficiency:', efficiency.toFixed(4), 'score:', pathEfficiency.toFixed(2))
+      }
+    }
+
+    // スコアに変換（ピクセル/秒を0-100スケールに正規化）
+    // 典型的な手技の速度: 100-2000 px/s と仮定
+    const speedScore = Math.min(Math.max((avgVelocity / 20), 0), 100)
+
+    console.log('[REALTIME] rawSpeed:', avgVelocity.toFixed(2), 'speed:', speedScore.toFixed(2), 'smoothness:', smoothness.toFixed(2), 'accuracy:', pathEfficiency.toFixed(2))
+
+    setRealtimeMetrics({
+      speed: speedScore,
+      smoothness: smoothness,
+      accuracy: pathEfficiency
+    })
+  }
+
+  const calculateInstrumentRealtimeMetrics = (instrumentData: any[], currentTime: number) => {
+    // instrument_dataは直接フレーム配列
+    if (!instrumentData || instrumentData.length === 0) {
+      setInstrumentRealtimeMetrics({ speed: 0, smoothness: 0, accuracy: 0 })
+      return
+    }
+
+    // 現在時刻までのデータをフィルタ
+    const currentFrameData = instrumentData.filter((frame: any) => {
+      const frameTime = frame.timestamp || 0
+      return frameTime <= currentTime
+    })
+
+    if (currentFrameData.length < 2) {
+      setInstrumentRealtimeMetrics({ speed: 0, smoothness: 0, accuracy: 0 })
+      return
+    }
+
+    // 器具の中心位置を抽出（複数器具がある場合は最初の器具を使用）
+    const positions: Array<{ x: number; y: number; timestamp: number } | null> = []
+    currentFrameData.forEach((frame: any) => {
+      if (frame.detections && frame.detections.length > 0) {
+        const detection = frame.detections[0]
+        // centerフィールドを直接使用 [x, y]
+        const centerX = detection.center[0]
+        const centerY = detection.center[1]
+        positions.push({
+          x: centerX,
+          y: centerY,
+          timestamp: frame.timestamp || 0
+        })
+      } else {
+        positions.push(null)
+      }
+    })
+
+    const validPositionCount = positions.filter(p => p !== null).length
+
+    if (validPositionCount < 2) {
+      setInstrumentRealtimeMetrics({ speed: 0, smoothness: 0, accuracy: 0 })
+      return
+    }
+
+    // 速度計算（ピクセル/秒）
+    const velocities: number[] = []
+    for (let i = 1; i < positions.length; i++) {
+      if (positions[i] && positions[i - 1]) {
+        const dx = positions[i]!.x - positions[i - 1]!.x
+        const dy = positions[i]!.y - positions[i - 1]!.y
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        const dt = positions[i]!.timestamp - positions[i - 1]!.timestamp
+        const velocity = dt > 0 ? distance / dt : 0
+        velocities.push(velocity)
+      }
+    }
+
+    const avgVelocity = velocities.length > 0
+      ? velocities.reduce((a, b) => a + b, 0) / velocities.length
+      : 0
+
+    // 滑らかさ計算
+    const velocityMean = velocities.length > 0
+      ? velocities.reduce((a, b) => a + b, 0) / velocities.length
+      : 0
+
+    const velocityStdDev = velocities.length > 0
+      ? Math.sqrt(velocities.reduce((sum, v) => sum + ((v - velocityMean) ** 2), 0) / velocities.length)
+      : 0
+
+    const velocityCV = velocityMean > 0 ? velocityStdDev / velocityMean : 0
+    const smoothness = velocityCV > 0
+      ? Math.max(0, Math.min(100, 100 * Math.exp(-velocityCV / 3)))
+      : 100
+
+    // 正確性計算（経路効率）
+    const validPositions = positions.filter(p => p !== null) as Array<{ x: number; y: number }>
+    let pathEfficiency = 0
+
+    if (validPositions.length >= 2) {
+      const start = validPositions[0]
+      const end = validPositions[validPositions.length - 1]
+      const straightDistance = Math.sqrt(
+        (end.x - start.x) ** 2 + (end.y - start.y) ** 2
+      )
+
+      let actualDistance = 0
+      for (let i = 1; i < validPositions.length; i++) {
+        const dx = validPositions[i].x - validPositions[i - 1].x
+        const dy = validPositions[i].y - validPositions[i - 1].y
+        actualDistance += Math.sqrt(dx * dx + dy * dy)
+      }
+
+      if (actualDistance > 0.001 && straightDistance > 0.001) {
+        const efficiency = straightDistance / actualDistance
+        pathEfficiency = Math.max(0, Math.min(100,
+          Math.pow(efficiency, 0.3) * 100
+        ))
+      }
+    }
+
+    // 速度スコアを調整：除数を5に減らして感度を上げる
+    const speedScore = Math.min(Math.max((avgVelocity / 5), 0), 100)
+
+    console.log('[INSTRUMENT REALTIME] speed:', speedScore.toFixed(2), 'smoothness:', smoothness.toFixed(2), 'accuracy:', pathEfficiency.toFixed(2))
+
+    setInstrumentRealtimeMetrics({
+      speed: speedScore,
+      smoothness: smoothness,
+      accuracy: pathEfficiency
+    })
+  }
+
+  const showInstrumentMetrics = videoType === 'external_with_instruments'
+
+  // プログレスバーコンポーネント
+  const ProgressBar: React.FC<{ value: number; color: string; label: string }> = ({ value, color, label }) => {
+    const percentage = Math.min(Math.max(value, 0), 100)
+
+    return (
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm font-medium text-gray-700">{label}</span>
+          <span className={`text-lg font-bold ${color}`}>{percentage.toFixed(1)}</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-300 ${color.replace('text-', 'bg-')}`}
+            style={{ width: `${percentage}%` }}
           />
         </div>
+      </div>
+    )
+  }
 
-        {/* 器具の動き - 条件付き表示 */}
-        {showInstrumentMetrics && (
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-gray-600 uppercase">器具の動き</h4>
-            <MetricBar
-              label="安定性"
-              value={currentMetrics.instrumentMotion.stability}
-              unit="%"
-              icon={Target}
-              color="bg-indigo-500"
-            />
-            <MetricBar
-              label="効率性"
-              value={currentMetrics.instrumentMotion.efficiency}
-              unit="%"
-              icon={TrendingUp}
-              color="bg-cyan-500"
-            />
-            <MetricBar
-              label="正確性"
-              value={currentMetrics.instrumentMotion.accuracy}
-              unit="%"
-              icon={Activity}
-              color="bg-pink-500"
-            />
-            <MetricBar
-              label="制御性"
-              value={currentMetrics.instrumentMotion.control}
-              unit="%"
-              icon={Timer}
-              color="bg-amber-500"
-            />
-          </div>
-        )}
+  console.log('[MotionAnalysisPanel] Rendering hand technique section')
+
+  return (
+    <div className="space-y-4">
+      {/* 手技の動き - 3パラメータ（リアルタイムバー表示） */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+        <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center">
+          <span className="mr-2">✋</span>
+          手技の動き
+        </h3>
+
+        <div className="space-y-2">
+          <ProgressBar value={realtimeMetrics.speed} color="text-blue-600" label="速度" />
+          <ProgressBar value={realtimeMetrics.smoothness} color="text-green-600" label="滑らかさ" />
+          <ProgressBar value={realtimeMetrics.accuracy} color="text-purple-600" label="正確性" />
+        </div>
       </div>
 
-      {/* 角度の推移グラフ */}
-      <div className="mt-6 space-y-2">
+      {/* 器具の動き - 3パラメータ（リアルタイムバー表示） */}
+      {showInstrumentMetrics && (
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 p-4 rounded-lg border border-orange-200">
+          <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center">
+            <span className="mr-2">🔧</span>
+            器具の動き
+          </h3>
+
+          <div className="space-y-2">
+            <ProgressBar value={instrumentRealtimeMetrics.speed} color="text-orange-600" label="速度" />
+            <ProgressBar value={instrumentRealtimeMetrics.smoothness} color="text-green-600" label="滑らかさ" />
+            <ProgressBar value={instrumentRealtimeMetrics.accuracy} color="text-purple-600" label="正確性" />
+          </div>
+        </div>
+      )}
+
+      {/* 角度の推移グラフ - 最下部に配置 */}
+      <div className="bg-white p-6 rounded-lg border border-gray-200">
         <AngleTimelineChart
           skeletonData={analysisData?.skeleton_data || []}
-          instrumentData={analysisData?.instrument_data}
+          instrumentData={analysisData?.instrument_data || []}
           currentVideoTime={currentVideoTime}
           videoType={videoType}
+          height={250}
         />
-      </div>
-
-      {/* デバッグ情報 */}
-      <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
-        現在時刻: {currentVideoTime.toFixed(2)}s
       </div>
     </div>
   )
 }
+
+export default MotionAnalysisPanel
