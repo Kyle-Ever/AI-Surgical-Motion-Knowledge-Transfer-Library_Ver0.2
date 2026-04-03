@@ -73,7 +73,7 @@
 
 ### Backend - Application Layer
 **責務**: APIエンドポイントとリクエスト処理
-**場所**: `backend/app/api/`
+**場所**: `backend_experimental/app/api/`
 ```python
 # このレイヤーの責任
 - リクエスト/レスポンスの変換
@@ -88,7 +88,7 @@
 
 ### Backend - Domain Layer
 **責務**: ビジネスロジックとドメインモデル
-**場所**: `backend/app/services/`, `backend/app/models/`
+**場所**: `backend_experimental/app/services/`, `backend_experimental/app/models/`
 ```python
 # このレイヤーの責任
 - ビジネスルールの実装
@@ -103,7 +103,7 @@
 
 ### Backend - Infrastructure Layer
 **責務**: 外部システムとの統合
-**場所**: `backend/app/db/`, `backend/app/ai_engine/`
+**場所**: `backend_experimental/app/db/`, `backend_experimental/app/ai_engine/`
 ```python
 # このレイヤーの責任
 - データベースアクセス（SQLAlchemy）
@@ -251,10 +251,10 @@ WebSocket: "FastAPI WebSocket"
 ## 開発ガイドライン
 
 ### コード配置の原則
-1. **ビジネスロジック** → `backend/app/services/`
-2. **データベースアクセス** → `backend/app/db/`
-3. **AI処理** → `backend/app/ai_engine/`
-4. **APIエンドポイント** → `backend/app/api/routes/`
+1. **ビジネスロジック** → `backend_experimental/app/services/`
+2. **データベースアクセス** → `backend_experimental/app/db/`
+3. **AI処理** → `backend_experimental/app/ai_engine/`
+4. **APIエンドポイント** → `backend_experimental/app/api/routes/`
 5. **UIコンポーネント** → `frontend/components/`
 6. **ページ** → `frontend/app/`
 

@@ -37,7 +37,7 @@ cd ai-surgical-motion-library
 
 ### 2. 環境変数の設定
 
-#### バックエンド環境変数（`backend/.env`）
+#### バックエンド環境変数（`backend_experimental/.env`）
 ```env
 # Database
 DATABASE_URL=sqlite:///./aimotion.db
@@ -266,7 +266,7 @@ kill -9 <process_id>
 
 #### ❌ エラー: `CORS error`
 ```javascript
-// backend/app/main.py を確認
+// backend_experimental/app/main.py を確認
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  // 開発環境では全許可

@@ -249,18 +249,16 @@ ai-motion-library/
 │   ├── public/                # 静的ファイル
 │   └── package.json
 │
-├── backend/                    # バックエンド
+├── backend_experimental/       # バックエンド
 │   ├── app/
-│   │   ├── api/               # APIエンドポイント
-│   │   │   ├── routers/       # ルーター定義
-│   │   │   └── dependencies/  # 依存性注入
+│   │   ├── api/routes/        # APIエンドポイント
 │   │   ├── core/              # コア機能
 │   │   │   ├── config.py      # 設定
-│   │   │   └── security.py    # セキュリティ
+│   │   │   └── websocket.py   # WebSocket管理
 │   │   ├── models/            # データモデル
 │   │   ├── schemas/           # Pydanticスキーマ
 │   │   ├── services/          # ビジネスロジック
-│   │   └── utils/             # ユーティリティ
+│   │   └── ai_engine/         # AI処理エンジン
 │   ├── main.py               # エントリーポイント
 │   └── requirements.txt
 │

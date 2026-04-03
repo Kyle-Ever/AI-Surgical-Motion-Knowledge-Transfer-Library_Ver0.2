@@ -58,7 +58,7 @@
 
 #### 問題1: フレーム単位の独立処理
 
-**現状コード（`backend/app/ai_engine/processors/sam2_tracker.py`）:**
+**現状コード（`backend_experimental/app/ai_engine/processors/sam2_tracker.py`）:**
 ```python
 # 各フレームを個別に処理
 for frame_idx, frame in enumerate(frames):

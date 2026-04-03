@@ -189,10 +189,10 @@ test('骨格データ構造検証', async ({ request }) => {
 3. **再起動後の検証**:
 ```bash
 # verify_fix.py で最新データをチェック
-backend/venv311/Scripts/python.exe verify_fix.py
+backend_experimental/venv311/Scripts/python.exe verify_fix.py
 
 # または手動APIチェック
-curl http://localhost:8000/api/v1/health
+curl http://localhost:8001/api/v1/health
 ```
 
 **検証チェックリスト**:
@@ -220,7 +220,7 @@ print(f"Hands in first frame: {len(skeleton_data[0]['hands'])}")
 #### 4.4 ログ確認
 ```bash
 # サーバーログで異常を確認
-tail -f backend/logs/app.log | grep -E "WARNING|ERROR"
+tail -f backend_experimental/logs/app.log | grep -E "WARNING|ERROR"
 ```
 
 ---

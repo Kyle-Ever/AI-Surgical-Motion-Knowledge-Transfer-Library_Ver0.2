@@ -313,7 +313,7 @@ FLOAT:
 ```python
 # alembic.ini設定
 [alembic]
-script_location = backend/alembic
+script_location = backend_experimental/alembic
 prepend_sys_path = .
 version_path_separator = os
 sqlalchemy.url = sqlite:///./aimotion.db
