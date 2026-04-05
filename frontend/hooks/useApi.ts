@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { api, endpoints, wsEndpoints } from '@/lib/api'
+import { useState, useCallback, useEffect } from 'react'
+import { api, endpoints } from '@/lib/api'
 import { AnalysisStatus } from '@/types'
 
 // 動画アップロード用フック
@@ -132,77 +132,6 @@ export function useAnalysisStatus(analysisId: string | null, interval: number = 
     status,
     isLoading,
     error,
-  }
-}
-
-// WebSocket接続用フック
-export function useWebSocket(analysisId: string | null) {
-  const [isConnected, setIsConnected] = useState(false)
-  const [lastMessage, setLastMessage] = useState<any>(null)
-  const ws = useRef<WebSocket | null>(null)
-
-  useEffect(() => {
-    if (!analysisId) return
-
-    const connect = () => {
-      try {
-        ws.current = new WebSocket(wsEndpoints.analysis(analysisId))
-
-        ws.current.onopen = () => {
-          console.log('WebSocket connected')
-          setIsConnected(true)
-        }
-
-        ws.current.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data)
-            setLastMessage(data)
-          } catch (error) {
-            console.error('Failed to parse WebSocket message:', error)
-          }
-        }
-
-        ws.current.onerror = (error) => {
-          // WebSocket errorイベントは詳細を提供しない（仕様）
-          // 接続状態の変化はoncloseで処理される
-          console.debug('WebSocket error event (normal during disconnect):', error)
-        }
-
-        ws.current.onclose = () => {
-          console.log('WebSocket disconnected')
-          setIsConnected(false)
-          
-          // 自動再接続（5秒後）
-          setTimeout(() => {
-            if (ws.current?.readyState === WebSocket.CLOSED) {
-              connect()
-            }
-          }, 5000)
-        }
-      } catch (error) {
-        console.error('Failed to connect WebSocket:', error)
-      }
-    }
-
-    connect()
-
-    return () => {
-      if (ws.current) {
-        ws.current.close()
-      }
-    }
-  }, [analysisId])
-
-  const sendMessage = useCallback((message: any) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify(message))
-    }
-  }, [])
-
-  return {
-    isConnected,
-    lastMessage,
-    sendMessage,
   }
 }
 

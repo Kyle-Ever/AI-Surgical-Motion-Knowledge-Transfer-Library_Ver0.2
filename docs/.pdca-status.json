@@ -1,0 +1,11 @@
+{
+  "activeFeatures": {
+    "quality-improvement": {
+      "phase": "plan",
+      "createdAt": "2026-04-05",
+      "planPath": "docs/01-plan/features/quality-improvement.plan.md",
+      "matchRate": null,
+      "iteration": 0
+    }
+  }
+}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Settings, Eye, Play, Pause, Columns } from 'lucide-react'
 import { useReferenceModels } from '@/hooks/useScoring'
-import { api } from '@/lib/api'
+import { api, API_BASE_URL } from '@/lib/api'
 
 interface ReferenceVideoInfo {
   videoId: string
@@ -58,10 +58,9 @@ const ComparisonSettingsPanel: React.FC<ComparisonSettingsPanelProps> = ({
         if (refModel?.analysis_id) {
           const analysisRes = await api.get(`/analysis/${refModel.analysis_id}`)
           if (analysisRes.data?.video_id) {
-            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
             setRefVideoInfo({
               videoId: analysisRes.data.video_id,
-              videoUrl: `${apiBase}/videos/${analysisRes.data.video_id}/stream`,
+              videoUrl: `${API_BASE_URL}/videos/${analysisRes.data.video_id}/stream`,
               modelName: refModel.name,
               surgeonName: refModel.surgeon_name,
               surgeryType: refModel.surgery_type,

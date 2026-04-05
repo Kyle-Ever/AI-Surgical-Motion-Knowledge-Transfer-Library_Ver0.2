@@ -121,8 +121,8 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
                 "code": "INTERNAL_SERVER_ERROR",
                 "message": "内部サーバーエラーが発生しました",
                 "details": {
-                    "exception": str(exc),
-                    "type": type(exc).__name__,
+                    "exception": str(exc) if is_dev else None,
+                    "type": type(exc).__name__ if is_dev else None,
                     "traceback": tb_str if is_dev else None
                 }
             }

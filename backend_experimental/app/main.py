@@ -103,16 +103,10 @@ class UTF8EnforcementMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(UTF8EnforcementMiddleware)
 
-# CORS設定
-# ngrokデュアルドメイン構成対応
+# CORS設定（settings.BACKEND_CORS_ORIGINSから読み込み、.envで上書き可能）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://mindmotionai.ngrok-free.dev",  # フロントエンド
-        "https://dev.mindmotionai.ngrok-free.dev",  # バックエンド（自己参照）
-        "http://localhost:3000",  # ローカル開発用
-        "http://localhost:8001",  # ローカルバックエンド
-    ],
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

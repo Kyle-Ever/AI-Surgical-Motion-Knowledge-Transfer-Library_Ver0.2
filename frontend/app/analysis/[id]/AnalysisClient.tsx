@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, X, Loader2 } from 'lucide-react'
 import { ProcessingStep } from '@/types'
-import { useAnalysisStatus, useWebSocket } from '@/hooks/useApi'
+import { useAnalysisStatus } from '@/hooks/useApi'
+import { useWebSocket } from '@/hooks/useWebSocket'
+import { wsEndpoints } from '@/lib/api'
 
 interface AnalysisClientProps {
   analysisId: string
@@ -13,7 +15,8 @@ interface AnalysisClientProps {
 export default function AnalysisClient({ analysisId }: AnalysisClientProps) {
   const router = useRouter()
   const { status, error } = useAnalysisStatus(analysisId, 2000)
-  const { lastMessage, isConnected } = useWebSocket(analysisId)
+  const wsUrl = analysisId ? wsEndpoints.analysis(analysisId) : null
+  const { lastMessage, isConnected } = useWebSocket(wsUrl)
   const [overallProgress, setOverallProgress] = useState(0)
   const [estimatedTime, setEstimatedTime] = useState(300) // 5分
 

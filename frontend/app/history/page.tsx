@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, Loader, Award } from 'lucide-react'
-import { getCompletedComparisons } from '@/lib/api'
+import { api, getCompletedComparisons } from '@/lib/api'
 import type { Video, AnalysisResult } from '@/types/analysis'
 import { formatDuration, formatDate } from '@/lib/utils'
 
@@ -50,30 +50,22 @@ export default function HistoryPage() {
       setLoading(true)
 
       // 完了した分析、採点結果、ビデオ情報を並列で取得
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
       const [completedRes, comparisonsData, videosRes] = await Promise.all([
-        fetch(`${apiUrl}/analysis/completed`),
+        api.get('/analysis/completed'),
         getCompletedComparisons(),
-        fetch(`${apiUrl}/videos`)
+        api.get('/videos')
       ])
 
-      if (!completedRes.ok) {
-        throw new Error('分析履歴の取得に失敗しました')
-      }
-      const completedData = await completedRes.json()
-
-      if (!videosRes.ok) {
-        throw new Error('ビデオ一覧の取得に失敗しました')
-      }
-      const videosData = await videosRes.json()
+      const completedData = completedRes.data
+      const videosData = videosRes.data
 
       // 各ビデオの分析結果を取得
       const allAnalyses: any[] = []
       for (const video of videosData) {
         try {
-          const analysisRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/videos/${video.id}`)
-          if (analysisRes.ok) {
-            const videoDetail = await analysisRes.json()
+          const analysisRes = await api.get(`/videos/${video.id}`)
+          if (analysisRes.data) {
+            const videoDetail = analysisRes.data
             if (videoDetail.analyses && videoDetail.analyses.length > 0) {
               videoDetail.analyses.forEach((analysis: AnalysisResult) => {
                 allAnalyses.push({

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Download, Activity, Target, Move, Wrench, AlertCircle, CheckCircle } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import GazeDashboardClient from '@/components/GazeDashboardClient'
+import { api, API_BASE_URL } from '@/lib/api'
 
 // 相対評価のスコアをフロントで構築
 function buildRelativeMetrics(learnerMetrics: any, expertMetrics: any): any {
@@ -169,13 +170,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
           return
         }
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-        const response = await fetch(`${apiUrl}/analysis/${analysisId}`)
-        if (!response.ok) {
-          throw new Error(`解析データの取得に失敗しました: ${response.status}`)
-        }
-
-        const data = await response.json()
+        const { data } = await api.get(`/analysis/${analysisId}`)
 
         // 視線解析の場合は専用ダッシュボードへ
         if (data.video_type === 'eye_gaze') {
@@ -233,21 +228,10 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
       setSelectedReferenceId(referenceId)
 
       // 比較を実行
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-      const response = await fetch(`${apiUrl}/scoring/compare`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          analysis_id: analysisId,
-          reference_id: referenceId
-        })
+      const { data: comparison } = await api.post('/scoring/compare', {
+        analysis_id: analysisId,
+        reference_id: referenceId
       })
-
-      if (!response.ok) {
-        throw new Error('比較に失敗しました')
-      }
-
-      const comparison = await response.json()
       setComparisonId(comparison.id)
     } catch (error) {
       console.error('Comparison failed:', error)
@@ -276,20 +260,17 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
     // 基準モデルの解析結果からフロントで簡易的にratioを計算
     try {
       setRefVideoLoading(true)
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
 
       // 基準モデル情報を取得
-      const refRes = await fetch(`${apiBase}/scoring/reference/${modelId}`)
-      const refModel = await refRes.json()
+      const { data: refModel } = await api.get(`/scoring/reference/${modelId}`)
 
       if (refModel?.analysis_id) {
         // 基準の解析結果を取得
-        const refAnalysisRes = await fetch(`${apiBase}/analysis/${refModel.analysis_id}`)
-        const refAnalysis = await refAnalysisRes.json()
+        const { data: refAnalysis } = await api.get(`/analysis/${refModel.analysis_id}`)
 
         // 基準動画URLを設定
         if (refAnalysis?.video_id) {
-          setRefVideoUrl(`${apiBase}/videos/${refAnalysis.video_id}/stream`)
+          setRefVideoUrl(`${API_BASE_URL}/videos/${refAnalysis.video_id}/stream`)
         }
 
         // 基準の6指標生値を取得（既存 or オンデマンド計算）
@@ -297,10 +278,8 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
         if (!refSixMetrics && refModel.analysis_id) {
           // six_metricsがない場合はAPIでオンデマンド計算
           try {
-            const smRes = await fetch(`${apiBase}/scoring/six-metrics/${refModel.analysis_id}`)
-            if (smRes.ok) {
-              refSixMetrics = await smRes.json()
-            }
+            const { data: smData } = await api.get(`/scoring/six-metrics/${refModel.analysis_id}`)
+            refSixMetrics = smData
           } catch (e) {
             console.error('Failed to calculate six_metrics for reference:', e)
           }
@@ -371,17 +350,15 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
 
   const handleExport = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-      const response = await fetch(`${apiUrl}/analysis/${analysisId}/export`)
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `analysis_${analysisId}.csv`
-        a.click()
-        window.URL.revokeObjectURL(url)
-      }
+      const response = await api.get(`/analysis/${analysisId}/export`, {
+        responseType: 'blob'
+      })
+      const url = window.URL.createObjectURL(response.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `analysis_${analysisId}.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Export failed:', error)
     }
@@ -474,7 +451,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
             <div className="bg-white rounded-lg shadow-sm p-3">
               <div className="text-xs font-medium text-blue-600 mb-1">学習者</div>
               <VideoPlayer
-                videoUrl={analysisData?.video_id ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'}/videos/${analysisData.video_id}/stream` : undefined}
+                videoUrl={analysisData?.video_id ? `${API_BASE_URL}/videos/${analysisData.video_id}/stream` : undefined}
                 skeletonData={analysisData?.skeleton_data || []}
                 toolData={analysisData?.instrument_data || []}
                 videoType={analysisData?.video_type}
@@ -508,7 +485,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
               解析動画
             </h2>
             <VideoPlayer
-              videoUrl={analysisData?.video_id ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'}/videos/${analysisData.video_id}/stream` : undefined}
+              videoUrl={analysisData?.video_id ? `${API_BASE_URL}/videos/${analysisData.video_id}/stream` : undefined}
               skeletonData={analysisData?.skeleton_data || []}
               toolData={analysisData?.instrument_data || []}
               videoType={analysisData?.video_type}

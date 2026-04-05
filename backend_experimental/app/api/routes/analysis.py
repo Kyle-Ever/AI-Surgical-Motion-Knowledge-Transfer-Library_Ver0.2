@@ -20,9 +20,6 @@ from app.schemas.common import ErrorResponse
 
 router = APIRouter()
 
-# Processing tasks management (simple version)
-processing_tasks: Dict[str, Any] = {}
-
 @router.post(
     "/{video_id}/analyze",
     response_model=AnalysisResponse,
@@ -276,8 +273,8 @@ async def get_analysis_status(
                     steps.append(ProcessingStep(name=LABELS[key], status='pending'))
             else:
                 steps.append(ProcessingStep(name=LABELS[key], status='pending'))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to build processing steps for analysis {analysis_id}: {e}")
     # --- end unified mapping ---
 
     # Determine current step based on progress
@@ -288,8 +285,8 @@ async def get_analysis_status(
                 if step.status == 'processing':
                     current_step = step.name
                     break
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to determine current step for analysis {analysis_id}: {e}")
 
     return AnalysisStatusResponse(
         analysis_id=analysis.id,

@@ -15,7 +15,7 @@ from app.models.video import Video
 from app.core.websocket import manager
 from app.ai_engine.processors.gaze_analyzer import GazeAnalyzer
 from .frame_extraction_service import FrameExtractionService, ExtractionConfig
-from .data_converter import convert_numpy_types
+from .data_converter import convert_numpy_types, get_video_info
 
 logger = logging.getLogger(__name__)
 
@@ -46,20 +46,8 @@ class GazeAnalysisService:
         )
 
     def _get_video_info(self, video_path: str) -> Dict:
-        """Get video metadata (resolution, fps, etc.)."""
-        import cv2
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            raise ValueError(f"Cannot open video: {video_path}")
-        try:
-            return {
-                'width': int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                'height': int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-                'fps': cap.get(cv2.CAP_PROP_FPS) or 30.0,
-                'total_frames': int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
-            }
-        finally:
-            cap.release()
+        """Get video metadata (data_converterに委譲)."""
+        return get_video_info(video_path)
 
     async def _update_status(
         self,

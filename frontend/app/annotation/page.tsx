@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Save, Play, Pause, SkipBack, SkipForward, MousePointer, Square } from 'lucide-react'
-import axios from 'axios'
+import { api } from '@/lib/api'
 
 interface BoundingBox {
   id: string
@@ -219,7 +219,7 @@ export default function AnnotationPage() {
         })),
       }))
 
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/annotations/save`, {
+      await api.post('/annotations/save', {
         video_id: videoId,
         annotations: annotationData,
       })

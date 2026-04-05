@@ -6,6 +6,7 @@ import { useDropzone } from 'react-dropzone'
 import { Upload, X, FileVideo, ChevronRight, Loader2, Camera, List } from 'lucide-react'
 import { formatFileSize } from '@/lib/utils'
 import { useUploadVideo, useStartAnalysis } from '@/hooks/useApi'
+import { api } from '@/lib/api'
 import dynamic from 'next/dynamic'
 
 // Dynamically import InstrumentSelector to avoid SSR issues
@@ -169,17 +170,12 @@ export default function UploadPage() {
 
         // Save instruments to backend if any were selected
         if (instruments.length > 0) {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-          const instrumentsResponse = await fetch(
-            `${apiUrl}/videos/${videoId}/instruments`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ instruments })
-            }
+          const instrumentsResponse = await api.post(
+            `/videos/${videoId}/instruments`,
+            { instruments }
           )
 
-          if (!instrumentsResponse.ok) {
+          if (instrumentsResponse.status !== 200) {
             console.error('Failed to save instruments')
             // Continue anyway - the analysis can still work with mock detection
           }

@@ -12,7 +12,13 @@ class Settings(BaseSettings):
     PORT: int = 8000  # サーバーポート（実験版は8001）
 
     # CORS設定
-    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001", "http://localhost:8000"]
+    BACKEND_CORS_ORIGINS: list = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:8001",
+        "https://mindmotionai.ngrok-free.dev",
+        "https://dev.mindmotionai.ngrok-free.dev",
+    ]
 
     # データベース
     DATABASE_URL: str = "sqlite:///./aimotion.db"

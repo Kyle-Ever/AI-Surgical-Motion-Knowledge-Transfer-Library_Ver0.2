@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Loader2, MousePointer, Square, Check, X, RotateCcw } from 'lucide-react'
+import { api } from '@/lib/api'
 
 interface InstrumentSelectorProps {
   videoId: string
@@ -64,12 +65,10 @@ export default function InstrumentSelector({
     const loadThumbnail = async () => {
       try {
         setIsLoading(true)
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-        const response = await fetch(`${apiUrl}/videos/${videoId}/thumbnail`)
-        if (!response.ok) {
-          throw new Error('Failed to load thumbnail')
-        }
-        const blob = await response.blob()
+        const response = await api.get(`/videos/${videoId}/thumbnail`, {
+          responseType: 'blob'
+        })
+        const blob = response.data
         const url = URL.createObjectURL(blob)
         setThumbnailUrl(url)
 
@@ -107,26 +106,14 @@ export default function InstrumentSelector({
       setError(null)
 
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-        // Use SAM2 automatic mask generation for better accuracy
-        const response = await fetch(
-          `${apiUrl}/videos/${videoId}/detect-instruments-sam2`,
+        const { data: result } = await api.post(
+          `/videos/${videoId}/detect-instruments-sam2`,
           {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              frame_number: 0,
-              min_confidence: 0.5,
-              max_results: 10
-            })
+            frame_number: 0,
+            min_confidence: 0.5,
+            max_results: 10
           }
         )
-
-        if (!response.ok) {
-          throw new Error('Instrument detection failed')
-        }
-
-        const result = await response.json()
         setDetectedInstruments(result.instruments || [])
 
         if (result.instruments.length === 0) {
@@ -260,25 +247,14 @@ export default function InstrumentSelector({
       setError(null)
 
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-        const response = await fetch(
-          `${apiUrl}/videos/${videoId}/segment-from-detection`,
+        const { data: result } = await api.post(
+          `/videos/${videoId}/segment-from-detection`,
           {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              bbox: clickedInstrument.bbox,
-              detection_id: clickedInstrument.id,
-              frame_number: 0
-            })
+            bbox: clickedInstrument.bbox,
+            detection_id: clickedInstrument.id,
+            frame_number: 0
           }
         )
-
-        if (!response.ok) {
-          throw new Error('Segmentation from detection failed')
-        }
-
-        const result = await response.json()
         setCurrentMask(result.mask)
         setCurrentVisualization(result.visualization)
         setBox(result.bbox as [number, number, number, number])
@@ -373,21 +349,10 @@ export default function InstrumentSelector({
         frame_number: 0
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-      const response = await fetch(
-        `${apiUrl}/videos/${videoId}/segment`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        }
+      const { data: result } = await api.post(
+        `/videos/${videoId}/segment`,
+        requestBody
       )
-
-      if (!response.ok) {
-        throw new Error('Segmentation failed')
-      }
-
-      const result = await response.json()
       setCurrentMask(result.mask)
       setCurrentVisualization(result.visualization)
 
@@ -443,19 +408,10 @@ export default function InstrumentSelector({
 
     try {
       // Register instruments on backend
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-      const response = await fetch(
-        `${apiUrl}/videos/${videoId}/instruments`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ instruments: selectedInstruments })
-        }
+      await api.post(
+        `/videos/${videoId}/instruments`,
+        { instruments: selectedInstruments }
       )
-
-      if (!response.ok) {
-        throw new Error('Failed to register instruments')
-      }
 
       onInstrumentsSelected(selectedInstruments)
     } catch (err) {

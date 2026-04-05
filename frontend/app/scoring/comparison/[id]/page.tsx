@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Download, Play, Pause, SkipForward, Repeat, Settings } from 'lucide-react';
 import Link from 'next/link';
+import { API_BASE_URL } from '@/lib/api';
 import DualVideoSection from '@/components/scoring/DualVideoSection';
 import SyncControlBar from '@/components/scoring/SyncControlBar';
 import ScoreComparison from '@/components/scoring/ScoreComparison';
@@ -46,7 +47,7 @@ export default function ComparisonDashboard() {
         performer: result.reference_video?.performer_name || result.reference_model?.surgeon_name || 'Dr. 田中太郎',
         procedure: result.reference_video?.procedure_name || result.reference_model?.surgery_type || '腹腔鏡下胆嚢摘出術',
         date: result.reference_video?.created_at ? new Date(result.reference_video.created_at).toLocaleDateString('ja-JP') : '2024/12/01',
-        videoUrl: referenceVideoId ? `/api/v1/videos/${referenceVideoId}/stream` : '',
+        videoUrl: referenceVideoId ? `${API_BASE_URL}/videos/${referenceVideoId}/stream` : '',
         detectionRate: 98.5,
         fps: 30,
         skeletonData: referenceAnalysis?.skeleton_data || result.reference_analysis?.skeleton_data || []
@@ -56,7 +57,7 @@ export default function ComparisonDashboard() {
         performer: result.evaluation_video?.performer_name || result.learner_analysis?.surgeon_name || '研修医 山田花子',
         procedure: result.evaluation_video?.procedure_name || result.learner_analysis?.surgery_type || '腹腔鏡下胆嚢摘出術',
         date: result.evaluation_video?.created_at ? new Date(result.evaluation_video.created_at).toLocaleDateString('ja-JP') : '2024/12/27',
-        videoUrl: evaluationVideoId ? `/api/v1/videos/${evaluationVideoId}/stream` : '',
+        videoUrl: evaluationVideoId ? `${API_BASE_URL}/videos/${evaluationVideoId}/stream` : '',
         detectionRate: 95.2,
         fps: 30,
         skeletonData: evaluationAnalysis?.skeleton_data || result.learner_analysis?.skeleton_data || []

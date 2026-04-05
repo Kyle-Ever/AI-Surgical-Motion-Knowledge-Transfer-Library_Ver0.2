@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Filter, ChevronRight, Trash2, Download, Award } from 'lucide-react'
-import { getCompletedAnalyses, getCompletedComparisons, exportAnalysisData } from '@/lib/api'
+import { api, getCompletedAnalyses, getCompletedComparisons, exportAnalysisData } from '@/lib/api'
 import { useCreateReferenceModel } from '@/hooks/useScoring'
 
 export default function LibraryPage() {
@@ -132,35 +132,25 @@ export default function LibraryPage() {
         const item = libraryItems.find(i => i.id === itemId)
         const itemType = item?.type || 'analysis' // デフォルトは解析結果
 
-        // APIコールで実際に削除
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-
         // タイプに応じて適切なエンドポイントを使用
-        const deleteUrl = itemType === 'comparison'
-          ? `${apiUrl}/scoring/comparisons/${itemId}`
-          : `${apiUrl}/analysis/${itemId}`
+        const deleteEndpoint = itemType === 'comparison'
+          ? `/scoring/comparisons/${itemId}`
+          : `/analysis/${itemId}`
 
-        const response = await fetch(deleteUrl, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
+        await api.delete(deleteEndpoint)
 
-        if (response.ok) {
-          // 削除成功後、リストを再取得
-          fetchLibraryItems()
-          alert('削除しました')
-        } else {
-          console.error('Failed to delete:', response.status, response.statusText)
-          alert(`削除に失敗しました: ${response.status} ${response.statusText}`)
-        }
-      } catch (error) {
+        // 削除成功後、リストを再取得
+        fetchLibraryItems()
+        alert('削除しました')
+      } catch (error: any) {
         console.error('Delete error:', error)
-        if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        if (error?.code === 'ERR_NETWORK') {
           alert('サーバーに接続できません。バックエンドが起動しているか確認してください。')
         } else {
-          alert(`削除中にエラーが発生しました: ${error}`)
+          const msg = error?.response?.status
+            ? `削除に失敗しました: ${error.response.status}`
+            : `削除中にエラーが発生しました: ${error?.message || error}`
+          alert(msg)
         }
       }
     }

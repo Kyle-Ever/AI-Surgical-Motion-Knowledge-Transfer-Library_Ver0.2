@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Upload, FileVideo, Loader2 } from 'lucide-react'
 import { useReferenceModels, useStartComparison } from '@/hooks/useScoring'
 import { useUploadVideo, useStartAnalysis } from '@/hooks/useApi'
+import { api } from '@/lib/api'
 
 export default function ScoringPage() {
   const router = useRouter()
@@ -52,9 +53,7 @@ export default function ScoringPage() {
         attempts++
 
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-          const statusResponse = await fetch(`${apiUrl}/analysis/${analysisId}/status`)
-          const statusData = await statusResponse.json()
+          const { data: statusData } = await api.get(`/analysis/${analysisId}/status`)
 
           // overall_progress が 100 なら完了
           if (statusData.overall_progress === 100) {

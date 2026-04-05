@@ -80,3 +80,34 @@ def extract_mask_contour(mask: Optional[np.ndarray]) -> List[List[int]]:
     except Exception as e:
         logger.warning(f"[CONTOUR] Failed to extract contour: {e}")
         return []
+
+
+def get_video_info(video_path: str) -> Dict:
+    """
+    Get video metadata (resolution, fps, duration).
+
+    Args:
+        video_path: Path to the video file
+
+    Returns:
+        Dict with width, height, fps, total_frames, duration
+    """
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Cannot open video: {video_path}")
+
+    try:
+        info = {
+            'width': int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            'height': int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            'fps': cap.get(cv2.CAP_PROP_FPS),
+            'total_frames': int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
+            'duration': 0,
+        }
+        if info['fps'] <= 0:
+            logger.warning(f"Invalid FPS ({info['fps']}), using default 30fps")
+            info['fps'] = 30.0
+        info['duration'] = info['total_frames'] / info['fps']
+        return info
+    finally:
+        cap.release()

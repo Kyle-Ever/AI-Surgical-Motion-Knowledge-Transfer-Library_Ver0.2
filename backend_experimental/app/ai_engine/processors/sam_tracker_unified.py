@@ -172,7 +172,7 @@ class SAMTrackerUnified:
                     import torch
                     allocated_mb = torch.cuda.memory_allocated() / 1024**2
                     logger.info(f"SAM {self.model_type} loaded on GPU: {allocated_mb:.1f}MB VRAM allocated")
-                except:
+                except Exception:
                     logger.info(f"SAM {self.model_type} loaded on GPU")
             else:
                 logger.info(f"SAM {self.model_type} loaded on CPU")

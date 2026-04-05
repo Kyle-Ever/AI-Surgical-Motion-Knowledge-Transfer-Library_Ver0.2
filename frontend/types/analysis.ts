@@ -105,7 +105,7 @@ export interface MotionAnalysis {
   安定性解析: StabilityAnalysis
   効率性解析: EfficiencyAnalysis
   waste_metrics?: WasteMetrics
-  metrics?: Record<string, any>
+  metrics?: Record<string, number | string>
 }
 
 export interface Scores {
@@ -125,10 +125,10 @@ export interface AnalysisResult {
   video_id: string
   video_type?: string
   status: 'pending' | 'processing' | 'completed' | 'failed' | string
-  skeleton_data?: SkeletonData[] | any
-  instrument_data?: InstrumentData[] | any
-  motion_analysis?: MotionAnalysis | any
-  scores?: Scores | any
+  skeleton_data?: SkeletonData[]
+  instrument_data?: InstrumentData[]
+  motion_analysis?: MotionAnalysis
+  scores?: Scores
   avg_velocity?: number
   max_velocity?: number
   total_distance?: number
