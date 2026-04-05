@@ -183,32 +183,50 @@ const DetailedAnalysis: React.FC<DetailedAnalysisProps> = ({
         stabilityDiff.push(Math.random() * 15 - 7.5);
       }
 
-      return {
-        labels,
-        datasets: [
-          {
-            label: '速度差',
-            data: speedDiff,
-            borderColor: 'rgb(59, 130, 246)',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            tension: 0.4
-          },
-          {
-            label: '滑らかさ差',
-            data: smoothnessDiff,
-            borderColor: 'rgb(34, 197, 94)',
-            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-            tension: 0.4
-          },
-          {
-            label: '安定性差',
-            data: stabilityDiff,
-            borderColor: 'rgb(234, 179, 8)',
-            backgroundColor: 'rgba(234, 179, 8, 0.1)',
-            tension: 0.4
-          }
-        ]
-      };
+      const datasets = [
+        {
+          label: '速度差',
+          data: speedDiff,
+          borderColor: 'rgb(59, 130, 246)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          tension: 0.4
+        },
+        {
+          label: '滑らかさ差',
+          data: smoothnessDiff,
+          borderColor: 'rgb(34, 197, 94)',
+          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+          tension: 0.4
+        },
+        {
+          label: '安定性差',
+          data: stabilityDiff,
+          borderColor: 'rgb(234, 179, 8)',
+          backgroundColor: 'rgba(234, 179, 8, 0.1)',
+          tension: 0.4
+        }
+      ];
+
+      // ムダ指標の差分データセットを追加
+      const refWaste = referenceAnalysis.motion_analysis?.waste_metrics;
+      const evalWaste = evaluationAnalysis.motion_analysis?.waste_metrics;
+      if (refWaste && evalWaste) {
+        const wasteDiff = [];
+        for (let i = 0; i < sampleCount; i++) {
+          const refIdle = refWaste.idle_time?.idle_time_ratio || 0;
+          const evalIdle = evalWaste.idle_time?.idle_time_ratio || 0;
+          wasteDiff.push((evalIdle - refIdle) * 100 + (Math.random() * 4 - 2));
+        }
+        datasets.push({
+          label: 'ムダ指標差',
+          data: wasteDiff,
+          borderColor: 'rgb(239, 68, 68)',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          tension: 0.4
+        });
+      }
+
+      return { labels, datasets };
     }
 
     // デフォルトのモックデータ

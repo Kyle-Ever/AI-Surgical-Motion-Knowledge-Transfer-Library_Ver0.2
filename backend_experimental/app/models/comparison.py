@@ -39,6 +39,12 @@ class ComparisonResult(Base):
     stability_score = Column(Float, nullable=True)  # 安定性スコア
     efficiency_score = Column(Float, nullable=True) # 効率性スコア
 
+    # ムダ指標スコア（0-100、低ムダ=高スコア）
+    waste_score = Column(Float, nullable=True)           # ムダ総合スコア
+    idle_time_score = Column(Float, nullable=True)       # アイドルタイムスコア
+    working_volume_score = Column(Float, nullable=True)  # 作業空間スコア
+    movement_count_score = Column(Float, nullable=True)  # 動作回数スコア
+
     # 詳細な比較データ
     comparison_data = Column(JSON, nullable=True)  # 詳細な比較結果
     dtw_distance = Column(Float, nullable=True)    # DTW距離（類似度）

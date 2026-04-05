@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { formatTime } from '@/lib/utils';
 
 interface VideoData {
   title: string;
@@ -363,11 +364,6 @@ const VideoPlayer: React.FC<{
     };
   }, [isPlaying, scheduleNextFrame]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const progressPercentage = localDuration > 0 ? (localTime / localDuration) * 100 : 0;
 

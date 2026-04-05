@@ -14,6 +14,7 @@ from app.schemas.scoring import (
     FeedbackItem, DetailedFeedback, ComparisonReport
 )
 from app.core.websocket import manager
+from .waste_metrics_calculator import WasteMetricsCalculator
 
 logger = logging.getLogger(__name__)
 # Fixed NoneType comparison issues in _generate_feedback
@@ -23,10 +24,11 @@ class ScoringService:
 
     def __init__(self):
         self.weight_defaults = {
-            "speed": 0.25,
-            "smoothness": 0.25,
-            "stability": 0.25,
-            "efficiency": 0.25
+            "speed": 0.20,
+            "smoothness": 0.20,
+            "stability": 0.20,
+            "efficiency": 0.20,
+            "waste": 0.20
         }
 
     async def create_reference_model(
@@ -168,6 +170,30 @@ class ScoringService:
             comparison.stability_score = score_comparison["stability"]
             comparison.efficiency_score = score_comparison["efficiency"]
 
+            await self._update_progress(comparison_id, 50, "ムダ指標比較中...")
+
+            # ムダ指標の比較
+            waste_comparison = await self._compare_waste_metrics(
+                reference_analysis.scores or {},
+                learner_analysis.scores or {},
+                reference_analysis.motion_analysis or {},
+                learner_analysis.motion_analysis or {}
+            )
+            comparison.waste_score = waste_comparison.get("waste_score")
+            comparison.idle_time_score = waste_comparison.get("idle_time_score")
+            comparison.working_volume_score = waste_comparison.get("working_volume_score")
+            comparison.movement_count_score = waste_comparison.get("movement_count_score")
+
+            # ムダスコアを全体スコアに反映
+            if waste_comparison.get("waste_score") is not None:
+                waste_weight = weights.get("waste", 0.20)
+                # 既存の4軸スコアの重みを再計算
+                existing_weight = 1.0 - waste_weight
+                comparison.overall_score = (
+                    (comparison.overall_score or 0) * existing_weight +
+                    waste_comparison["waste_score"] * waste_weight
+                )
+
             await self._update_progress(comparison_id, 60, "メトリクス比較中...")
 
             # 詳細メトリクスの比較
@@ -183,7 +209,8 @@ class ScoringService:
             feedback = await self._generate_feedback(
                 score_comparison,
                 metrics_comp,
-                comparison.dtw_distance
+                comparison.dtw_distance,
+                waste_comparison
             )
             comparison.feedback = feedback
 
@@ -368,11 +395,89 @@ class ScoringService:
 
         return comparison
 
+    async def _compare_waste_metrics(
+        self,
+        reference_scores: Dict,
+        learner_scores: Dict,
+        reference_metrics: Dict,
+        learner_metrics: Dict
+    ) -> Dict[str, Optional[float]]:
+        """ムダ指標を比較（基準vs学習者）"""
+        result = {
+            "waste_score": None,
+            "idle_time_score": None,
+            "working_volume_score": None,
+            "movement_count_score": None,
+            "raw_comparison": {}
+        }
+
+        ref_waste = reference_metrics.get("waste_metrics", {})
+        learn_waste = learner_metrics.get("waste_metrics", {})
+
+        # 両方にムダ指標がある場合は相対比較
+        if ref_waste and learn_waste:
+            # 基準のムダ値に対する学習者の相対スコア
+            ref_idle = ref_waste.get("idle_time", {}).get("idle_time_ratio", 0)
+            learn_idle = learn_waste.get("idle_time", {}).get("idle_time_ratio", 0)
+
+            ref_volume = ref_waste.get("working_volume", {}).get("convex_hull_area", 0)
+            learn_volume = learn_waste.get("working_volume", {}).get("convex_hull_area", 0)
+
+            ref_mpm = ref_waste.get("movement_count", {}).get("movements_per_minute", 0)
+            learn_mpm = learn_waste.get("movement_count", {}).get("movements_per_minute", 0)
+
+            # 相対スコア: 基準と同等以下なら100点、悪化するほど減点
+            result["idle_time_score"] = self._relative_waste_score(ref_idle, learn_idle)
+            result["working_volume_score"] = self._relative_waste_score(ref_volume, learn_volume)
+            result["movement_count_score"] = self._relative_waste_score(ref_mpm, learn_mpm)
+
+            result["waste_score"] = round(
+                (result["idle_time_score"] or 0) * 0.4 +
+                (result["working_volume_score"] or 0) * 0.3 +
+                (result["movement_count_score"] or 0) * 0.3,
+                1
+            )
+
+            result["raw_comparison"] = {
+                "idle_time": {"reference": ref_idle, "learner": learn_idle},
+                "working_volume": {"reference": ref_volume, "learner": learn_volume},
+                "movements_per_minute": {"reference": ref_mpm, "learner": learn_mpm},
+            }
+
+        # 学習者のスコアのみある場合は絶対スコアを使用
+        elif learner_scores.get("waste_score") is not None:
+            result["waste_score"] = learner_scores.get("waste_score")
+            result["idle_time_score"] = learner_scores.get("idle_time_score")
+            result["working_volume_score"] = learner_scores.get("working_volume_score")
+            result["movement_count_score"] = learner_scores.get("movement_count_score")
+
+        return result
+
+    @staticmethod
+    def _relative_waste_score(ref_value: float, learn_value: float) -> float:
+        """
+        ムダ指標の相対スコア計算
+        基準と同等かそれ以下 → 100点、基準の2倍以上 → 0点
+        """
+        if ref_value <= 0:
+            # 基準のムダがゼロの場合、学習者のムダがゼロなら100、あれば減点
+            if learn_value <= 0:
+                return 100.0
+            return max(0.0, 100.0 - learn_value * 200.0)
+
+        ratio = learn_value / ref_value
+        if ratio <= 1.0:
+            return 100.0
+        # 1.0〜2.0の範囲で100→0に減衰
+        score = max(0.0, (2.0 - ratio) * 100.0)
+        return round(score, 1)
+
     async def _generate_feedback(
         self,
         score_comparison: Dict,
         metrics_comparison: Dict,
-        dtw_distance: float
+        dtw_distance: float,
+        waste_comparison: Optional[Dict] = None
     ) -> Dict:
         """フィードバックを生成"""
         feedback = {
@@ -429,7 +534,81 @@ class ScoringService:
                 "message": "基準動作の軌跡をより意識して練習することを推奨します"
             })
 
+        # ムダ指標に基づくフィードバック
+        if waste_comparison:
+            self._add_waste_feedback(feedback, waste_comparison)
+
         return feedback
+
+    def _add_waste_feedback(self, feedback: Dict, waste_comparison: Dict):
+        """ムダ指標のフィードバックを追加"""
+        raw = waste_comparison.get("raw_comparison", {})
+
+        # アイドルタイム
+        idle_score = waste_comparison.get("idle_time_score")
+        if idle_score is not None:
+            idle_data = raw.get("idle_time", {})
+            if idle_score >= 80:
+                feedback["strengths"].append({
+                    "category": "waste_idle",
+                    "message": f"アイドルタイムが少なく、効率的に動作しています（{idle_score:.0f}点）"
+                })
+            elif idle_score < 60:
+                ref_idle = idle_data.get("reference", 0)
+                learn_idle = idle_data.get("learner", 0)
+                excess = round((learn_idle - ref_idle) * 100, 1)
+                feedback["weaknesses"].append({
+                    "category": "waste_idle",
+                    "message": f"アイドルタイムが基準より{excess}%多いです（{idle_score:.0f}点）"
+                })
+                feedback["suggestions"].append({
+                    "category": "waste_idle",
+                    "message": "次の手順を事前に確認し、手の停滞時間を減らしてください"
+                })
+
+        # 作業空間
+        volume_score = waste_comparison.get("working_volume_score")
+        if volume_score is not None:
+            volume_data = raw.get("working_volume", {})
+            if volume_score >= 80:
+                feedback["strengths"].append({
+                    "category": "waste_volume",
+                    "message": f"手の動きがコンパクトで効率的です（{volume_score:.0f}点）"
+                })
+            elif volume_score < 60:
+                ref_v = volume_data.get("reference", 0)
+                learn_v = volume_data.get("learner", 0)
+                ratio = round(learn_v / ref_v, 1) if ref_v > 0 else 0
+                feedback["weaknesses"].append({
+                    "category": "waste_volume",
+                    "message": f"作業範囲が基準の{ratio}倍に広がっています（{volume_score:.0f}点）"
+                })
+                feedback["suggestions"].append({
+                    "category": "waste_volume",
+                    "message": "手の移動範囲を小さく保ち、必要最小限の動きを心がけてください"
+                })
+
+        # 動作回数
+        movement_score = waste_comparison.get("movement_count_score")
+        if movement_score is not None:
+            mpm_data = raw.get("movements_per_minute", {})
+            if movement_score >= 80:
+                feedback["strengths"].append({
+                    "category": "waste_movement",
+                    "message": f"効率的な動作回数で手技を行っています（{movement_score:.0f}点）"
+                })
+            elif movement_score < 60:
+                ref_m = mpm_data.get("reference", 0)
+                learn_m = mpm_data.get("learner", 0)
+                excess = round(learn_m - ref_m, 1)
+                feedback["weaknesses"].append({
+                    "category": "waste_movement",
+                    "message": f"動作回数が基準より{excess}回/分多いです（{movement_score:.0f}点）"
+                })
+                feedback["suggestions"].append({
+                    "category": "waste_movement",
+                    "message": "一つ一つの動作を確実に行い、手戻りや不要な動きを減らしてください"
+                })
 
     def _get_metric_name(self, key: str) -> str:
         """メトリクス名を日本語に変換"""
@@ -437,7 +616,11 @@ class ScoringService:
             "speed": "動作速度",
             "smoothness": "動作の滑らかさ",
             "stability": "安定性",
-            "efficiency": "効率性"
+            "efficiency": "効率性",
+            "waste": "ムダ削減",
+            "waste_idle": "アイドルタイム",
+            "waste_volume": "作業空間",
+            "waste_movement": "動作回数"
         }
         return name_map.get(key, key)
 
@@ -480,7 +663,11 @@ class ScoringService:
                 "speed": comparison.speed_score or 0,
                 "smoothness": comparison.smoothness_score or 0,
                 "stability": comparison.stability_score or 0,
-                "efficiency": comparison.efficiency_score or 0
+                "efficiency": comparison.efficiency_score or 0,
+                "waste": comparison.waste_score or 0,
+                "idle_time": comparison.idle_time_score or 0,
+                "working_volume": comparison.working_volume_score or 0,
+                "movement_count": comparison.movement_count_score or 0
             },
             feedback=DetailedFeedback(
                 strengths=[
@@ -534,7 +721,8 @@ class ScoringService:
             "速度": comparison.speed_score or 0,
             "滑らかさ": comparison.smoothness_score or 0,
             "安定性": comparison.stability_score or 0,
-            "効率性": comparison.efficiency_score or 0
+            "効率性": comparison.efficiency_score or 0,
+            "ムダ削減": comparison.waste_score or 0
         }
 
         # スコアが低い順にソート
@@ -556,5 +744,13 @@ class ScoringService:
 
         if (comparison.efficiency_score or 0) < 60:
             plan.append("無駄な動きを減らし、最短経路を意識した動作を心がける")
+
+        if (comparison.waste_score or 0) < 60:
+            if (comparison.idle_time_score or 0) < 60:
+                plan.append("手の停滞時間を削減するため、次の手順を事前に確認してから動作する")
+            if (comparison.working_volume_score or 0) < 60:
+                plan.append("手の移動範囲を最小限に保ち、コンパクトな動作を練習する")
+            if (comparison.movement_count_score or 0) < 60:
+                plan.append("一つの動作を確実に完了させ、不要な手戻りを減らす")
 
         return plan

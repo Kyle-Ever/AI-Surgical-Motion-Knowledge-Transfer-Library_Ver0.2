@@ -10,6 +10,7 @@ const VideoPlayer = dynamic(() => import('@/components/VideoPlayer'), { ssr: fal
 const ScoreComparison = dynamic(() => import('@/components/ScoreComparison'), { ssr: false })
 const FeedbackPanel = dynamic(() => import('@/components/FeedbackPanel'), { ssr: false })
 const MotionAnalysisPanel = dynamic(() => import('@/components/MotionAnalysisPanel'), { ssr: false })
+import { API_BASE_URL } from '@/lib/api'
 
 interface DashboardClientProps {
   analysisId: string
@@ -76,7 +77,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
         setLoading(true)
         setError(null)
 
-        const response = await fetch(`http://localhost:8000/api/v1/analysis/${analysisId}`)
+        const response = await fetch(`${API_BASE_URL}/analysis/${analysisId}`)
         if (!response.ok) {
           throw new Error(`解析データの取得に失敗しました: ${response.status}`)
         }
@@ -208,7 +209,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
             解析動画
           </h2>
           <VideoPlayer
-            videoUrl={analysisData?.video_id ? `http://localhost:8000/api/v1/videos/${analysisData.video_id}/stream` : undefined}
+            videoUrl={analysisData?.video_id ? `${API_BASE_URL}/videos/${analysisData.video_id}/stream` : undefined}
             skeletonData={analysisData?.skeleton_data || []}
             toolData={analysisData?.instrument_data || []}
             videoType={analysisData?.video_type}

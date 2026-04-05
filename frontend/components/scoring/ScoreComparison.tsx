@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Zap, Activity, Scale, TrendingUp } from 'lucide-react';
+import { Zap, Activity, Scale, TrendingUp, Target } from 'lucide-react';
 
 interface ScoreData {
   value: number;
@@ -16,6 +16,7 @@ interface ScoreComparisonProps {
     speed: ScoreData;
     smoothness: ScoreData;
     accuracy: ScoreData;
+    waste?: ScoreData;
   };
 }
 
@@ -51,6 +52,7 @@ const ScoreCard: React.FC<{
             title === '総合スコア' ? 'from-purple-400 to-purple-600' :
             title === '速度' ? 'from-blue-400 to-blue-600' :
             title === '滑らかさ' ? 'from-green-400 to-green-600' :
+            title === 'ムダ削減' ? 'from-red-400 to-red-600' :
             'from-yellow-400 to-yellow-600'
           }`}
         />
@@ -61,7 +63,7 @@ const ScoreCard: React.FC<{
 
 const ScoreComparison: React.FC<ScoreComparisonProps> = ({ scores }) => {
   return (
-    <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
       <ScoreCard
         title="総合スコア"
         icon={<TrendingUp size={16} />}
@@ -90,6 +92,15 @@ const ScoreComparison: React.FC<ScoreComparisonProps> = ({ scores }) => {
         color="text-yellow-600"
         delay={0.3}
       />
+      {scores.waste && (
+        <ScoreCard
+          title="ムダ削減"
+          icon={<Target size={16} />}
+          score={scores.waste}
+          color="text-red-600"
+          delay={0.4}
+        />
+      )}
     </section>
   );
 };

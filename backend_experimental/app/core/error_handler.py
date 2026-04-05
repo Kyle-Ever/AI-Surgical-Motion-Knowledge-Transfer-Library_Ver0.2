@@ -110,9 +110,9 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         }
     )
 
-    # 開発環境では詳細を返す
-    import os
-    is_dev = os.getenv("ENVIRONMENT", "development") == "development"
+    # 開発環境では詳細を返す（デフォルトは本番モード = トレースバック非公開）
+    from app.core.config import settings
+    is_dev = settings.DEBUG
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

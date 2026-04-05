@@ -188,14 +188,6 @@ async def websocket_endpoint(websocket: WebSocket, analysis_id: str):
         while True:
             # クライアントからのメッセージを待つ（キープアライブ）
             data = await websocket.receive_text()
-
-            # モックの進捗データを送信（テスト用）
-            await websocket.send_json({
-                "type": "progress",
-                "step": "processing",
-                "progress": 50,
-                "message": "処理中..."
-            })
     except WebSocketDisconnect:
         manager.disconnect(websocket, analysis_id)
 

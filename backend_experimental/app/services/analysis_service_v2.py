@@ -22,36 +22,16 @@ from app.ai_engine.processors.sam_tracker_unified import SAMTrackerUnified
 from app.ai_engine.processors.sam2_tracker import SAM2Tracker
 from app.ai_engine.processors.sam2_tracker_video import SAM2TrackerVideo  # 実験版
 from app.ai_engine.processors.gaze_analyzer import GazeAnalyzer  # 視線解析
+from .data_converter import convert_numpy_types, extract_mask_contour
+from .gaze_analysis_service import GazeAnalysisService
 from .metrics_calculator import MetricsCalculator
 from .frame_extraction_service import FrameExtractionService, ExtractionConfig, ExtractionResult
 from .realtime_metrics_service import RealtimeMetricsService
+from .waste_metrics_calculator import WasteMetricsCalculator
+from .metrics import SixMetricsService
 
 logger = logging.getLogger(__name__)
 
-
-def convert_numpy_types(obj):
-    """
-    Convert numpy types to Python native types for JSON serialization
-
-    Args:
-        obj: Object potentially containing numpy types
-
-    Returns:
-        Object with all numpy types converted to Python native types
-    """
-    if isinstance(obj, np.integer):
-        return int(obj)
-    elif isinstance(obj, np.floating):
-        return float(obj)
-    elif isinstance(obj, np.ndarray):
-        return obj.tolist()
-    elif isinstance(obj, dict):
-        return {k: convert_numpy_types(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_numpy_types(item) for item in obj]
-    elif isinstance(obj, tuple):
-        return tuple(convert_numpy_types(item) for item in obj)
-    return obj
 
 
 class AnalysisServiceV2:
@@ -75,8 +55,8 @@ class AnalysisServiceV2:
             )
         )
         self.extraction_result: Optional[ExtractionResult] = None  # 抽出結果を保持
-        # 視線解析アナライザー（遅延初期化）
-        self.gaze_analyzer: Optional[GazeAnalyzer] = None
+        # 視線解析サービス
+        self.gaze_service = GazeAnalysisService()
 
     async def analyze_video(
         self,
@@ -204,11 +184,14 @@ class AnalysisServiceV2:
             import traceback
             error_traceback = traceback.format_exc()
             logger.error(f"[ANALYSIS] Traceback: {error_traceback}")
+            # デバッグ用: エラーメッセージにトレースバック末尾を含める
+            tb_short = error_traceback.strip().split('\n')[-3:]
+            error_msg_with_tb = f"{str(e)} | TB: {' | '.join(tb_short)}"
 
             if analysis_result:
                 # Phase 2.2: エラー情報を詳細に記録
                 analysis_result.status = AnalysisStatus.FAILED
-                analysis_result.error_message = f"{type(e).__name__}: {str(e)}"
+                analysis_result.error_message = error_msg_with_tb
 
                 # 収集した警告があれば保存
                 if self.warnings:
@@ -231,7 +214,7 @@ class AnalysisServiceV2:
                         "warnings_count": len(self.warnings),
                         "tracking_stats": self.tracking_stats
                     })
-                except:
+                except Exception:
                     pass  # WebSocket送信失敗は無視
 
             raise
@@ -798,12 +781,29 @@ class AnalysisServiceV2:
     async def _calculate_metrics(self, detection_results: Dict) -> Dict:
         """メトリクス計算"""
         metrics = {}
+        fps = self.video_info.get('fps', 30)
 
         # 骨格データのメトリクス
         if detection_results.get('skeleton_data'):
-            calculator = MetricsCalculator(fps=self.video_info.get('fps', 30))
+            calculator = MetricsCalculator(fps=fps)
             metrics['skeleton_metrics'] = calculator.calculate_all_metrics(
                 detection_results['skeleton_data']
+            )
+
+        # ムダ指標の計算（旧版 — 後方互換性のため維持）
+        if detection_results.get('skeleton_data'):
+            waste_calc = WasteMetricsCalculator(fps=fps)
+            metrics['waste_metrics'] = waste_calc.calculate_all_waste_metrics(
+                detection_results['skeleton_data']
+            )
+
+        # 6指標計算（新版）
+        if detection_results.get('skeleton_data'):
+            six_svc = SixMetricsService(fps=fps)
+            six_result = six_svc.calculate(detection_results['skeleton_data'])
+            metrics['six_metrics'] = six_result.to_dict()
+            metrics['six_metrics_timeline'] = six_svc.calculate_timeline(
+                detection_results['skeleton_data'], interval_sec=0.5
             )
 
         # 器具データのメトリクス（将来的に実装）
@@ -874,6 +874,16 @@ class AnalysisServiceV2:
                     scores['efficiency_score'] * 0.4 +
                     scores['smoothness_score'] * 0.6
                 )
+
+        # ムダスコアの追加
+        if 'waste_metrics' in metrics:
+            waste_calc = WasteMetricsCalculator(fps=self.video_info.get('fps', 30))
+            waste_scores = waste_calc.calculate_waste_scores(metrics['waste_metrics'])
+            scores.update(waste_scores)
+            logger.info(f"[SCORES] Waste scores: waste={waste_scores['waste_score']:.1f}, "
+                       f"idle={waste_scores['idle_time_score']:.1f}, "
+                       f"volume={waste_scores['working_volume_score']:.1f}, "
+                       f"movement={waste_scores['movement_count_score']:.1f}")
 
         logger.info(f"[SCORES] Final calculated scores: {scores}")
         return scores
@@ -1237,64 +1247,8 @@ class AnalysisServiceV2:
         return frame_results
 
     def _extract_mask_contour(self, mask: np.ndarray) -> List[List[int]]:
-        """
-        マスクから輪郭座標を抽出（軽量化）
-
-        Args:
-            mask: numpy配列のマスクデータ (H, W)
-
-        Returns:
-            輪郭座標のリスト [[x, y], [x, y], ...]
-        """
-        # デバッグ: maskの型と内容を確認（WARNINGレベルで確実に出力）
-        logger.warning(f"[CONTOUR_DEBUG] _extract_mask_contour called, mask type: {type(mask)}, is None: {mask is None}")
-
-        if mask is None:
-            logger.warning("[CONTOUR_DEBUG] Mask is None, returning empty contour")
-            return []
-
-        if not isinstance(mask, np.ndarray):
-            logger.warning(f"[CONTOUR_DEBUG] Mask is not numpy array (type: {type(mask)}), returning empty contour")
-            return []
-
-        try:
-            # バイナリマスクに変換
-            if mask.dtype == np.float32 or mask.dtype == np.float64:
-                binary_mask = (mask > 0.5).astype(np.uint8)
-            else:
-                binary_mask = mask.astype(np.uint8)
-
-            # マスクが空の場合
-            if binary_mask.sum() == 0:
-                return []
-
-            # 輪郭抽出
-            contours, _ = cv2.findContours(
-                binary_mask,
-                cv2.RETR_EXTERNAL,
-                cv2.CHAIN_APPROX_SIMPLE
-            )
-
-            if len(contours) == 0:
-                return []
-
-            # 最大の輪郭を使用
-            largest_contour = max(contours, key=cv2.contourArea)
-
-            # 座標数を削減（データサイズ軽量化: 0.3%の精度で近似）
-            epsilon = 0.003 * cv2.arcLength(largest_contour, True)
-            approx = cv2.approxPolyDP(largest_contour, epsilon, True)
-
-            # [[x, y], [x, y], ...] 形式に変換
-            contour_points = approx.reshape(-1, 2).tolist()
-
-            logger.debug(f"[CONTOUR] Extracted {len(contour_points)} points from mask shape={mask.shape}")
-
-            return contour_points
-
-        except Exception as e:
-            logger.warning(f"[CONTOUR] Failed to extract contour: {e}")
-            return []
+        """マスクから輪郭座標を抽出（data_converterに委譲）"""
+        return extract_mask_contour(mask)
 
     async def _analyze_eye_gaze(
         self,
@@ -1303,237 +1257,5 @@ class AnalysisServiceV2:
         analysis_id: str,
         db: Session
     ) -> Dict[str, Any]:
-        """
-        視線解析専用パイプライン（既存機能と完全独立）
-
-        Args:
-            video: Video model
-            analysis_result: AnalysisResult model
-            analysis_id: 解析ID
-            db: Database session
-
-        Returns:
-            解析結果辞書
-        """
-        logger.info(f"[GAZE] === Starting Eye Gaze Analysis ===")
-        logger.info(f"[GAZE] video_id: {video.id}")
-        logger.info(f"[GAZE] analysis_id: {analysis_id}")
-
-        try:
-            # 動画パスの取得
-            video_path = Path(video.file_path)
-            if not video_path.is_absolute():
-                backend_dir = Path(__file__).parent.parent.parent
-                video_path = backend_dir / video_path
-
-            if not video_path.exists():
-                raise FileNotFoundError(f"Video file not found: {video_path}")
-
-            logger.info(f"[GAZE] Video path: {video_path}")
-
-            # 1. GazeAnalyzer初期化（遅延初期化）
-            await self._update_status(analysis_result, "initialization", db, progress=5)
-            if self.gaze_analyzer is None:
-                logger.info("[GAZE] Initializing GazeAnalyzer...")
-                loop = asyncio.get_event_loop()
-                self.gaze_analyzer = await loop.run_in_executor(
-                    None,
-                    lambda: GazeAnalyzer(device="auto")
-                )
-                logger.info("[GAZE] GazeAnalyzer initialized")
-            await self._update_status(analysis_result, "initialization", db, progress=10)
-
-            # 2. 元動画の解像度を取得
-            logger.info("[GAZE] Getting original video resolution...")
-            video_info = self._get_video_info(str(video_path))
-            original_width = video_info['width']
-            original_height = video_info['height']
-            logger.info(f"[GAZE] Original video resolution: {original_width}x{original_height}")
-
-            # 3. フレーム抽出（視線解析では元動画のFPSを保持）
-            logger.info("[GAZE] Starting frame extraction...")
-            logger.info(f"[GAZE] Using target_fps={video_info['fps']} (original video FPS)")
-            await self._update_status(analysis_result, "frame_extraction", db, progress=15)
-
-            # 視線解析では元動画のFPSをそのまま使用（間引きなし）
-            loop = asyncio.get_event_loop()
-            extraction_result = await loop.run_in_executor(
-                None,
-                lambda: self.frame_extraction_service.extract_frames(
-                    str(video_path),
-                    target_fps=video_info['fps']  # 元動画のFPSを使用
-                )
-            )
-
-            frames = extraction_result.frames
-            # フレーム解像度を取得（リサイズ後のサイズ）
-            if len(frames) > 0:
-                frame_height, frame_width = frames[0].shape[:2]
-            else:
-                raise ValueError("No frames extracted from video")
-
-            logger.info(f"[GAZE] Extracted {len(frames)} frames at {frame_width}x{frame_height}")
-            logger.info(f"[GAZE] Scale factor: {original_width/frame_width:.2f}x")
-            await self._update_status(analysis_result, "frame_extraction", db, progress=30)
-
-            # 3. 各フレームで視線解析
-            logger.info("[GAZE] Starting gaze analysis...")
-            await self._update_status(analysis_result, "gaze_detection", db, progress=35)
-
-            gaze_results = []
-            total_fixations = 0
-            attention_hotspots = {}  # {(x, y): count}
-
-            # 解析パラメータ（デフォルト値）
-            gaze_params = {
-                'center_bias_weight': 0.6,
-                'saccade_radius': 60,
-                'ior_decay': 0.9,
-                'add_corner_seeds': True,
-                'num_fixations': 8,
-                'gamma': 1.2,
-                'blur_sigma': 5,
-                'alpha': 0.6,
-                'heat_threshold': 0.1,
-                'circle_size': 6,
-                'line_thickness': 2,
-                'show_numbers': False
-            }
-
-            for idx, frame in enumerate(frames):
-                # 進捗更新（35% → 85%）
-                progress = 35 + int((idx / len(frames)) * 50)
-                if idx % 10 == 0:  # 10フレームごとに更新
-                    await self._update_status(analysis_result, "gaze_detection", db, progress=progress)
-                    await manager.send_progress(analysis_id, {
-                        "type": "progress",
-                        "step": "gaze_detection",
-                        "progress": progress,
-                        "message": f"視線解析中: {idx}/{len(frames)} フレーム"
-                    })
-
-                try:
-                    # GazeAnalyzerで解析（同期関数なのでexecutorで実行）
-                    result = await loop.run_in_executor(
-                        None,
-                        self.gaze_analyzer.analyze_frame,
-                        frame,
-                        gaze_params
-                    )
-
-                    # 固視点を元動画解像度にスケール変換
-                    fixations = result['fixations']
-                    scale_x = original_width / frame_width
-                    scale_y = original_height / frame_height
-
-                    # スケール変換した座標
-                    fixations_scaled = [
-                        (int(x * scale_x), int(y * scale_y))
-                        for x, y in fixations
-                    ]
-
-                    total_fixations += len(fixations_scaled)
-
-                    # ホットスポット集計（元解像度スケール）
-                    for fx, fy in fixations_scaled:
-                        # グリッドサイズもスケールに応じて調整（元解像度の20ピクセル単位）
-                        grid_size = int(20 * scale_x)
-                        grid_x = (fx // grid_size) * grid_size
-                        grid_y = (fy // grid_size) * grid_size
-                        key = (grid_x, grid_y)
-                        attention_hotspots[key] = attention_hotspots.get(key, 0) + 1
-
-                    # 結果を保存（スケール変換後の座標をフロントエンド形式に変換）
-                    fixations_dict = [{'x': x, 'y': y} for x, y in fixations_scaled]
-                    gaze_results.append({
-                        'frame_index': idx,
-                        'timestamp': extraction_result.timestamps[idx],
-                        'fixations': fixations_dict,
-                        'stats': result['stats']
-                    })
-
-                except Exception as e:
-                    logger.warning(f"[GAZE] Frame {idx} analysis failed: {e}")
-                    gaze_results.append({
-                        'frame_index': idx,
-                        'timestamp': extraction_result.timestamps[idx],
-                        'fixations': [],
-                        'stats': {'max_value': 0, 'mean_value': 0, 'high_attention_ratio': 0}
-                    })
-
-            await self._update_status(analysis_result, "gaze_detection", db, progress=85)
-            logger.info(f"[GAZE] Gaze analysis completed for {len(gaze_results)} frames")
-
-            # 4. サマリー生成
-            await self._update_status(analysis_result, "report_generation", db, progress=90)
-
-            # トップ5ホットスポット
-            top_hotspots = sorted(attention_hotspots.items(), key=lambda x: x[1], reverse=True)[:5]
-            top_hotspot_coords = [list(coord) for coord, _ in top_hotspots]
-
-            summary = {
-                'total_frames': len(frames),
-                'total_fixations': total_fixations,
-                'average_fixations_per_frame': total_fixations / len(frames) if frames else 0,
-                'attention_hotspots': top_hotspot_coords,
-                'effective_fps': extraction_result.effective_fps,
-                'total_duration': extraction_result.timestamps[-1] if extraction_result.timestamps else 0,
-                # 解像度情報を追加
-                'source_frame_resolution': [frame_width, frame_height],
-                'target_video_resolution': [original_width, original_height],
-                'scale_factor': round(original_width / frame_width, 2)
-            }
-
-            # 5. 結果をデータベースに保存
-            gaze_data = {
-                'frames': convert_numpy_types(gaze_results),
-                'summary': convert_numpy_types(summary),
-                'params': convert_numpy_types(gaze_params)
-            }
-
-            # Ensure all data is JSON serializable
-            analysis_result.gaze_data = convert_numpy_types(gaze_data)
-            analysis_result.total_frames = len(frames)
-            analysis_result.status = AnalysisStatus.COMPLETED
-            analysis_result.completed_at = get_jst_now()
-
-            db.commit()
-            db.refresh(analysis_result)
-
-            await self._update_status(analysis_result, "completed", db, progress=100)
-            await manager.send_progress(analysis_id, {
-                "type": "complete",
-                "step": "completed",
-                "progress": 100,
-                "message": "視線解析が完了しました"
-            })
-
-            logger.info(f"[GAZE] === Eye Gaze Analysis Completed ===")
-            logger.info(f"[GAZE] Total fixations: {total_fixations}")
-            logger.info(f"[GAZE] Average fixations/frame: {summary['average_fixations_per_frame']:.2f}")
-
-            return {
-                'status': 'success',
-                'video_id': video.id,
-                'analysis_id': analysis_id,
-                'gaze_data': gaze_data
-            }
-
-        except Exception as e:
-            logger.error(f"[GAZE] Eye gaze analysis failed: {str(e)}")
-            logger.error(f"[GAZE] Error type: {type(e).__name__}")
-            import traceback
-            error_traceback = traceback.format_exc()
-            logger.error(f"[GAZE] Traceback: {error_traceback}")
-
-            analysis_result.status = AnalysisStatus.FAILED
-            analysis_result.error_message = f"{type(e).__name__}: {str(e)}"
-            db.commit()
-
-            await manager.send_progress(analysis_id, {
-                "type": "error",
-                "step": "failed",
-                "message": f"視線解析エラー: {str(e)}"
-            })
-
-            raise
+        """視線解析パイプ���インをGazeAnalysisServiceに委譲"""
+        return await self.gaze_service.analyze(video, analysis_result, analysis_id, db)

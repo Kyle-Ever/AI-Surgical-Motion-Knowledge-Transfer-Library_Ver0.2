@@ -6,13 +6,6 @@ import dynamic from 'next/dynamic'
 // 動的インポート（Chart.jsのSSR対策）
 const AngleTimelineChart = dynamic(() => import('./AngleTimelineChart'), { ssr: false })
 
-console.log('🔴🔴🔴 MOTION ANALYSIS PANEL LOADED - WITH REALTIME BARS 🔴🔴🔴')
-console.log('=== MOTION ANALYSIS PANEL DEBUG ===')
-console.log('File: MotionAnalysisPanel.tsx')
-console.log('Timestamp:', new Date().toISOString())
-console.log('Version: 3-PARAMETER-REALTIME-BARS')
-console.log('===================================')
-
 interface MotionAnalysisPanelProps {
   analysisData: any
   videoType: string
@@ -45,6 +38,14 @@ interface RealtimeMetrics {
   speed: number
   smoothness: number
   accuracy: number
+}
+
+interface WasteRealtimeMetrics {
+  idleTimeScore: number
+  workingVolumeScore: number
+  movementCountScore: number
+  idleRatio: number
+  movementsPerMinute: number
 }
 
 const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
@@ -80,6 +81,14 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
     speed: 0,
     smoothness: 0,
     accuracy: 0
+  })
+
+  const [wasteMetrics, setWasteMetrics] = useState<WasteRealtimeMetrics>({
+    idleTimeScore: 0,
+    workingVolumeScore: 0,
+    movementCountScore: 0,
+    idleRatio: 0,
+    movementsPerMinute: 0
   })
 
   useEffect(() => {
@@ -125,6 +134,9 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
 
       // リアルタイムメトリクス計算（現在のビデオ時間まで）
       calculateRealtimeMetrics(analysisData.skeleton_data, currentVideoTime)
+
+      // ムダ指標のリアルタイム計算
+      calculateWasteRealtimeMetrics(analysisData.skeleton_data, currentVideoTime)
 
       // 器具のリアルタイムメトリクス計算（器具ありモードのみ）
       if (videoType === 'external_with_instruments' && analysisData.instrument_data) {
@@ -367,6 +379,103 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
     })
   }
 
+  const calculateWasteRealtimeMetrics = (skeletonData: any[], currentTime: number) => {
+    if (!skeletonData || skeletonData.length === 0) return
+
+    const currentFrameData = skeletonData.filter((frame: any) => {
+      const frameTime = frame.timestamp || 0
+      return frameTime <= currentTime
+    })
+
+    if (currentFrameData.length < 5) {
+      setWasteMetrics({ idleTimeScore: 0, workingVolumeScore: 0, movementCountScore: 0, idleRatio: 0, movementsPerMinute: 0 })
+      return
+    }
+
+    // 手首位置を抽出
+    const positions: Array<{ x: number; y: number } | null> = []
+    currentFrameData.forEach((frame: any) => {
+      const hands = frame.hands || []
+      if (hands.length > 0 && hands[0].landmarks) {
+        const wrist = hands[0].landmarks.point_0 || hands[0].landmarks['point_0']
+        if (wrist) {
+          positions.push({ x: wrist.x, y: wrist.y })
+        } else {
+          positions.push(null)
+        }
+      } else if (frame.landmarks && frame.landmarks.point_0) {
+        positions.push({ x: frame.landmarks.point_0.x, y: frame.landmarks.point_0.y })
+      } else {
+        positions.push(null)
+      }
+    })
+
+    // 速度計算
+    const fps = 30
+    const frameTime = 1.0 / fps
+    const velocities: number[] = []
+    for (let i = 1; i < positions.length; i++) {
+      if (positions[i] && positions[i - 1]) {
+        const dx = positions[i]!.x - positions[i - 1]!.x
+        const dy = positions[i]!.y - positions[i - 1]!.y
+        velocities.push(Math.sqrt(dx * dx + dy * dy) / frameTime)
+      }
+    }
+
+    // アイドルタイム計算
+    const idleThreshold = 0.005
+    const minIdleFrames = 5
+    let idleFrames = 0
+    let consecutiveIdle = 0
+    for (const v of velocities) {
+      if (v < idleThreshold) {
+        consecutiveIdle++
+      } else {
+        if (consecutiveIdle >= minIdleFrames) {
+          idleFrames += consecutiveIdle
+        }
+        consecutiveIdle = 0
+      }
+    }
+    if (consecutiveIdle >= minIdleFrames) idleFrames += consecutiveIdle
+    const idleRatio = velocities.length > 0 ? idleFrames / velocities.length : 0
+    const idleTimeScore = Math.max(0, (1.0 - idleRatio * 2.0)) * 100
+
+    // 作業空間（凸包の簡易近似: バウンディングボックス面積）
+    const validPos = positions.filter(p => p !== null) as Array<{ x: number; y: number }>
+    let bboxArea = 0
+    if (validPos.length > 2) {
+      const xs = validPos.map(p => p.x)
+      const ys = validPos.map(p => p.y)
+      bboxArea = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))
+    }
+    const maxArea = 0.10
+    const volumeRatio = Math.min(bboxArea / maxArea, 1.0)
+    const workingVolumeScore = (1.0 - volumeRatio) * 100
+
+    // 動作回数（速度の閾値交差）
+    const movementThreshold = 0.008
+    let movementCount = 0
+    let wasBelow = velocities.length > 0 && velocities[0] < movementThreshold
+    for (let i = 1; i < velocities.length; i++) {
+      const isBelow = velocities[i] < movementThreshold
+      if (wasBelow && !isBelow) movementCount++
+      wasBelow = isBelow
+    }
+    const totalDuration = currentFrameData.length * frameTime
+    const movementsPerMinute = totalDuration > 0 ? (movementCount / totalDuration) * 60 : 0
+    const maxMpm = 60
+    const movementCountScore = (1.0 - Math.min(movementsPerMinute / maxMpm, 1.0)) * 100
+
+    setWasteMetrics({
+      idleTimeScore: Math.round(idleTimeScore * 10) / 10,
+      workingVolumeScore: Math.round(workingVolumeScore * 10) / 10,
+      movementCountScore: Math.round(movementCountScore * 10) / 10,
+      idleRatio: Math.round(idleRatio * 1000) / 10,
+      movementsPerMinute: Math.round(movementsPerMinute * 10) / 10
+    })
+  }
+
   const showInstrumentMetrics = videoType === 'external_with_instruments'
 
   // プログレスバーコンポーネント
@@ -422,6 +531,21 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
           </div>
         </div>
       )}
+
+      {/* ムダ指標 - 3パラメータ（リアルタイムバー表示） */}
+      <div className="bg-gradient-to-r from-red-50 to-yellow-50 p-4 rounded-lg border border-red-200">
+        <h3 className="text-lg font-bold text-gray-800 mb-1 flex items-center">
+          <span className="mr-2">📊</span>
+          ムダ指標
+        </h3>
+        <p className="text-xs text-gray-500 mb-3">低ムダ = 高スコア（熟練医は高スコア）</p>
+
+        <div className="space-y-2">
+          <ProgressBar value={wasteMetrics.idleTimeScore} color="text-red-600" label={`アイドルタイム（停滞率: ${wasteMetrics.idleRatio}%）`} />
+          <ProgressBar value={wasteMetrics.workingVolumeScore} color="text-orange-600" label="作業空間効率" />
+          <ProgressBar value={wasteMetrics.movementCountScore} color="text-yellow-600" label={`動作効率（${wasteMetrics.movementsPerMinute}回/分）`} />
+        </div>
+      </div>
 
       {/* 角度の推移グラフ - 最下部に配置 */}
       <div className="bg-white p-6 rounded-lg border border-gray-200">

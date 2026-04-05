@@ -25,6 +25,94 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+def _stream_video_with_range(
+    video_path: Path,
+    file_size: int,
+    range_header: Optional[str],
+    content_disposition: str,
+) -> Response:
+    """Stream a video file with HTTP Range support.
+
+    Shared helper used by both ``stream_video_or_sample`` and
+    ``stream_video`` to avoid duplicating the Range-header parsing and
+    chunked-streaming logic.
+
+    Args:
+        video_path: Absolute path to the video file on disk.
+        file_size: Size of the file in bytes.
+        range_header: Raw ``Range`` request header value, or *None*.
+        content_disposition: Pre-built ``Content-Disposition`` header value.
+
+    Returns:
+        A ``FileResponse`` (full file) or ``StreamingResponse`` (206 partial).
+    """
+
+    base_headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Disposition": content_disposition,
+        "Content-Length": str(file_size),
+    }
+
+    if not range_header:
+        return FileResponse(
+            path=str(video_path),
+            media_type="video/mp4",
+            headers=base_headers,
+        )
+
+    try:
+        range_str = range_header.replace("bytes=", "")
+        range_parts = range_str.split("-")
+
+        start = int(range_parts[0]) if range_parts[0] else 0
+        end = int(range_parts[1]) if range_parts[1] else file_size - 1
+
+        start = max(0, min(start, file_size - 1))
+        end = max(start, min(end, file_size - 1))
+        content_length = end - start + 1
+
+        def _iterfile() -> bytes:
+            with open(video_path, "rb") as fh:
+                fh.seek(start)
+                remaining = content_length
+                while remaining:
+                    chunk = fh.read(min(8192, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    yield chunk
+
+        return StreamingResponse(
+            _iterfile(),
+            status_code=206,
+            media_type="video/mp4",
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Content-Length": str(content_length),
+                "Content-Disposition": content_disposition,
+            },
+        )
+    except Exception:
+        return FileResponse(
+            path=str(video_path),
+            media_type="video/mp4",
+            headers=base_headers,
+        )
+
+
+def _build_content_disposition(filename: str) -> str:
+    """Build a Content-Disposition header value, handling non-ASCII filenames."""
+    import urllib.parse
+
+    try:
+        filename.encode("ascii")
+        return f'inline; filename="{filename}"'
+    except UnicodeEncodeError:
+        encoded = urllib.parse.quote(filename)
+        return f"inline; filename*=UTF-8''{encoded}"
+
+
 def fix_encoding(text: Optional[str]) -> Optional[str]:
     """
     文字エンコーディングの修正（安全版）
@@ -155,8 +243,8 @@ async def upload_video(
         if surgery_date:
             try:
                 parsed_date = datetime.fromisoformat(surgery_date)
-            except:
-                pass
+            except (ValueError, TypeError):
+                logger.warning(f"Failed to parse surgery_date: {surgery_date}")
 
         video = Video(
             id=video_id,
@@ -251,73 +339,15 @@ async def stream_video_or_sample(
     if not video_path.exists():
         raise HTTPException(status_code=404, detail=f"Video file not found at {video_path}")
 
-    file_size = video_path.stat().st_size
-    range_header = request.headers.get('range')
-
-    import urllib.parse
     safe_filename = video.original_filename if hasattr(video, 'original_filename') else "video.mp4"
-    try:
-        safe_filename.encode('ascii')
-        content_disposition = f'inline; filename="{safe_filename}"'
-    except UnicodeEncodeError:
-        encoded_filename = urllib.parse.quote(safe_filename)
-        content_disposition = f"inline; filename*=UTF-8''{encoded_filename}"
+    content_disposition = _build_content_disposition(safe_filename)
 
-    if not range_header:
-        return FileResponse(
-            path=str(video_path),
-            media_type="video/mp4",
-            headers={
-                "Accept-Ranges": "bytes",
-                "Content-Disposition": content_disposition,
-                "Content-Length": str(file_size),
-            }
-        )
-
-    try:
-        range_str = range_header.replace('bytes=', '')
-        range_parts = range_str.split('-')
-
-        start = int(range_parts[0]) if range_parts[0] else 0
-        end = int(range_parts[1]) if range_parts[1] else file_size - 1
-
-        start = max(0, min(start, file_size - 1))
-        end = max(start, min(end, file_size - 1))
-        content_length = end - start + 1
-
-        def iterfile(file_path: Path, start: int, end: int):
-            with open(file_path, 'rb') as file:
-                file.seek(start)
-                remaining = end - start + 1
-                while remaining:
-                    chunk_size = min(8192, remaining)
-                    data = file.read(chunk_size)
-                    if not data:
-                        break
-                    remaining -= len(data)
-                    yield data
-
-        return StreamingResponse(
-            iterfile(video_path, start, end),
-            status_code=206,
-            media_type="video/mp4",
-            headers={
-                "Accept-Ranges": "bytes",
-                "Content-Range": f"bytes {start}-{end}/{file_size}",
-                "Content-Length": str(content_length),
-                "Content-Disposition": content_disposition,
-            }
-        )
-    except Exception as e:
-        return FileResponse(
-            path=str(video_path),
-            media_type="video/mp4",
-            headers={
-                "Accept-Ranges": "bytes",
-                "Content-Disposition": content_disposition,
-                "Content-Length": str(file_size),
-            }
-        )
+    return _stream_video_with_range(
+        video_path=video_path,
+        file_size=video_path.stat().st_size,
+        range_header=request.headers.get("range"),
+        content_disposition=content_disposition,
+    )
 
 
 @router.api_route(
@@ -343,73 +373,14 @@ async def stream_video(
     if not video_path.exists():
         raise HTTPException(status_code=404, detail=f"Video file not found at {video_path}")
 
-    file_size = video_path.stat().st_size
-    range_header = request.headers.get('range')
+    content_disposition = _build_content_disposition(video.original_filename)
 
-    import urllib.parse
-    safe_filename = video.original_filename
-    try:
-        safe_filename.encode('ascii')
-        content_disposition = f'inline; filename="{safe_filename}"'
-    except UnicodeEncodeError:
-        encoded_filename = urllib.parse.quote(safe_filename)
-        content_disposition = f"inline; filename*=UTF-8''{encoded_filename}"
-
-    if not range_header:
-        return FileResponse(
-            path=str(video_path),
-            media_type="video/mp4",
-            headers={
-                "Accept-Ranges": "bytes",
-                "Content-Disposition": content_disposition,
-                "Content-Length": str(file_size),
-            }
-        )
-
-    try:
-        range_str = range_header.replace('bytes=', '')
-        range_parts = range_str.split('-')
-
-        start = int(range_parts[0]) if range_parts[0] else 0
-        end = int(range_parts[1]) if range_parts[1] else file_size - 1
-
-        start = max(0, min(start, file_size - 1))
-        end = max(start, min(end, file_size - 1))
-        content_length = end - start + 1
-
-        def iterfile(file_path: Path, start: int, end: int):
-            with open(file_path, 'rb') as file:
-                file.seek(start)
-                remaining = end - start + 1
-                while remaining:
-                    chunk_size = min(8192, remaining)
-                    data = file.read(chunk_size)
-                    if not data:
-                        break
-                    remaining -= len(data)
-                    yield data
-
-        return StreamingResponse(
-            iterfile(video_path, start, end),
-            status_code=206,
-            media_type="video/mp4",
-            headers={
-                "Accept-Ranges": "bytes",
-                "Content-Range": f"bytes {start}-{end}/{file_size}",
-                "Content-Length": str(content_length),
-                "Content-Disposition": content_disposition,
-            }
-        )
-    except Exception as e:
-        return FileResponse(
-            path=str(video_path),
-            media_type="video/mp4",
-            headers={
-                "Accept-Ranges": "bytes",
-                "Content-Disposition": content_disposition,
-                "Content-Length": str(file_size),
-            }
-        )
+    return _stream_video_with_range(
+        video_path=video_path,
+        file_size=video_path.stat().st_size,
+        range_header=request.headers.get("range"),
+        content_disposition=content_disposition,
+    )
 
 
 @router.get(

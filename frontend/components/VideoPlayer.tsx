@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useState, useCallback } from 'react'
+import { formatTime } from '@/lib/utils'
 
 interface Coordinate {
   x: number
@@ -555,12 +556,6 @@ export default function VideoPlayer({
     }
   }, [showSkeleton, showInstruments, drawOverlayAtTime])
 
-  // 時間フォーマット
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
 
   // 動画のエラーハンドリング
   const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {

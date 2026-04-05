@@ -95,7 +95,7 @@ class ValidationError(BaseAppException):
         )
 
 
-class FileNotFoundError(BaseAppException):
+class AppFileNotFoundError(BaseAppException):
     """ファイル未検出エラー"""
 
     def __init__(self, message: str, file_path: str, details: Optional[Dict[str, Any]] = None):

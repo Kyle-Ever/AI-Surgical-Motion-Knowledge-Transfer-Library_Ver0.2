@@ -74,6 +74,10 @@ class ComparisonResponse(BaseModel):
     smoothness_score: Optional[float] = None
     stability_score: Optional[float] = None
     efficiency_score: Optional[float] = None
+    waste_score: Optional[float] = None
+    idle_time_score: Optional[float] = None
+    working_volume_score: Optional[float] = None
+    movement_count_score: Optional[float] = None
     dtw_distance: Optional[float] = None
     feedback: Optional[Dict[str, Any]] = None
     metrics_comparison: Optional[Dict[str, Any]] = None

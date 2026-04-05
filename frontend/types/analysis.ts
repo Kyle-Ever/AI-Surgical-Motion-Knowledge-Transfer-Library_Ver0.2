@@ -67,11 +67,44 @@ export interface EfficiencyAnalysis {
   redundancy: number
 }
 
+export interface WasteIdleTime {
+  idle_time_ratio: number
+  total_idle_seconds: number
+  idle_segments: Array<{ start_frame: number; end_frame: number; duration_seconds: number }>
+  idle_frame_count: number
+  total_duration_seconds?: number
+}
+
+export interface WasteWorkingVolume {
+  convex_hull_area: number
+  bounding_box_area: number
+  hull_vertices: number
+  centroid: { x: number; y: number }
+}
+
+export interface WasteMovementCount {
+  movement_count: number
+  movements_per_minute: number
+  avg_movement_duration_seconds: number
+  total_duration_seconds?: number
+}
+
+export interface WasteMetrics {
+  idle_time: WasteIdleTime
+  working_volume: WasteWorkingVolume
+  movement_count: WasteMovementCount
+  per_hand?: {
+    left: { idle_time: WasteIdleTime; working_volume: WasteWorkingVolume; movement_count: WasteMovementCount }
+    right: { idle_time: WasteIdleTime; working_volume: WasteWorkingVolume; movement_count: WasteMovementCount }
+  }
+}
+
 export interface MotionAnalysis {
   速度解析: VelocityAnalysis
   軌跡解析: TrajectoryAnalysis
   安定性解析: StabilityAnalysis
   効率性解析: EfficiencyAnalysis
+  waste_metrics?: WasteMetrics
   metrics?: Record<string, any>
 }
 
@@ -81,21 +114,31 @@ export interface Scores {
   安定性スコア: number
   効率性スコア: number
   total_score: number
+  waste_score?: number
+  idle_time_score?: number
+  working_volume_score?: number
+  movement_count_score?: number
 }
 
 export interface AnalysisResult {
   id: string
   video_id: string
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  skeleton_data: SkeletonData[]
-  instrument_data: InstrumentData[]
-  motion_analysis: MotionAnalysis
-  scores: Scores
-  total_frames: number
-  progress: number
+  video_type?: string
+  status: 'pending' | 'processing' | 'completed' | 'failed' | string
+  skeleton_data?: SkeletonData[] | any
+  instrument_data?: InstrumentData[] | any
+  motion_analysis?: MotionAnalysis | any
+  scores?: Scores | any
+  avg_velocity?: number
+  max_velocity?: number
+  total_distance?: number
+  total_frames?: number
+  progress?: number
   error_message?: string
+  created_at?: string
   completed_at?: string
   current_step?: string
+  video?: Video
 }
 
 export interface ComparisonFeedback {
@@ -121,6 +164,22 @@ export interface VideoInfo {
   fps: number
   total_frames: number
   duration: number
+}
+
+export interface Video {
+  id: string
+  filename: string
+  original_filename: string
+  video_type?: string
+  surgery_name?: string
+  surgeon_name?: string
+  surgery_date?: string
+  duration?: number
+  fps?: number
+  width?: number
+  height?: number
+  file_size?: number
+  created_at: string
 }
 
 // WebSocket status interface

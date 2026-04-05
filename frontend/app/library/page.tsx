@@ -6,30 +6,6 @@ import { Search, Filter, ChevronRight, Trash2, Download, Award } from 'lucide-re
 import { getCompletedAnalyses, getCompletedComparisons, exportAnalysisData } from '@/lib/api'
 import { useCreateReferenceModel } from '@/hooks/useScoring'
 
-const mockLibrary = [
-  {
-    id: '1',
-    techniqueName: '腹腔鏡手術_20250104',
-    surgeonName: '山田医師',
-    date: '2025-01-04',
-    category: '腹腔鏡',
-  },
-  {
-    id: '2',
-    techniqueName: '内視鏡手術_20250102',
-    surgeonName: '佐藤医師',
-    date: '2025-01-02',
-    category: '内視鏡',
-  },
-  {
-    id: '3',
-    techniqueName: '開腹手術_20241228',
-    surgeonName: '田中医師',
-    date: '2024-12-28',
-    category: '開腹',
-  },
-]
-
 export default function LibraryPage() {
   const router = useRouter()
   const [libraryItems, setLibraryItems] = useState<any[]>([])

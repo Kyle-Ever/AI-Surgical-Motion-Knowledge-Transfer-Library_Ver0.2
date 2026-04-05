@@ -3,6 +3,8 @@
 import { useRef, useEffect, useState } from 'react'
 import { Play, Pause, SkipForward, SkipBack } from 'lucide-react'
 import VideoPlayer from './VideoPlayer'
+import { API_BASE_URL } from '@/lib/api'
+import { formatTime } from '@/lib/utils'
 
 interface DualVideoPlayerProps {
   referenceVideoId?: string
@@ -41,7 +43,7 @@ export default function DualVideoPlayer({
 
         // 基準動画の解析データ取得
         if (referenceAnalysisId) {
-          const refResponse = await fetch(`http://localhost:8000/api/v1/analysis/${referenceAnalysisId}`)
+          const refResponse = await fetch(`${API_BASE_URL}/analysis/${referenceAnalysisId}`)
           if (refResponse.ok) {
             const refData = await refResponse.json()
             setReferenceData(refData)
@@ -50,7 +52,7 @@ export default function DualVideoPlayer({
 
         // 学習者動画の解析データ取得
         if (learnerAnalysisId) {
-          const learnResponse = await fetch(`http://localhost:8000/api/v1/analysis/${learnerAnalysisId}`)
+          const learnResponse = await fetch(`${API_BASE_URL}/analysis/${learnerAnalysisId}`)
           if (learnResponse.ok) {
             const learnData = await learnResponse.json()
             setLearnerData(learnData)
@@ -143,7 +145,7 @@ export default function DualVideoPlayer({
           <div className="p-4">
             <div className="relative">
               <VideoPlayer
-                videoUrl={referenceVideoId ? `http://localhost:8000/api/v1/videos/${referenceVideoId}/stream` : undefined}
+                videoUrl={referenceVideoId ? `${API_BASE_URL}/videos/${referenceVideoId}/stream` : undefined}
                 skeletonData={referenceData?.skeleton_data || []}
                 toolData={referenceData?.instrument_data || []}
                 videoType={referenceData?.video_type}
@@ -153,7 +155,7 @@ export default function DualVideoPlayer({
               <video
                 ref={referenceVideoRef}
                 className="hidden"
-                src={referenceVideoId ? `http://localhost:8000/api/v1/videos/${referenceVideoId}/stream` : undefined}
+                src={referenceVideoId ? `${API_BASE_URL}/videos/${referenceVideoId}/stream` : undefined}
                 onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
               />
             </div>
@@ -174,7 +176,7 @@ export default function DualVideoPlayer({
           <div className="p-4">
             <div className="relative">
               <VideoPlayer
-                videoUrl={learnerVideoId ? `http://localhost:8000/api/v1/videos/${learnerVideoId}/stream` : undefined}
+                videoUrl={learnerVideoId ? `${API_BASE_URL}/videos/${learnerVideoId}/stream` : undefined}
                 skeletonData={learnerData?.skeleton_data || []}
                 toolData={learnerData?.instrument_data || []}
                 videoType={learnerData?.video_type}
@@ -184,7 +186,7 @@ export default function DualVideoPlayer({
               <video
                 ref={learnerVideoRef}
                 className="hidden"
-                src={learnerVideoId ? `http://localhost:8000/api/v1/videos/${learnerVideoId}/stream` : undefined}
+                src={learnerVideoId ? `${API_BASE_URL}/videos/${learnerVideoId}/stream` : undefined}
               />
             </div>
           </div>
@@ -240,9 +242,3 @@ export default function DualVideoPlayer({
   )
 }
 
-// 時間フォーマット用ヘルパー関数
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${secs.toString().padStart(2, '0')}`
-}

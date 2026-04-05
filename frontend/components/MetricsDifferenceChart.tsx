@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { formatTime } from '@/lib/utils'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -262,8 +263,3 @@ export default function MetricsDifferenceChart({
   )
 }
 
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${secs.toString().padStart(2, '0')}`
-}

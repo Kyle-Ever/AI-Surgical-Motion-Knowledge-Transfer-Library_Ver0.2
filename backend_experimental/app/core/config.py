@@ -80,8 +80,8 @@ class Settings(BaseSettings):
     SAM2_MOTION_THRESHOLD_FAST: float = 50.0  # 高速判定閾値（ピクセル）
 
     # 開発設定
-    DEBUG: bool = True
-    RELOAD: bool = True
+    DEBUG: bool = False
+    RELOAD: bool = False
 
     # タイムゾーン設定
     TIMEZONE: str = "Asia/Tokyo"  # JST

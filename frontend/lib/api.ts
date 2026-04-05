@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
 
 // Axios インスタンスを作成
 export const api = axios.create({
@@ -86,36 +86,6 @@ export const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:800
 
 export const wsEndpoints = {
   analysis: (analysisId: string) => `${WS_BASE_URL}/ws/analysis/${analysisId}`,
-}
-
-// 型定義
-export interface AnalysisResult {
-  id: string;
-  video_id: string;
-  video_type: string;
-  status: string;
-  skeleton_data?: any;
-  instrument_data?: any;
-  motion_analysis?: any;
-  scores?: any;
-  avg_velocity?: number;
-  max_velocity?: number;
-  total_distance?: number;
-  total_frames?: number;
-  created_at: string;
-  completed_at?: string;
-  video?: {
-    id: string;
-    filename: string;
-    original_filename: string;
-    video_type: string;
-    duration: number;
-    fps: number;
-    width: number;
-    height: number;
-    file_size: number;
-    created_at: string;
-  };
 }
 
 // ライブラリ関連の関数

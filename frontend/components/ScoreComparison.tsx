@@ -217,6 +217,22 @@ export default function ScoreComparison({ analysisId, className = '', onComparis
                   {getScoreTrend(showMockData ? mockResult.scores.efficiency_score : result?.efficiency_score)}
                 </div>
               </div>
+
+              {/* ムダ削減スコア */}
+              {(result?.waste_score !== undefined || showMockData) && (
+                <div className="flex items-center justify-between p-2 bg-red-50 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-2 h-6 bg-red-500 rounded mr-2"></div>
+                    <span className="text-xs font-medium">ムダ削減</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`text-sm font-semibold ${getScoreColor(result?.waste_score)}`}>
+                      {result?.waste_score ? Math.round(result.waste_score) : '--'}
+                    </span>
+                    {getScoreTrend(result?.waste_score)}
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}

@@ -210,6 +210,10 @@ async def get_comparison_result(
             smoothness_score=comparison.smoothness_score,
             stability_score=comparison.stability_score,
             efficiency_score=comparison.efficiency_score,
+            waste_score=comparison.waste_score,
+            idle_time_score=comparison.idle_time_score,
+            working_volume_score=comparison.working_volume_score,
+            movement_count_score=comparison.movement_count_score,
             dtw_distance=comparison.dtw_distance,
             feedback=comparison.feedback,
             metrics_comparison=comparison.metrics_comparison,
@@ -232,6 +236,10 @@ async def get_comparison_result(
             smoothness_score=comparison.smoothness_score,
             stability_score=comparison.stability_score,
             efficiency_score=comparison.efficiency_score,
+            waste_score=comparison.waste_score,
+            idle_time_score=comparison.idle_time_score,
+            working_volume_score=comparison.working_volume_score,
+            movement_count_score=comparison.movement_count_score,
             dtw_distance=comparison.dtw_distance,
             feedback=comparison.feedback,
             metrics_comparison=comparison.metrics_comparison,
@@ -373,3 +381,44 @@ async def delete_comparison(
         "message": "Comparison deleted successfully",
         "id": comparison_id
     }
+
+
+@router.get(
+    "/six-metrics/{analysis_id}",
+    summary="Calculate 6 metrics for an analysis (on-demand)",
+    responses={
+        404: {"description": "Analysis not found"},
+    }
+)
+async def get_six_metrics(
+    analysis_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    解析結果の6指標をオンデマンドで計算して返す。
+    motion_analysisにsix_metricsが既にあればそれを返し、
+    なければskeleton_dataから計算する。
+    """
+    from app.services.metrics import SixMetricsService
+
+    analysis = db.query(AnalysisResult).filter(
+        AnalysisResult.id == analysis_id
+    ).first()
+
+    if not analysis:
+        raise HTTPException(status_code=404, detail=f"Analysis {analysis_id} not found")
+
+    # 既にsix_metricsがあればそのまま返す
+    if analysis.motion_analysis and isinstance(analysis.motion_analysis, dict):
+        existing = analysis.motion_analysis.get("six_metrics")
+        if existing:
+            return existing
+
+    # なければskeleton_dataから計算
+    skeleton_data = analysis.skeleton_data
+    if not skeleton_data:
+        raise HTTPException(status_code=400, detail="No skeleton_data available")
+
+    svc = SixMetricsService(fps=30.0)
+    result = svc.calculate(skeleton_data)
+    return result.to_dict()

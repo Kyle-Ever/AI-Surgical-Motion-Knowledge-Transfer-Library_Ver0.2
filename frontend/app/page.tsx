@@ -2,9 +2,10 @@
 
 import Link from "next/link"
 import { FileVideo, Library, Award, History } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, formatDate } from "@/lib/utils"
 import { useState, useEffect } from 'react'
 import { getCompletedAnalyses } from '@/lib/api'
+import type { Video, AnalysisResult } from '@/types/analysis'
 
 const features = [
   {
@@ -40,35 +41,6 @@ const features = [
     accent: "card--accent-history",
   },
 ]
-
-interface Video {
-  id: string
-  filename: string
-  original_filename: string
-  surgery_name?: string
-  surgeon_name?: string
-  surgery_date?: string
-  video_type?: string
-  duration?: number
-  created_at: string
-}
-
-interface AnalysisResult {
-  id: string
-  video_id: string
-  status: string
-  skeleton_data?: any
-  instrument_data?: any
-  motion_analysis?: any
-  scores?: any
-  avg_velocity?: number
-  max_velocity?: number
-  total_distance?: number
-  total_frames?: number
-  created_at: string
-  completed_at?: string
-  video?: Video
-}
 
 export default function HomePage() {
   const [recentAnalyses, setRecentAnalyses] = useState<AnalysisResult[]>([])
@@ -165,13 +137,6 @@ export default function HomePage() {
     }
   }
 
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'yyyy-MM-dd HH:mm')
-    } catch {
-      return dateString
-    }
-  }
 
   const getStatusConfig = (status: string) => {
     switch (status) {

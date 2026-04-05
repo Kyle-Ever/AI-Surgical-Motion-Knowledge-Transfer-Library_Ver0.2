@@ -108,18 +108,23 @@ class RealtimeMetricsService:
         """
         positions = []
         for frame_num in sorted(frames_dict.keys()):
-            hands = frames_dict[frame_num]
+            frame_entries = frames_dict[frame_num]
 
             # 手首位置を収集
             wrist_positions = []
-            for hand in hands:
-                if hand.get("landmarks"):
-                    wrist = hand["landmarks"].get("point_0", {})
-                    if wrist.get("x") is not None and wrist.get("y") is not None:
-                        wrist_positions.append({
-                            "x": wrist["x"],
-                            "y": wrist["y"]
-                        })
+            for entry in frame_entries:
+                # V2形式: entryにhands配列がある場合
+                hands_list = entry.get("hands", [])
+                if hands_list:
+                    for hand in hands_list:
+                        wrist = self._get_wrist(hand.get("landmarks"))
+                        if wrist:
+                            wrist_positions.append(wrist)
+                else:
+                    # V1形式: entry自体にlandmarksがある
+                    wrist = self._get_wrist(entry.get("landmarks"))
+                    if wrist:
+                        wrist_positions.append(wrist)
 
             # 複数の手がある場合は平均を取る
             if wrist_positions:
@@ -130,6 +135,20 @@ class RealtimeMetricsService:
                 positions.append(None)
 
         return positions
+
+    @staticmethod
+    def _get_wrist(landmarks) -> Optional[Dict]:
+        """landmarksから手首位置を取得（dict/list両形式対応）"""
+        if not landmarks:
+            return None
+        wrist = None
+        if isinstance(landmarks, dict):
+            wrist = landmarks.get("point_0", {})
+        elif isinstance(landmarks, list) and len(landmarks) > 0:
+            wrist = landmarks[0]
+        if wrist and isinstance(wrist, dict) and wrist.get("x") is not None and wrist.get("y") is not None:
+            return {"x": wrist["x"], "y": wrist["y"]}
+        return None
 
     def _calculate_velocities(self, positions: List[Optional[Dict]]) -> List[Optional[float]]:
         """

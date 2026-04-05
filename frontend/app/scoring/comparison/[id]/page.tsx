@@ -81,7 +81,14 @@ export default function ComparisonDashboard() {
           value: result.stability_score || 85.7,
           reference: 93.0,
           diff: (result.stability_score || 85.7) - 93.0
-        }
+        },
+        ...(result.waste_score != null ? {
+          waste: {
+            value: result.waste_score,
+            reference: 90.0,
+            diff: result.waste_score - 90.0
+          }
+        } : {})
       },
       // DetailedAnalysis コンポーネント用に analysis データも含める
       referenceAnalysis,

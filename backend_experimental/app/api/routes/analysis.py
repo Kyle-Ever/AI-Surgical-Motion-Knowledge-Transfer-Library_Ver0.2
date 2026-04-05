@@ -334,13 +334,13 @@ async def get_analysis_result(
         if analysis.tracking_stats:
             try:
                 tracking_stats = json.loads(analysis.tracking_stats) if isinstance(analysis.tracking_stats, str) else analysis.tracking_stats
-            except:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 logger.warning(f"Failed to parse tracking_stats for analysis {analysis_id}")
 
         if analysis.warnings:
             try:
                 warnings = json.loads(analysis.warnings) if isinstance(analysis.warnings, str) else analysis.warnings
-            except:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 logger.warning(f"Failed to parse warnings for analysis {analysis_id}")
 
         # DeepGaze III視線解析データをパース
@@ -348,7 +348,7 @@ async def get_analysis_result(
         if hasattr(analysis, 'gaze_data') and analysis.gaze_data:
             try:
                 gaze_data = json.loads(analysis.gaze_data) if isinstance(analysis.gaze_data, str) else analysis.gaze_data
-            except:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 logger.warning(f"Failed to parse gaze_data for analysis {analysis_id}")
 
         # Create response manually to avoid from_orm issues
@@ -481,10 +481,15 @@ def sync_process_video_analysis(
             loop.close()
 
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
         logger.error(f"[sync_process] Analysis failed: {e}")
+        logger.error(f"[sync_process] Traceback: {tb}")
         if analysis:
             analysis.status = AnalysisStatus.FAILED
-            analysis.error_message = str(e)
+            # トレースバック末尾3行をエラーメッセージに含める
+            tb_lines = tb.strip().split('\n')[-3:]
+            analysis.error_message = f"{str(e)} | {'  '.join(tb_lines)}"
             db.commit()
         raise
     finally:
@@ -601,62 +606,3 @@ async def delete_analysis(
     return {"message": "Analysis deleted successfully", "id": analysis_id}
 
 
-@router.get(
-    "/test/mediapipe",
-    summary="Test MediaPipe functionality",
-)
-async def test_mediapipe():
-    """Test if MediaPipe is working correctly"""
-    import logging
-    logger = logging.getLogger(__name__)
-
-    result = {
-        "mediapipe_available": False,
-        "hand_detector_available": False,
-        "test_detection": None,
-        "errors": []
-    }
-
-    # Test MediaPipe import
-    try:
-        import mediapipe as mp
-        result["mediapipe_available"] = True
-        logger.info("[TEST] MediaPipe import successful")
-    except Exception as e:
-        result["errors"].append(f"MediaPipe import error: {str(e)}")
-        logger.error(f"[TEST] MediaPipe import failed: {e}")
-        return result
-
-    # Test HandSkeletonDetector
-    try:
-        from app.ai_engine.processors.skeleton_detector import HandSkeletonDetector
-        result["hand_detector_available"] = True
-        logger.info("[TEST] HandSkeletonDetector import successful")
-
-        # Create a test detector
-        detector = HandSkeletonDetector(
-            min_detection_confidence=0.3,
-            min_tracking_confidence=0.3
-        )
-        logger.info("[TEST] HandSkeletonDetector initialized")
-
-        # Create a simple test image (white background with a black square)
-        import numpy as np
-        test_image = np.ones((480, 640, 3), dtype=np.uint8) * 255
-        test_image[100:200, 100:200] = 0  # Black square
-
-        # Try detection
-        detection_result = detector.detect_from_frame(test_image)
-        result["test_detection"] = {
-            "hands_detected": len(detection_result.get("hands", [])),
-            "frame_shape": detection_result.get("frame_shape", [])
-        }
-        logger.info(f"[TEST] Detection result: {result['test_detection']}")
-
-    except Exception as e:
-        import traceback
-        result["errors"].append(f"HandSkeletonDetector error: {str(e)}")
-        logger.error(f"[TEST] HandSkeletonDetector failed: {e}")
-        logger.error(f"[TEST] Traceback:\n{traceback.format_exc()}")
-
-    return result

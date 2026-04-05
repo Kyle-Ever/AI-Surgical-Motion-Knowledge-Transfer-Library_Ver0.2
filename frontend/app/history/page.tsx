@@ -3,37 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, Loader, Award } from 'lucide-react'
-import { format } from 'date-fns'
 import { getCompletedComparisons } from '@/lib/api'
-
-interface Video {
-  id: string
-  filename: string
-  original_filename: string
-  surgery_name?: string
-  surgeon_name?: string
-  surgery_date?: string
-  video_type?: string
-  duration?: number
-  created_at: string
-}
-
-interface AnalysisResult {
-  id: string
-  video_id: string
-  status: string
-  skeleton_data?: any
-  instrument_data?: any
-  motion_analysis?: any
-  scores?: any
-  avg_velocity?: number
-  max_velocity?: number
-  total_distance?: number
-  total_frames?: number
-  created_at: string
-  completed_at?: string
-  video?: Video
-}
+import type { Video, AnalysisResult } from '@/types/analysis'
+import { formatDuration, formatDate } from '@/lib/utils'
 
 const statusConfig = {
   completed: {
@@ -78,10 +50,11 @@ export default function HistoryPage() {
       setLoading(true)
 
       // 完了した分析、採点結果、ビデオ情報を並列で取得
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
       const [completedRes, comparisonsData, videosRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/analysis/completed`),
+        fetch(`${apiUrl}/analysis/completed`),
         getCompletedComparisons(),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/videos`)
+        fetch(`${apiUrl}/videos`)
       ])
 
       if (!completedRes.ok) {
@@ -159,21 +132,6 @@ export default function HistoryPage() {
       setError(err instanceof Error ? err.message : '不明なエラーが発生しました')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return '-'
-    const minutes = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-  }
-
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'yyyy-MM-dd HH:mm')
-    } catch {
-      return dateString
     }
   }
 

@@ -56,16 +56,11 @@ class MetricsCalculator:
         """
         データをフレーム番号でグループ化
 
-        Args:
-            skeleton_data: 骨格データのリスト
-
-        Returns:
-            フレーム番号でグループ化されたデータ
+        V1形式（hand_type直接）とV2形式（hands配列）の両方に対応。
         """
         frames = {}
         for data in skeleton_data:
             frame_num = data.get("frame_number", 0)
-            hand_type = data.get("hand_type", "Unknown")
 
             if frame_num not in frames:
                 frames[frame_num] = {
@@ -74,12 +69,51 @@ class MetricsCalculator:
                     "right": None
                 }
 
-            if hand_type == "Left":
-                frames[frame_num]["left"] = data
-            elif hand_type == "Right":
-                frames[frame_num]["right"] = data
+            # V2形式: hands配列がある場合
+            if "hands" in data and data["hands"]:
+                for hand in data["hands"]:
+                    hand_type = hand.get("hand_type", "Unknown")
+                    # landmarksを正規化（list→dict変換）
+                    hand_with_normalized_landmarks = dict(hand)
+                    hand_with_normalized_landmarks["landmarks"] = self._normalize_landmarks(
+                        hand.get("landmarks")
+                    )
+                    if hand_type == "Left":
+                        frames[frame_num]["left"] = hand_with_normalized_landmarks
+                    elif hand_type == "Right":
+                        frames[frame_num]["right"] = hand_with_normalized_landmarks
+                    else:
+                        # Unknown の場合、空いている方に割り当て
+                        if frames[frame_num]["right"] is None:
+                            frames[frame_num]["right"] = hand_with_normalized_landmarks
+            else:
+                # V1形式: hand_typeが直接フレームレベルにある
+                hand_type = data.get("hand_type", "Unknown")
+                # landmarksを正規化
+                normalized = dict(data)
+                normalized["landmarks"] = self._normalize_landmarks(data.get("landmarks"))
+                if hand_type == "Left":
+                    frames[frame_num]["left"] = normalized
+                elif hand_type == "Right":
+                    frames[frame_num]["right"] = normalized
+                else:
+                    if frames[frame_num]["right"] is None:
+                        frames[frame_num]["right"] = normalized
 
         return frames
+
+    @staticmethod
+    def _normalize_landmarks(landmarks) -> Dict:
+        """landmarksをdict形式に正規化（list形式→point_N形式に変換）"""
+        if isinstance(landmarks, dict):
+            return landmarks
+        if isinstance(landmarks, list):
+            result = {}
+            for i, lm in enumerate(landmarks):
+                if isinstance(lm, dict):
+                    result[f"point_{i}"] = lm
+            return result
+        return {}
 
     def _calculate_position_metrics(self, frames_data: Dict) -> Dict:
         """
