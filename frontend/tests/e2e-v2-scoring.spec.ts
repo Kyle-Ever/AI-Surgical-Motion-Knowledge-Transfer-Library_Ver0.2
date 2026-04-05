@@ -6,14 +6,14 @@ test.describe('E2E V2: スコアリング・比較フロー', () => {
 
   test.beforeAll(async ({ request }) => {
     // 完了済み分析を取得
-    const videosResponse = await request.get('http://localhost:8000/api/v1/videos');
+    const videosResponse = await request.get('http://localhost:8001/api/v1/videos');
     expect(videosResponse.ok()).toBeTruthy();
 
     const videos = await videosResponse.json();
 
     // 分析完了済みの動画を探す
     for (const video of videos) {
-      const analysisResponse = await request.get(`http://localhost:8000/api/v1/analysis?video_id=${video.id}`);
+      const analysisResponse = await request.get(`http://localhost:8001/api/v1/analysis?video_id=${video.id}`);
       if (analysisResponse.ok()) {
         const analyses = await analysisResponse.json();
         const completedAnalysis = analyses.find((a: any) => a.status === 'completed');
@@ -26,7 +26,7 @@ test.describe('E2E V2: スコアリング・比較フロー', () => {
     }
 
     // リファレンス動画を取得
-    const refResponse = await request.get('http://localhost:8000/api/v1/library/references');
+    const refResponse = await request.get('http://localhost:8001/api/v1/library/references');
     if (refResponse.ok()) {
       const references = await refResponse.json();
       if (references.length > 0) {
@@ -135,7 +135,7 @@ test.describe('E2E V2: スコアリング・比較フロー', () => {
     }
 
     // スコアリングAPI呼び出し
-    const response = await request.post('http://localhost:8000/api/v1/scoring/compare', {
+    const response = await request.post('http://localhost:8001/api/v1/scoring/compare', {
       data: {
         analysis_id: completedAnalysisId,
         reference_video_id: referenceVideoId
@@ -182,7 +182,7 @@ test.describe('E2E V2: スコアリング・比較フロー', () => {
     }
 
     // 分析結果を取得
-    const response = await request.get(`http://localhost:8000/api/v1/analysis/${completedAnalysisId}`);
+    const response = await request.get(`http://localhost:8001/api/v1/analysis/${completedAnalysisId}`);
     expect(response.ok()).toBeTruthy();
 
     const result = await response.json();

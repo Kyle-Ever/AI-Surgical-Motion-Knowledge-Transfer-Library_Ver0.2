@@ -6,7 +6,7 @@ test.describe('E2E V2: ライブラリ機能（リファレンス動画管理）
 
   test.beforeAll(async ({ request }) => {
     // テスト用動画を取得
-    const response = await request.get('http://localhost:8000/api/v1/videos');
+    const response = await request.get('http://localhost:8001/api/v1/videos');
     expect(response.ok()).toBeTruthy();
 
     const videos = await response.json();
@@ -17,7 +17,7 @@ test.describe('E2E V2: ライブラリ機能（リファレンス動画管理）
     }
 
     // 既存のリファレンス動画を取得
-    const refResponse = await request.get('http://localhost:8000/api/v1/library/references');
+    const refResponse = await request.get('http://localhost:8001/api/v1/library/references');
     if (refResponse.ok()) {
       const references = await refResponse.json();
       if (references.length > 0) {
@@ -119,7 +119,7 @@ test.describe('E2E V2: ライブラリ機能（リファレンス動画管理）
       console.log('⚠️ Add button not found, trying API registration');
 
       // API経由で登録を試みる
-      const response = await page.request.post('http://localhost:8000/api/v1/library/references', {
+      const response = await page.request.post('http://localhost:8001/api/v1/library/references', {
         data: {
           video_id: testVideoId,
           title: 'E2E Test Reference',
@@ -179,7 +179,7 @@ test.describe('E2E V2: ライブラリ機能（リファレンス動画管理）
     let tempReferenceId: string | null = null;
 
     if (testVideoId) {
-      const createResponse = await request.post('http://localhost:8000/api/v1/library/references', {
+      const createResponse = await request.post('http://localhost:8001/api/v1/library/references', {
         data: {
           video_id: testVideoId,
           title: 'Temporary E2E Test Reference for Deletion',
@@ -236,14 +236,14 @@ test.describe('E2E V2: ライブラリ機能（リファレンス動画管理）
         console.log('⚠️ Delete button not found, trying API deletion');
 
         // API経由で削除
-        const deleteResponse = await request.delete(`http://localhost:8000/api/v1/library/references/${tempReferenceId}`);
+        const deleteResponse = await request.delete(`http://localhost:8001/api/v1/library/references/${tempReferenceId}`);
         if (deleteResponse.ok()) {
           console.log('✅ Reference deleted via API');
         }
       }
     } else {
       // UI上に見つからない場合はAPI削除のみ
-      const deleteResponse = await request.delete(`http://localhost:8000/api/v1/library/references/${tempReferenceId}`);
+      const deleteResponse = await request.delete(`http://localhost:8001/api/v1/library/references/${tempReferenceId}`);
       if (deleteResponse.ok()) {
         console.log('✅ Reference deleted via API (not found in UI)');
       }
@@ -254,7 +254,7 @@ test.describe('E2E V2: ライブラリ機能（リファレンス動画管理）
 
   test('データベース整合性確認', async ({ request }) => {
     // reference_videosテーブルのレコード確認
-    const response = await request.get('http://localhost:8000/api/v1/library/references');
+    const response = await request.get('http://localhost:8001/api/v1/library/references');
     expect(response.ok()).toBeTruthy();
 
     const references = await response.json();

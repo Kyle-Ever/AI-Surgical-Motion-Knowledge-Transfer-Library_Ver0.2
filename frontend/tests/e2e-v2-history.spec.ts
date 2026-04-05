@@ -296,7 +296,7 @@ test.describe('E2E V2: 履歴・検索フロー', () => {
 
   test('APIエンドポイント動作確認', async ({ request }) => {
     // 動画一覧API
-    const response = await request.get('http://localhost:8000/api/v1/videos');
+    const response = await request.get('http://localhost:8001/api/v1/videos');
     expect(response.ok()).toBeTruthy();
 
     const videos = await response.json();
@@ -318,7 +318,7 @@ test.describe('E2E V2: 履歴・検索フロー', () => {
     }
 
     // クエリパラメータテスト（フィルタリング）
-    const filteredResponse = await request.get('http://localhost:8000/api/v1/videos?limit=5');
+    const filteredResponse = await request.get('http://localhost:8001/api/v1/videos?limit=5');
     if (filteredResponse.ok()) {
       const filteredVideos = await filteredResponse.json();
       console.log(`Filtered API returned ${filteredVideos.length} videos (limit: 5)`);

@@ -6,7 +6,7 @@ test.describe('E2E V2: 器具トラッキング分析（internal）', () => {
 
   test.beforeAll(async ({ request }) => {
     // Internal動画を取得または作成
-    const response = await request.get('http://localhost:8000/api/v1/videos');
+    const response = await request.get('http://localhost:8001/api/v1/videos');
     expect(response.ok()).toBeTruthy();
 
     const videos = await response.json();
@@ -123,7 +123,7 @@ test.describe('E2E V2: 器具トラッキング分析（internal）', () => {
 
     // 7. APIで結果取得とtracking_stats詳細検証
     if (analysisId) {
-      const response = await page.request.get(`http://localhost:8000/api/v1/analysis/${analysisId}`);
+      const response = await page.request.get(`http://localhost:8001/api/v1/analysis/${analysisId}`);
       expect(response.ok()).toBeTruthy();
 
       const result = await response.json();
@@ -206,7 +206,7 @@ test.describe('E2E V2: 器具トラッキング分析（internal）', () => {
     }
 
     // API経由で分析結果を取得
-    const response = await page.request.get(`http://localhost:8000/api/v1/analysis/${analysisId}`);
+    const response = await page.request.get(`http://localhost:8001/api/v1/analysis/${analysisId}`);
     expect(response.ok()).toBeTruthy();
 
     const result = await response.json();

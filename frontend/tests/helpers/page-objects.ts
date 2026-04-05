@@ -71,8 +71,8 @@ export class UploadPage extends BasePage {
 
   // Step 2: Video Type Selection
   private readonly videoTypeTitle = this.page.getByRole('heading', { name: '映像タイプ' })
-  private readonly externalCameraButton = this.page.getByRole('button', { name: '外部（手元カメラ）' })
-  private readonly internalCameraButton = this.page.getByRole('button', { name: '内視鏡' })
+  private readonly externalCameraButton = this.page.getByRole('button', { name: /外部カメラ/ }).first()
+  private readonly internalCameraButton = this.page.getByRole('button', { name: /内視鏡.*術野カメラ/ })
 
   // Step 3: Metadata
   private readonly surgeryNameInput = this.page.locator('input[name="surgery_name"]')

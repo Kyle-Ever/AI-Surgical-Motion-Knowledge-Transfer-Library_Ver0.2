@@ -77,7 +77,7 @@ test.describe('E2E V2: エラーハンドリング', () => {
     const fakeVideoId = '00000000-0000-0000-0000-000000000000';
 
     // APIで分析開始を試みる
-    const response = await request.post(`http://localhost:8000/api/v1/analysis/${fakeVideoId}/analyze`, {
+    const response = await request.post(`http://localhost:8001/api/v1/analysis/${fakeVideoId}/analyze`, {
       data: {}
     });
 
@@ -93,14 +93,14 @@ test.describe('E2E V2: エラーハンドリング', () => {
     }
 
     // 実際の動画で意図的にエラーを発生させる（存在する動画を使用）
-    const videosResponse = await request.get('http://localhost:8000/api/v1/videos');
+    const videosResponse = await request.get('http://localhost:8001/api/v1/videos');
     if (videosResponse.ok()) {
       const videos = await videosResponse.json();
       if (videos.length > 0) {
         const testVideoId = videos[0].id;
 
         // 破損したinstrumentsパラメータで分析開始
-        const badAnalysisResponse = await request.post(`http://localhost:8000/api/v1/analysis/${testVideoId}/analyze`, {
+        const badAnalysisResponse = await request.post(`http://localhost:8001/api/v1/analysis/${testVideoId}/analyze`, {
           data: {
             instruments: [{ invalid: 'data' }] // 不正なフォーマット
           }
@@ -121,7 +121,7 @@ test.describe('E2E V2: エラーハンドリング', () => {
     test.setTimeout(90000);
 
     // 動画を取得
-    const response = await page.request.get('http://localhost:8000/api/v1/videos');
+    const response = await page.request.get('http://localhost:8001/api/v1/videos');
     if (!response.ok()) {
       test.skip();
     }
@@ -192,7 +192,7 @@ test.describe('E2E V2: エラーハンドリング', () => {
 
   test('データベースエラー記録確認（failed status）', async ({ request }) => {
     // 失敗した分析を検索
-    const videosResponse = await request.get('http://localhost:8000/api/v1/videos');
+    const videosResponse = await request.get('http://localhost:8001/api/v1/videos');
     expect(videosResponse.ok()).toBeTruthy();
 
     const videos = await videosResponse.json();
@@ -201,7 +201,7 @@ test.describe('E2E V2: エラーハンドリング', () => {
 
     for (const video of videos) {
       // 各動画の分析履歴を取得
-      const analysesUrl = `http://localhost:8000/api/v1/analysis?video_id=${video.id}`;
+      const analysesUrl = `http://localhost:8001/api/v1/analysis?video_id=${video.id}`;
       const analysesResponse = await request.get(analysesUrl);
 
       if (analysesResponse.ok()) {
@@ -243,7 +243,7 @@ test.describe('E2E V2: エラーハンドリング', () => {
 
   test('APIエラーレスポンスの形式確認', async ({ request }) => {
     // 存在しないリソースへのアクセス
-    const notFoundResponse = await request.get('http://localhost:8000/api/v1/videos/nonexistent-id');
+    const notFoundResponse = await request.get('http://localhost:8001/api/v1/videos/nonexistent-id');
     console.log(`404 response status: ${notFoundResponse.status()}`);
 
     if (notFoundResponse.status() === 404) {
@@ -257,11 +257,11 @@ test.describe('E2E V2: エラーハンドリング', () => {
     }
 
     // 不正なメソッド
-    const methodNotAllowedResponse = await request.delete('http://localhost:8000/api/v1/videos');
+    const methodNotAllowedResponse = await request.delete('http://localhost:8001/api/v1/videos');
     console.log(`Method not allowed status: ${methodNotAllowedResponse.status()}`);
 
     // 不正なボディ
-    const badRequestResponse = await request.post('http://localhost:8000/api/v1/videos/upload', {
+    const badRequestResponse = await request.post('http://localhost:8001/api/v1/videos/upload', {
       data: { invalid: 'body' }
     });
     console.log(`Bad request status: ${badRequestResponse.status()}`);

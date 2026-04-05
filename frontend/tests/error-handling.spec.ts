@@ -146,7 +146,7 @@ test.describe('Error Handling Tests', () => {
 
   test('handles WebSocket connection failure', async ({ page, context }) => {
     // WebSocket接続をブロック
-    await context.route('ws://localhost:8000/ws/**', route => {
+    await context.route('ws://localhost:8001/ws/**', route => {
       route.abort()
     })
 

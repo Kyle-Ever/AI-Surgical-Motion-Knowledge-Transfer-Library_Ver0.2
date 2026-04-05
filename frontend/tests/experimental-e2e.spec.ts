@@ -264,7 +264,7 @@ test.describe('実験版バックエンド E2Eテスト', () => {
 test.describe('実験版 vs 安定版 比較テスト', () => {
   test('同じ動画で両バージョンの結果を比較', async ({ request }) => {
     // 安定版APIにリクエスト
-    const stableResponse = await request.get('http://localhost:8000/api/v1/videos').catch(() => null);
+    const stableResponse = await request.get('http://localhost:8001/api/v1/videos').catch(() => null);
 
     // 実験版APIにリクエスト
     const experimentalResponse = await request.get(`${EXPERIMENTAL_API_URL}/videos`);

@@ -18,7 +18,7 @@ npx playwright install --with-deps
 
 テスト実行前に、以下のサービスが起動していることを確認してください：
 
-- **バックエンドAPI**: http://localhost:8000
+- **バックエンドAPI**: http://localhost:8001
 - **フロントエンド**: http://localhost:3000
 
 ```bash

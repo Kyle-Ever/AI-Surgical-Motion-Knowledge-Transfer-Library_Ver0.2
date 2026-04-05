@@ -75,7 +75,7 @@ test.describe('Library Export Functionality', () => {
 
   test('should handle export API errors gracefully', async ({ page }) => {
     // Test direct API call
-    const response = await page.request.get('http://localhost:8000/api/v1/analysis/completed');
+    const response = await page.request.get('http://localhost:8001/api/v1/analysis/completed');
 
     console.log('API Response Status:', response.status());
 
@@ -90,7 +90,7 @@ test.describe('Library Export Functionality', () => {
         // Try to export the first analysis
         const analysisId = data[0].id;
         const exportResponse = await page.request.get(
-          `http://localhost:8000/api/v1/analysis/${analysisId}/export`
+          `http://localhost:8001/api/v1/analysis/${analysisId}/export`
         );
 
         console.log('Export API Status:', exportResponse.status());

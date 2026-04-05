@@ -6,7 +6,7 @@ test.describe('E2E V2: 手トラッキング分析（external）', () => {
 
   test.beforeAll(async ({ request }) => {
     // テスト用動画を取得（既存のtest_video.mp4を使用）
-    const response = await request.get('http://localhost:8000/api/v1/videos');
+    const response = await request.get('http://localhost:8001/api/v1/videos');
     expect(response.ok()).toBeTruthy();
 
     const videos = await response.json();
@@ -30,7 +30,7 @@ test.describe('E2E V2: 手トラッキング分析（external）', () => {
     }
 
     // 1. まずAPIで完了済みの分析を探す
-    const analysesResponse = await page.request.get(`http://localhost:8000/api/v1/videos/${videoId}/analyses`);
+    const analysesResponse = await page.request.get(`http://localhost:8001/api/v1/videos/${videoId}/analyses`);
     let completedAnalysis = null;
 
     if (analysesResponse.ok()) {
@@ -73,7 +73,7 @@ test.describe('E2E V2: 手トラッキング分析（external）', () => {
 
     // 8. APIで分析結果を確認（V2フィールド検証）
     if (analysisId) {
-      const response = await page.request.get(`http://localhost:8000/api/v1/analysis/${analysisId}`);
+      const response = await page.request.get(`http://localhost:8001/api/v1/analysis/${analysisId}`);
       expect(response.ok()).toBeTruthy();
 
       const result = await response.json();

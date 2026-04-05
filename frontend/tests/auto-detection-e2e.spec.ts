@@ -12,7 +12,7 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('自動器具検出機能', () => {
-  const API_URL = 'http://localhost:8000/api/v1';
+  const API_URL = 'http://localhost:8001/api/v1';
   let uploadedVideoId: string;
 
   test.beforeAll(async () => {
