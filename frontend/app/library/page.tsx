@@ -34,9 +34,6 @@ export default function LibraryPage() {
         getCompletedComparisons()
       ])
 
-      console.log('Fetched analyses data:', analysesData)
-      console.log('Fetched comparisons data:', comparisonsData)
-
       const allItems = []
 
       // 解析結果をライブラリ用に整形
@@ -112,7 +109,6 @@ export default function LibraryPage() {
 
       setLibraryItems(sortedItems)
       setFilteredItems(sortedItems)
-      console.log('Total library items:', sortedItems.length)
     } catch (error) {
       console.error('Failed to fetch library items:', error)
       // エラー時は空配列を設定
@@ -144,9 +140,6 @@ export default function LibraryPage() {
           ? `${apiUrl}/scoring/comparisons/${itemId}`
           : `${apiUrl}/analysis/${itemId}`
 
-        console.log(`[DELETE] Item type: ${itemType}`)
-        console.log(`[DELETE] Attempting to delete: ${deleteUrl}`)
-
         const response = await fetch(deleteUrl, {
           method: 'DELETE',
           headers: {
@@ -154,30 +147,16 @@ export default function LibraryPage() {
           }
         })
 
-        console.log(`[DELETE] Response status: ${response.status} ${response.statusText}`)
-        console.log(`[DELETE] Response ok: ${response.ok}`)
-
         if (response.ok) {
-          // レスポンスボディを取得
-          const data = await response.json().catch(() => null)
-          console.log(`[DELETE] Response data:`, data)
-
           // 削除成功後、リストを再取得
           fetchLibraryItems()
-          console.log(`Successfully deleted analysis: ${itemId}`)
           alert('削除しました')
         } else {
-          // エラー詳細を取得
-          const errorData = await response.json().catch(() => null)
-          console.error(`[DELETE] Failed to delete analysis:`, {
-            status: response.status,
-            statusText: response.statusText,
-            errorData
-          })
+          console.error('Failed to delete:', response.status, response.statusText)
           alert(`削除に失敗しました: ${response.status} ${response.statusText}`)
         }
       } catch (error) {
-        console.error('[DELETE] Delete error:', error)
+        console.error('Delete error:', error)
         if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
           alert('サーバーに接続できません。バックエンドが起動しているか確認してください。')
         } else {
@@ -192,7 +171,6 @@ export default function LibraryPage() {
 
     try {
       await exportAnalysisData(itemId)
-      console.log(`Successfully exported analysis: ${itemId}`)
     } catch (error) {
       console.error('Export error:', error)
       alert('エクスポートに失敗しました')

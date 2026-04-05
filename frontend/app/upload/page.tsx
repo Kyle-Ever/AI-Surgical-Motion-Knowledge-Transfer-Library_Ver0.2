@@ -23,15 +23,6 @@ export default function UploadPage() {
   const { uploadVideo, progress: uploadProgress } = useUploadVideo()
   const { startAnalysis } = useStartAnalysis()
 
-  // デバッグ用
-  useEffect(() => {
-    console.log('UploadPage mounted')
-    console.log('open function available:', typeof open)
-    return () => {
-      console.log('UploadPage unmounted')
-    }
-  }, [])
-
   const [file, setFile] = useState<File | null>(null)
   const [formData, setFormData] = useState({
     surgeryName: '',
@@ -60,9 +51,7 @@ export default function UploadPage() {
   ]
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    console.log('onDrop called:', acceptedFiles)
     if (acceptedFiles.length > 0) {
-      console.log('File accepted:', acceptedFiles[0].name)
       setFile(acceptedFiles[0])
     }
   }, [])
@@ -118,20 +107,11 @@ export default function UploadPage() {
   }
 
   const handleVideoUpload = async () => {
-    console.log('DEBUG: handleVideoUpload called', {
-      hasFile: !!file,
-      videoType,
-      fileName: file?.name
-    })
-
     if (!file || !videoType) {
-      console.log('DEBUG: Upload failed - missing file or videoType', { hasFile: !!file, videoType })
       return null
     }
 
     try {
-      console.log('DEBUG: Starting video upload...')
-      // Upload video
       const uploadResponse = await uploadVideo(file, {
         video_type: videoType,
         surgery_name: formData.surgeryName,
@@ -140,17 +120,15 @@ export default function UploadPage() {
         memo: formData.memo
       })
 
-      console.log('DEBUG: Upload successful', { videoId: uploadResponse.video_id })
       return uploadResponse.video_id
     } catch (e: any) {
-      console.error('DEBUG: Upload error:', e)
+      console.error('Upload error:', e)
       alert(e?.message || 'Upload failed')
       return null
     }
   }
 
   const handleStartAnalysis = async () => {
-    console.log('DEBUG: handleStartAnalysis called', { file: !!file, videoType, uploadedVideoId })
     if (!file || !videoType) return
 
     try {
@@ -192,7 +170,6 @@ export default function UploadPage() {
         // Save instruments to backend if any were selected
         if (instruments.length > 0) {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
-          console.log('DEBUG: Uploading to', apiUrl);
           const instrumentsResponse = await fetch(
             `${apiUrl}/videos/${videoId}/instruments`,
             {
@@ -205,17 +182,12 @@ export default function UploadPage() {
           if (!instrumentsResponse.ok) {
             console.error('Failed to save instruments')
             // Continue anyway - the analysis can still work with mock detection
-          } else {
-            console.log('Instruments saved successfully')
           }
         }
       }
 
       // Start analysis (instruments are already saved to file)
-      console.log('DEBUG: Calling startAnalysis with videoId:', videoId);
       const analysisResponse = await startAnalysis(videoId)
-      console.log('DEBUG: startAnalysis response:', JSON.stringify(analysisResponse));
-      console.log('DEBUG: Redirecting to:', `/analysis/${analysisResponse.id}`);
       router.push(`/analysis/${analysisResponse.id}`)
     } catch (e: any) {
       console.error(e)
@@ -272,11 +244,9 @@ export default function UploadPage() {
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
-                    console.log('Button clicked, calling open()', open)
                     if (open && typeof open === 'function') {
                       open()
                     } else {
-                      console.error('open function not available, using fallback')
                       // Fallback: trigger file input directly
                       const input = document.querySelector('input[type="file"]') as HTMLInputElement
                       if (input) {
@@ -485,26 +455,16 @@ export default function UploadPage() {
               </button>
               <button
                 onClick={async () => {
-                  console.log('DEBUG: SAM button clicked', {
-                    uploadedVideoId,
-                    hasFile: !!file,
-                    videoType,
-                    step
-                  })
-
                   // Upload video first if not already uploaded
                   if (!uploadedVideoId) {
                     const videoId = await handleVideoUpload()
-                    console.log('DEBUG: handleVideoUpload returned:', videoId)
                     if (videoId) {
                       setUploadedVideoId(videoId)
                       setInstrumentSelectionMode('sam')
                     } else {
-                      console.log('DEBUG: Upload failed, showing alert')
                       alert('動画のアップロードが必要です')
                     }
                   } else {
-                    console.log('DEBUG: Video already uploaded, switching to SAM mode')
                     setInstrumentSelectionMode('sam')
                   }
                 }}

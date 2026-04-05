@@ -159,17 +159,12 @@ export function useComparisonResult(comparisonId: string | null) {
             data.learner_video_id = learnerRes.data.video_id
 
             // 骨格データの確認（モックデータ生成は削除）
-            if (learnerRes.data.skeleton_data) {
-              console.log(`Learner video has ${learnerRes.data.skeleton_data.length} skeleton frames`)
-            } else {
-              console.log('[WARNING] No skeleton data found for learner video')
+            if (!learnerRes.data.skeleton_data) {
               // モックデータは生成しない - 実データのみ使用
               learnerRes.data.skeleton_data = []
             }
 
             data.learner_analysis = learnerRes.data
-            console.log('Learner analysis:', learnerRes.data)
-            console.log('Learner video ID:', data.learner_video_id)
           }
         } catch (err) {
           console.error('Failed to fetch learner analysis:', err)
@@ -189,17 +184,12 @@ export function useComparisonResult(comparisonId: string | null) {
                   data.reference_video_id = refAnalysisRes.data.video_id
 
                   // 骨格データの確認（モックデータ生成は削除）
-                  if (refAnalysisRes.data.skeleton_data) {
-                    console.log(`Reference video has ${refAnalysisRes.data.skeleton_data.length} skeleton frames`)
-                  } else {
-                    console.log('[WARNING] No skeleton data found for reference video')
+                  if (!refAnalysisRes.data.skeleton_data) {
                     // モックデータは生成しない - 実データのみ使用
                     refAnalysisRes.data.skeleton_data = []
                   }
 
                   data.reference_analysis = refAnalysisRes.data
-                  console.log('Reference analysis:', refAnalysisRes.data)
-                  console.log('Reference video ID:', data.reference_video_id)
                 }
               } catch (err) {
                 console.error('Failed to fetch reference analysis:', err)
@@ -214,10 +204,6 @@ export function useComparisonResult(comparisonId: string | null) {
 
       // 完全なデータをstateに保存
       setResult(data)
-
-      console.log('Full comparison data with skeleton:', data);
-      console.log('Learner analysis included:', !!data.learner_analysis);
-      console.log('Reference analysis included:', !!data.reference_analysis);
 
       // 処理中の場合は定期的に更新
       if (response.data.status === 'processing' && !intervalRef.current) {

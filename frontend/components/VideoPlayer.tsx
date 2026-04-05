@@ -75,16 +75,6 @@ export default function VideoPlayer({
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Debug log
-  useEffect(() => {
-    console.log('VideoPlayer received data:', {
-      videoUrl,
-      skeletonData_length: skeletonData?.length,
-      toolData_length: toolData?.length,
-      first_skeleton: skeletonData?.[0],
-      first_tool: toolData?.[0]
-    })
-  }, [videoUrl, skeletonData, toolData])
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -295,10 +285,6 @@ export default function VideoPlayer({
           ctx.lineWidth = 2.5
           ctx.stroke()
 
-          // デバッグ: 輪郭点数をコンソール出力（開発時のみ）
-          if (currentTime < 1) {
-            console.log(`Instrument contour: ${detection.contour.length} points`)
-          }
         } else {
           // フォールバック: contourがない場合は従来のbbox（安定版対応）
           ctx.strokeStyle = color
@@ -388,10 +374,6 @@ export default function VideoPlayer({
         }
       })
 
-      // 初回のみログ出力
-      if (!rvfcHandleRef.current || rvfcHandleRef.current === 1) {
-        console.log('[VideoPlayer] Using requestVideoFrameCallback (RVFC) for precise frame sync')
-      }
     }
     // ⚠️ フォールバック: RAF（Firefox等、RVFC非対応ブラウザ）
     else {
@@ -402,11 +384,6 @@ export default function VideoPlayer({
           scheduleNextFrame()
         }
       })
-
-      // 初回のみログ出力
-      if (!animationFrameRef.current || animationFrameRef.current === 1) {
-        console.log('[VideoPlayer] Using requestAnimationFrame (RAF) fallback')
-      }
     }
   }, [isPlaying, drawOverlayAtTime])
 
@@ -449,11 +426,9 @@ export default function VideoPlayer({
     if (skeletonData.length > 0) {
       const lastTimestamp = skeletonData[skeletonData.length - 1].timestamp
       actualDuration = Math.max(actualDuration, lastTimestamp)
-      console.log(`[VideoPlayer] Using skeleton data duration: ${lastTimestamp}s (video duration: ${videoRef.current.duration}s)`)
     } else if (toolData.length > 0) {
       const lastTimestamp = toolData[toolData.length - 1].timestamp
       actualDuration = Math.max(actualDuration, lastTimestamp)
-      console.log(`[VideoPlayer] Using tool data duration: ${lastTimestamp}s (video duration: ${videoRef.current.duration}s)`)
     }
     setDuration(actualDuration)
 
@@ -468,7 +443,6 @@ export default function VideoPlayer({
       if (frameDiff > 0) {
         const estimatedFps = Math.round(1 / frameDiff)
         setVideoFps(estimatedFps)
-        console.log(`[VideoPlayer] Estimated FPS from skeleton data: ${estimatedFps}`)
       }
     } else if (toolData.length > 1) {
       // tool_data から FPS を推定
@@ -478,7 +452,6 @@ export default function VideoPlayer({
       if (frameDiff > 0) {
         const estimatedFps = Math.round(1 / frameDiff)
         setVideoFps(estimatedFps)
-        console.log(`[VideoPlayer] Estimated FPS from tool data: ${estimatedFps}`)
       }
     }
 
@@ -544,7 +517,6 @@ export default function VideoPlayer({
   // データが更新されたら再描画
   useEffect(() => {
     if ((skeletonData.length > 0 || toolData.length > 0) && videoRef.current) {
-      console.log('Data updated, triggering redraw')
       drawOverlayAtTime(videoRef.current.currentTime)
     }
   }, [skeletonData, toolData, drawOverlayAtTime])
@@ -595,8 +567,6 @@ export default function VideoPlayer({
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             onError={handleVideoError}
-            onCanPlay={(e) => console.log('Video can play:', e.currentTarget.src)}
-            onLoadStart={(e) => console.log('Video load started:', e.currentTarget.src)}
             autoPlay={autoPlay}
             className="absolute top-0 left-0 w-full h-full bg-black object-contain"
             controls={false}

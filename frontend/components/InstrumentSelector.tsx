@@ -79,13 +79,6 @@ export default function InstrumentSelector({
           imageRef.current = img
           // Set canvas size to match image natural size
           setCanvasSize({ width: img.naturalWidth, height: img.naturalHeight })
-          console.log('Image loaded:', {
-            naturalWidth: img.naturalWidth,
-            naturalHeight: img.naturalHeight,
-            width: img.width,
-            height: img.height,
-            src: img.src.substring(0, 50) + '...'
-          })
           drawCanvas()
           setIsLoading(false)
         }
@@ -134,7 +127,6 @@ export default function InstrumentSelector({
         }
 
         const result = await response.json()
-        console.log('Detection result:', result)
         setDetectedInstruments(result.instruments || [])
 
         if (result.instruments.length === 0) {
@@ -245,21 +237,6 @@ export default function InstrumentSelector({
     const x = Math.round((e.clientX - rect.left) * scaleX)
     const y = Math.round((e.clientY - rect.top) * scaleY)
 
-    console.log('Canvas click debug:', {
-      clientX: e.clientX,
-      clientY: e.clientY,
-      rectLeft: rect.left,
-      rectTop: rect.top,
-      rectWidth: rect.width,
-      rectHeight: rect.height,
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
-      scaleX,
-      scaleY,
-      resultX: x,
-      resultY: y
-    })
-
     return { x, y }
   }
 
@@ -302,8 +279,6 @@ export default function InstrumentSelector({
         }
 
         const result = await response.json()
-        console.log('Segmentation from detection result:', result)
-
         setCurrentMask(result.mask)
         setCurrentVisualization(result.visualization)
         setBox(result.bbox as [number, number, number, number])
@@ -312,7 +287,7 @@ export default function InstrumentSelector({
         setInstrumentName(clickedInstrument.suggested_name)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Segmentation failed')
-        console.error('Segmentation error:', err)
+        console.error('Segmentation from detection error:', err)
       } finally {
         setIsSegmenting(false)
       }
@@ -387,15 +362,6 @@ export default function InstrumentSelector({
       const canvas = canvasRef.current
       if (!canvas) return
 
-      // デバッグログ
-      console.log('Canvas dimensions:', canvas.width, 'x', canvas.height)
-      console.log('Selection mode:', selectionMode)
-      if (selectionMode === 'point') {
-        console.log('Points:', points)
-      } else {
-        console.log('Box:', box)
-      }
-
       const requestBody = {
         prompt_type: selectionMode,
         coordinates: selectionMode === 'point'
@@ -406,8 +372,6 @@ export default function InstrumentSelector({
           : undefined,
         frame_number: 0
       }
-
-      console.log('Sending segmentation request:', JSON.stringify(requestBody, null, 2))
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1'
       const response = await fetch(
@@ -424,13 +388,6 @@ export default function InstrumentSelector({
       }
 
       const result = await response.json()
-      console.log('Segmentation result:', {
-        bbox: result.bbox,
-        score: result.score,
-        area: result.area,
-        prompt_type: result.prompt_type,
-        hasVisualization: !!result.visualization
-      })
       setCurrentMask(result.mask)
       setCurrentVisualization(result.visualization)
 

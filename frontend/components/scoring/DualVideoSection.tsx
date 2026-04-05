@@ -35,8 +35,6 @@ const VideoPlayer: React.FC<{
   onTimeUpdate?: (time: number) => void;
   onDurationChange?: (duration: number) => void;
 }> = ({ data, isReference, isPlaying, currentTime, showSkeleton, onTimeUpdate, onDurationChange }) => {
-  console.log(`[VideoPlayer ${isReference ? 'REF' : 'EVAL'}] Component rendering with videoUrl:`, data.videoUrl);
-
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [localTime, setLocalTime] = useState(0);
@@ -76,17 +74,13 @@ const VideoPlayer: React.FC<{
 
   // 指定されたタイムスタンプで骨格を描画
   const drawOverlayAtTime = useCallback((timestamp: number) => {
-    console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Called at timestamp:`, timestamp);
-
     if (!videoRef.current || !canvasRef.current) {
-      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Missing refs`);
       return;
     }
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] No context`);
       return;
     }
 
@@ -96,7 +90,6 @@ const VideoPlayer: React.FC<{
     const fps = data.fps || 30;
     const currentFrameNum = Math.floor(timestamp * fps);
     if (currentFrameNum === lastDrawnFrameRef.current && !isPlaying) {
-      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Frame skip - already drawn frame ${currentFrameNum}`);
       return;
     }
     lastDrawnFrameRef.current = currentFrameNum;
@@ -106,35 +99,25 @@ const VideoPlayer: React.FC<{
       if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Resized canvas to ${canvas.width}x${canvas.height}`);
       }
     }
 
     // クリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] showSkeleton=${showSkeleton}, skeletonData.length=${data.skeletonData?.length || 0}`);
-
     if (!showSkeleton || !data.skeletonData || data.skeletonData.length === 0) {
-      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Early return - conditions not met`);
       return;
     }
 
     // 現在のタイムスタンプに最も近い骨格フレームを取得
     const skeletonFrame = getCurrentData(timestamp);
-    console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Got skeleton frame:`, !!skeletonFrame);
     if (!skeletonFrame) return;
 
     // 新形式: frame.hands配列（複数手対応）
     const hands = skeletonFrame.hands || [skeletonFrame]; // 旧形式との互換性
-    console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Processing ${hands.length} hands`);
 
     hands.forEach((hand: any, handIndex: number) => {
-      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Hand ${handIndex}:`, hand);
-      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Hand landmarks type:`, typeof hand?.landmarks, 'isArray:', Array.isArray(hand?.landmarks));
-
       if (!hand?.landmarks) {
-        console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Hand ${handIndex} has no landmarks`);
         return;
       }
 
@@ -144,11 +127,8 @@ const VideoPlayer: React.FC<{
         : Object.values(hand.landmarks);
 
       if (landmarks.length === 0) {
-        console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Hand ${handIndex} has empty landmarks`);
         return;
       }
-
-      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Hand ${handIndex} drawing ${landmarks.length} landmarks`);
 
       // 座標が正規化されているか確認（0-1の範囲か、それともピクセル値か）
       const firstLandmark = landmarks[0];
@@ -166,8 +146,6 @@ const VideoPlayer: React.FC<{
           };
         }
       };
-
-      console.log(`[drawOverlay ${isReference ? 'REF' : 'EVAL'}] Coordinates ${isNormalized ? 'normalized' : 'pixel-based'}, first point: (${firstLandmark.x}, ${firstLandmark.y})`);
 
       const isLeftHand = hand.hand_type === 'Left';
       const handColor = isLeftHand ? (isReference ? '#10b981' : '#3b82f6') : (isReference ? '#059669' : '#1e40af');
@@ -289,7 +267,6 @@ const VideoPlayer: React.FC<{
   // useEffects - 関数定義の後に配置
   // videoUrl変更時にエラーをリセット
   useEffect(() => {
-    console.log(`[DualVideoSection ${isReference ? 'REF' : 'EVAL'}] Resetting videoError for URL:`, data.videoUrl);
     setVideoError(null);
   }, [data.videoUrl, isReference]);
 
@@ -304,7 +281,6 @@ const VideoPlayer: React.FC<{
       if (video.videoWidth && video.videoHeight) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        console.log(`[Canvas ${isReference ? 'REF' : 'EVAL'}] Initialized to ${canvas.width}x${canvas.height}`);
       }
     };
 
