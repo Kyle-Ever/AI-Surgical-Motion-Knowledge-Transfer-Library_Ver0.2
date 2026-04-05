@@ -92,12 +92,6 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
   })
 
   useEffect(() => {
-    console.log('[MotionAnalysisPanel] Component mounted', { videoType, showInstrumentMetrics: videoType === 'external_with_instruments' })
-  }, [videoType])
-
-  useEffect(() => {
-    console.log('[MotionAnalysisPanel] Updating metrics', { currentVideoTime })
-
     if (analysisData?.skeleton_data) {
       const skeletonData = analysisData.skeleton_data
 
@@ -129,7 +123,6 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
         }
       }
 
-      console.log('[MotionAnalysisPanel] New metrics:', { handTechnique: handMetrics, instrumentMotion: instrumentMetrics })
       setMetrics({ handTechnique: handMetrics, instrumentMotion: instrumentMetrics })
 
       // リアルタイムメトリクス計算（現在のビデオ時間まで）
@@ -174,8 +167,6 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
     })
 
     const validPositionCount = positions.filter(p => p !== null).length
-    console.log('[REALTIME] Valid positions:', validPositionCount, '/', currentFrameData.length)
-
     if (validPositionCount < 2) {
       setRealtimeMetrics({ speed: 0, smoothness: 0, accuracy: 0 })
       return
@@ -217,8 +208,6 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
       ? Math.max(0, Math.min(100, 100 * Math.exp(-velocityCV / 3)))
       : 100
 
-    console.log('[REALTIME DEBUG] velocities:', velocities.length, 'velocityMean:', velocityMean.toFixed(2), 'velocityStdDev:', velocityStdDev.toFixed(2), 'velocityCV:', velocityCV.toFixed(4), 'smoothness:', smoothness.toFixed(2))
-
     // 正確性計算（経路の直線性と無駄のなさ）
     // 方法: 全体の経路効率を使用し、より広い範囲で評価
     const validPositions = positions.filter(p => p !== null) as Array<{ x: number; y: number }>
@@ -250,15 +239,12 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
           Math.pow(efficiency, 0.3) * 100
         ))
 
-        console.log('[ACCURACY DEBUG] straightDist:', straightDistance.toFixed(2), 'actualDist:', actualDistance.toFixed(2), 'efficiency:', efficiency.toFixed(4), 'score:', pathEfficiency.toFixed(2))
       }
     }
 
     // スコアに変換（ピクセル/秒を0-100スケールに正規化）
     // 典型的な手技の速度: 100-2000 px/s と仮定
     const speedScore = Math.min(Math.max((avgVelocity / 20), 0), 100)
-
-    console.log('[REALTIME] rawSpeed:', avgVelocity.toFixed(2), 'speed:', speedScore.toFixed(2), 'smoothness:', smoothness.toFixed(2), 'accuracy:', pathEfficiency.toFixed(2))
 
     setRealtimeMetrics({
       speed: speedScore,
@@ -369,8 +355,6 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
 
     // 速度スコアを調整：除数を5に減らして感度を上げる
     const speedScore = Math.min(Math.max((avgVelocity / 5), 0), 100)
-
-    console.log('[INSTRUMENT REALTIME] speed:', speedScore.toFixed(2), 'smoothness:', smoothness.toFixed(2), 'accuracy:', pathEfficiency.toFixed(2))
 
     setInstrumentRealtimeMetrics({
       speed: speedScore,
@@ -497,8 +481,6 @@ const MotionAnalysisPanel: React.FC<MotionAnalysisPanelProps> = ({
       </div>
     )
   }
-
-  console.log('[MotionAnalysisPanel] Rendering hand technique section')
 
   return (
     <div className="space-y-4">

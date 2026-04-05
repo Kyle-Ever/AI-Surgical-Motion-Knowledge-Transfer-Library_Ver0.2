@@ -176,20 +176,9 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
         }
 
         const data = await response.json()
-        console.log('Analysis data received:', {
-          id: data.id,
-          video_id: data.video_id,
-          video_type: data.video_type,
-          status: data.status,
-          has_skeleton_data: !!data.skeleton_data?.length,
-          has_instrument_data: !!data.instrument_data?.length,
-          has_motion_analysis: !!data.motion_analysis,
-          has_metrics: !!data.motion_analysis?.metrics
-        })
 
         // 視線解析の場合は専用ダッシュボードへ
         if (data.video_type === 'eye_gaze') {
-          console.log('[DashboardClient] Detected eye_gaze analysis, switching to GazeDashboardClient')
           setVideoType('eye_gaze')
           setAnalysisData(data)
           setLoading(false)
@@ -260,7 +249,6 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
 
       const comparison = await response.json()
       setComparisonId(comparison.id)
-      console.log('Comparison created:', comparison.id)
     } catch (error) {
       console.error('Comparison failed:', error)
       alert('比較に失敗しました')
