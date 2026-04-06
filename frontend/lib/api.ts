@@ -79,6 +79,14 @@ export const endpoints = {
     get: (id: string) => `/library/${id}`,
     save: '/library',
   },
+
+  // 管理者パネル
+  admin: {
+    getMetricsConfig: '/admin/config/metrics',
+    updateMetricsConfig: '/admin/config/metrics',
+    resetMetricsConfig: '/admin/config/metrics/reset',
+    getMetricsDefaults: '/admin/config/metrics/defaults',
+  },
 }
 
 // WebSocket URL

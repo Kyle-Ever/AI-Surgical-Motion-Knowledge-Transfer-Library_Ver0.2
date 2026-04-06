@@ -1,11 +1,18 @@
 {
-  "activeFeatures": {
-    "quality-improvement": {
-      "phase": "plan",
-      "createdAt": "2026-04-05",
-      "planPath": "docs/01-plan/features/quality-improvement.plan.md",
-      "matchRate": null,
-      "iteration": 0
-    }
-  }
+  "version": "2.0",
+  "lastUpdated": "2026-04-05T16:34:19.252Z",
+  "activeFeatures": [],
+  "primaryFeature": null,
+  "features": {},
+  "pipeline": {
+    "currentPhase": 1,
+    "level": "Dynamic",
+    "phaseHistory": []
+  },
+  "session": {
+    "startedAt": "2026-04-05T16:34:19.252Z",
+    "onboardingCompleted": false,
+    "lastActivity": "2026-04-05T16:34:19.252Z"
+  },
+  "history": []
 }

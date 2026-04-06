@@ -1,0 +1,39 @@
+{
+  "weights": {
+    "a1": 0.4,
+    "a2": 0.35,
+    "a3": 0.25,
+    "b1": 0.4,
+    "b2": 0.3,
+    "b3": 0.3,
+    "group_a": 0.5,
+    "group_b": 0.5
+  },
+  "thresholds": {
+    "idle_velocity_threshold": 0.032,
+    "idle_velocity_threshold_pixel": 5.0,
+    "micro_pause_max_sec": 1.0,
+    "check_pause_max_sec": 3.0,
+    "movement_velocity_threshold": 0.028,
+    "movement_velocity_threshold_pixel": 8.0,
+    "smoothing_window": 5,
+    "hysteresis_ratio": 0.7
+  },
+  "scoring": {
+    "a1_max_path_pixel": 50000.0,
+    "a1_max_path_normalized": 10.0,
+    "a2_sparc_min": -7.0,
+    "a2_sparc_max": -1.0,
+    "a3_both_hands_min_ratio": 0.3,
+    "a3_correlation_weight": 0.6,
+    "a3_balance_weight": 0.4,
+    "b1_max_idle_ratio": 0.3,
+    "b2_max_movements_per_minute": 60.0,
+    "b3_max_area_pixel": 500000.0,
+    "b3_max_area_normalized": 0.1
+  },
+  "sparc": {
+    "freq_cutoff_hz": 20.0,
+    "amplitude_threshold": 0.05
+  }
+}

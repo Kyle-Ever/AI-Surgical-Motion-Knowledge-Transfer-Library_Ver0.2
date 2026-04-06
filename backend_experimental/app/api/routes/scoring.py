@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
@@ -118,6 +118,32 @@ async def get_reference_model(
         )
 
     return reference
+
+@router.delete(
+    "/reference/{reference_id}",
+    summary="Delete reference model (soft delete)"
+)
+async def delete_reference_model(
+    reference_id: str,
+    db: Session = Depends(get_db)
+):
+    """基準モデルを論理削除"""
+    reference = db.query(ReferenceModel).filter(
+        ReferenceModel.id == reference_id,
+        ReferenceModel.is_active == 1
+    ).first()
+
+    if not reference:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Reference model {reference_id} not found"
+        )
+
+    reference.is_active = 0
+    db.commit()
+
+    return {"message": "Reference model deleted", "id": reference_id}
+
 
 @router.post(
     "/compare",
@@ -313,7 +339,7 @@ async def get_comparison_report(
 async def get_comparisons(
     learner_analysis_id: Optional[str] = None,
     reference_model_id: Optional[str] = None,
-    status: Optional[ComparisonStatus] = None,
+    filter_status: Optional[ComparisonStatus] = Query(None, alias="status"),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -332,8 +358,8 @@ async def get_comparisons(
                 ComparisonResult.reference_model_id == reference_model_id
             )
 
-        if status:
-            query = query.filter(ComparisonResult.status == status)
+        if filter_status:
+            query = query.filter(ComparisonResult.status == filter_status)
 
         comparisons = query.order_by(
             ComparisonResult.created_at.desc()
@@ -392,12 +418,13 @@ async def delete_comparison(
 )
 async def get_six_metrics(
     analysis_id: str,
+    recalculate: bool = Query(False, description="Trueの場合、キャッシュを無視して現在の設定で再計算"),
     db: Session = Depends(get_db)
 ):
     """
     解析結果の6指標をオンデマンドで計算して返す。
-    motion_analysisにsix_metricsが既にあればそれを返し、
-    なければskeleton_dataから計算する。
+    recalculate=False: motion_analysisにsix_metricsが既にあればそれを返す。
+    recalculate=True: キャッシュを無視し、現在の設定で再計算する。
     """
     from app.services.metrics import SixMetricsService
 
@@ -408,13 +435,14 @@ async def get_six_metrics(
     if not analysis:
         raise HTTPException(status_code=404, detail=f"Analysis {analysis_id} not found")
 
-    # 既にsix_metricsがあればそのまま返す
-    if analysis.motion_analysis and isinstance(analysis.motion_analysis, dict):
-        existing = analysis.motion_analysis.get("six_metrics")
-        if existing:
-            return existing
+    # recalculate=Falseの場合、既存データを使用
+    if not recalculate:
+        if analysis.motion_analysis and isinstance(analysis.motion_analysis, dict):
+            existing = analysis.motion_analysis.get("six_metrics")
+            if existing:
+                return existing
 
-    # なければskeleton_dataから計算
+    # skeleton_dataから（再）計算
     skeleton_data = analysis.skeleton_data
     if not skeleton_data:
         raise HTTPException(status_code=400, detail="No skeleton_data available")

@@ -37,6 +37,7 @@ class SixMetricsResult:
     overall_score: float                  # 総合スコア (0-100)
     evaluation_mode: str                  # "absolute" or "relative"
     expert_baseline_used: bool
+    applied_config: Optional[Dict[str, Any]] = None  # 計算時の設定スナップショット
 
     def to_dict(self) -> Dict[str, Any]:
         """APIレスポンス用のdict変換"""
@@ -52,7 +53,7 @@ class SixMetricsResult:
             }
             metrics_by_group[m.group][m.metric_name] = entry
 
-        return {
+        result = {
             "evaluation_mode": self.evaluation_mode,
             "expert_baseline_used": self.expert_baseline_used,
             "overall_score": self.overall_score,
@@ -65,6 +66,9 @@ class SixMetricsResult:
                 "metrics": metrics_by_group["waste_detection"],
             },
         }
+        if self.applied_config is not None:
+            result["applied_config"] = self.applied_config
+        return result
 
 
 @dataclass

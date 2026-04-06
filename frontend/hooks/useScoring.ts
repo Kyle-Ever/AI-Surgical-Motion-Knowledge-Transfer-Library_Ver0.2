@@ -65,6 +65,22 @@ export function useReferenceModels() {
   return { models, isLoading, error, refetch: fetchModels }
 }
 
+// 基準モデルを削除するフック
+export function useDeleteReferenceModel() {
+  const [isLoading, setIsLoading] = useState(false)
+
+  const deleteModel = useCallback(async (referenceId: string) => {
+    setIsLoading(true)
+    try {
+      await api.delete(`/scoring/reference/${referenceId}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  return { deleteModel, isLoading }
+}
+
 // 基準モデルを作成するフック
 export function useCreateReferenceModel() {
   const [isLoading, setIsLoading] = useState(false)

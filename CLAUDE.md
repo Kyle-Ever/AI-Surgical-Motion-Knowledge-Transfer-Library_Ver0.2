@@ -32,9 +32,9 @@ Frontend (Next.js 15, Port 3000)  →  Backend (FastAPI, Port 8001)  →  SQLite
 
 ## Quick Start
 ```bash
-start_both_experimental.bat           # ローカル開発 (Frontend 3000 + Backend 8001)
-start_dual_ngrok.bat                  # 公開デモ (ngrokデュアルドメイン)
-kill_all_servers.bat                  # 全サーバー停止
+run.bat                               # ローカル開発 (Frontend 3000 + Backend 8001)
+run.bat ngrok                         # 公開デモ (ngrokデュアルドメイン)
+kill.bat                              # 全サーバー停止
 ```
 
 ## Critical Rules

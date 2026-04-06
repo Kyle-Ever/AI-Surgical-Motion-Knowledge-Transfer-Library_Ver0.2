@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
 from app.core.error_handler import setup_exception_handlers
-from app.api.routes import videos, analysis, annotation, library, scoring, instrument_tracking, segmentation
+from app.api.routes import videos, analysis, annotation, library, scoring, instrument_tracking, segmentation, admin
 from app.models import Base, engine
 
 # ロギング設定
@@ -148,6 +148,11 @@ app.include_router(
     segmentation.router,
     prefix=f"{settings.API_V1_STR}/videos",
     tags=["segmentation"]
+)
+app.include_router(
+    admin.router,
+    prefix=f"{settings.API_V1_STR}/admin",
+    tags=["admin"]
 )
 
 # V2 APIルーター（新しいクリーンアーキテクチャ実装）

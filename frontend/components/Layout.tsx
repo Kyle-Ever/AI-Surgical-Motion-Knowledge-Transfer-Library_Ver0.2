@@ -11,6 +11,7 @@ const navItems = [
   { href: "/library", label: "ライブラリ", icon: Library },
   { href: "/scoring", label: "採点モード", icon: Award },
   { href: "/history", label: "履歴", icon: History },
+  { href: "/admin", label: "管理者パネル", icon: Settings },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {

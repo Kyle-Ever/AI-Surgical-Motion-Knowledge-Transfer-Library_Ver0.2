@@ -76,6 +76,7 @@ export default function VideoPlayer({
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const [isPlaying, setIsPlaying] = useState(false)
+  const isPlayingRef = useRef(false) // refで常に最新の再生状態を保持（クロージャ遅延回避）
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [videoFps, setVideoFps] = useState(30) // 🔧 追加: 動画の実際のFPSを保存
@@ -92,32 +93,43 @@ export default function VideoPlayer({
 
   // 現在のフレームに対応するデータを取得（新形式対応）
   const getCurrentData = (timestamp: number) => {
-    // 🔧 修正: タイムスタンプ調整を削除し、厳密な同期を実現
-    // const adjustedTimestamp = timestamp + 0.02  // 削除: 20msの遅延は不要
+    // 骨格データのフレーム間隔に基づくtolerance（半フレーム分）
+    // 例: 15FPS → 67ms間隔 → tolerance=33ms, 30FPS → 33ms間隔 → tolerance=16ms
+    const skeletonInterval = skeletonData.length >= 2
+      ? skeletonData[1].timestamp - skeletonData[0].timestamp
+      : 1 / (videoFps || 30)
+    const tolerance = skeletonInterval / 2
 
-    // 🔧 修正: 許容範囲を狭めて正確なマッチングを実現
-    // 30fps = 33.3ms/frame なので、許容範囲は ±16ms (半フレーム) に設定
-    const tolerance = 0.016  // 16ms = 約半フレーム
-
-    // 最も近いフレームを探す（新形式: 1フレーム = 1レコード）
+    // 二分探索で現在時刻に最も近いフレームを高速に探す
     let currentSkeletonFrame: SkeletonData | undefined
     if (skeletonData.length > 0) {
-      currentSkeletonFrame = skeletonData.find(
-        data => Math.abs(data.timestamp - timestamp) < tolerance
-      )
-
-      // 見つからない場合は最近傍
-      if (!currentSkeletonFrame) {
-        currentSkeletonFrame = skeletonData.reduce((prev, curr) => {
-          const prevDiff = Math.abs(prev.timestamp - timestamp)
-          const currDiff = Math.abs(curr.timestamp - timestamp)
-          return currDiff < prevDiff ? curr : prev
-        })
+      let lo = 0
+      let hi = skeletonData.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1
+        if (skeletonData[mid].timestamp < timestamp) {
+          lo = mid + 1
+        } else {
+          hi = mid
+        }
       }
+      // loは timestamp 以上の最初のインデックス。前後を比較して近い方を選ぶ
+      const candidates = [lo - 1, lo].filter(i => i >= 0 && i < skeletonData.length)
+      currentSkeletonFrame = candidates.reduce((best, i) => {
+        if (!best) return skeletonData[i]
+        return Math.abs(skeletonData[i].timestamp - timestamp) < Math.abs(best.timestamp - timestamp)
+          ? skeletonData[i] : best
+      }, undefined as SkeletonData | undefined)
     }
 
+    // 器具データも同じtoleranceで検索
+    const toolInterval = toolData.length >= 2
+      ? toolData[1].timestamp - toolData[0].timestamp
+      : skeletonInterval
+    const toolTolerance = toolInterval / 2
+
     let currentTools = toolData.find(
-      data => Math.abs(data.timestamp - timestamp) < tolerance
+      data => Math.abs(data.timestamp - timestamp) < toolTolerance
     )
 
     if (!currentTools && toolData.length > 0) {
@@ -358,18 +370,20 @@ export default function VideoPlayer({
 
   // 次のフレーム描画をスケジュール（RVFC優先、フォールバックRAF）
   const scheduleNextFrame = useCallback(() => {
-    if (!videoRef.current || !isPlaying) return
+    if (!videoRef.current || !isPlayingRef.current) return
 
     const video = videoRef.current
+    // 1フレーム分の先読み補正値（RVFCは描画後に発火するため）
+    const frameDuration = 1 / (videoFps || 30)
 
     // 🆕 RVFC対応ブラウザ: ビデオフレームと完全同期
     if (video.requestVideoFrameCallback) {
       rvfcHandleRef.current = video.requestVideoFrameCallback((now, metadata) => {
-        // metadata.mediaTime がビデオの正確な現在時刻
-        drawOverlayAtTime(metadata.mediaTime)
+        // metadata.mediaTime + 1フレーム分で先読み補正
+        drawOverlayAtTime(metadata.mediaTime + frameDuration)
 
         // 再生中なら次のフレームをスケジュール
-        if (isPlaying) {
+        if (isPlayingRef.current) {
           scheduleNextFrame()
         }
       })
@@ -378,14 +392,15 @@ export default function VideoPlayer({
     // ⚠️ フォールバック: RAF（Firefox等、RVFC非対応ブラウザ）
     else {
       animationFrameRef.current = requestAnimationFrame(() => {
-        drawOverlayAtTime(video.currentTime)
+        // RAFも同様に先読み補正
+        drawOverlayAtTime(video.currentTime + frameDuration)
 
-        if (isPlaying) {
+        if (isPlayingRef.current) {
           scheduleNextFrame()
         }
       })
     }
-  }, [isPlaying, drawOverlayAtTime])
+  }, [videoFps, drawOverlayAtTime])
 
   // 動画の再生/一時停止
   const togglePlay = () => {
@@ -393,9 +408,11 @@ export default function VideoPlayer({
     
     if (videoRef.current.paused) {
       videoRef.current.play()
+      isPlayingRef.current = true
       setIsPlaying(true)
     } else {
       videoRef.current.pause()
+      isPlayingRef.current = false
       setIsPlaying(false)
     }
   }
@@ -481,11 +498,13 @@ export default function VideoPlayer({
     if (!video) return
 
     const handlePlay = () => {
+      isPlayingRef.current = true // refは即座に反映（クロージャ遅延なし）
       setIsPlaying(true)
       // 🆕 再生開始時にフレームスケジューリングを開始
       scheduleNextFrame()
     }
     const handlePause = () => {
+      isPlayingRef.current = false
       setIsPlaying(false)
       // 🔧 両方のハンドルをクリーンアップ
       if (animationFrameRef.current) {

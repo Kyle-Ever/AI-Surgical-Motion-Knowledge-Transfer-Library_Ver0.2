@@ -12,6 +12,20 @@ from .types import MetricResult, ExpertBaseline
 class MetricScorer:
     """6指標のスコア変換"""
 
+    def __init__(self, config: Dict[str, Any] = None):
+        s = config.get("scoring", {}) if config else {}
+        self.a1_max_path_pixel = s.get("a1_max_path_pixel", 50000.0)
+        self.a1_max_path_normalized = s.get("a1_max_path_normalized", 10.0)
+        self.a2_sparc_min = s.get("a2_sparc_min", -7.0)
+        self.a2_sparc_max = s.get("a2_sparc_max", -1.0)
+        self.a3_both_hands_min_ratio = s.get("a3_both_hands_min_ratio", 0.30)
+        self.a3_corr_weight = s.get("a3_correlation_weight", 0.60)
+        self.a3_bal_weight = s.get("a3_balance_weight", 0.40)
+        self.b1_max_idle_ratio = s.get("b1_max_idle_ratio", 0.30)
+        self.b2_max_mpm = s.get("b2_max_movements_per_minute", 60.0)
+        self.b3_max_area_pixel = s.get("b3_max_area_pixel", 500000.0)
+        self.b3_max_area_normalized = s.get("b3_max_area_normalized", 0.10)
+
     # =========================================================================
     # A1: 動作経済性
     # =========================================================================
@@ -28,9 +42,7 @@ class MetricScorer:
             mode = "relative"
         else:
             # Layer 1: ピクセル座標 vs 正規化座標で閾値切替
-            # path_length > 100 → ピクセル座標（上限50000）
-            # path_length <= 100 → 正規化座標（上限10.0）
-            max_path = 50000.0 if total_path > 100 else 10.0
+            max_path = self.a1_max_path_pixel if total_path > 100 else self.a1_max_path_normalized
             score = max(0.0, min(100.0, (1.0 - total_path / max_path) * 100.0))
             ratio = None
             mode = "absolute"
@@ -61,8 +73,9 @@ class MetricScorer:
             score = max(0.0, min(100.0, (2.0 - ratio) * 100.0))
             mode = "relative"
         else:
-            # Layer 1: SPARC -1→100点, -7→0点 の線形マッピング
-            score = max(0.0, min(100.0, (sparc + 7.0) / 6.0 * 100.0))
+            # Layer 1: SPARC sparc_max→100点, sparc_min→0点 の線形マッピング
+            sparc_range = self.a2_sparc_max - self.a2_sparc_min
+            score = max(0.0, min(100.0, (sparc - self.a2_sparc_min) / sparc_range * 100.0)) if sparc_range != 0 else 50.0
             ratio = None
             mode = "absolute"
 
@@ -78,22 +91,19 @@ class MetricScorer:
     # A3: 両手協調性
     # =========================================================================
 
-    # 両手検出率がこの閾値以下の場合、A3はN/A扱い
-    A3_MIN_DETECTION_RATIO = 0.3
-
     def score_bimanual_coordination(
         self, raw: Dict[str, Any], baseline: Optional[ExpertBaseline] = None
     ) -> MetricResult:
         coord = raw["coordination_value"]
-        both_ratio = raw.get("both_hands_detected_ratio", 0)
+        eval_method = raw.get("evaluation_method", "bimanual_correlation")
         expert = baseline.bimanual_coordination if baseline else None
 
-        # 両手検出率が低い場合はN/A（スコアに-1を設定してフロントで判定）
-        if both_ratio < self.A3_MIN_DETECTION_RATIO:
+        # データ不足の場合はN/A
+        if raw.get("insufficient_data"):
             return MetricResult(
                 metric_id="A3", metric_name="bimanual_coordination",
                 metric_label_ja="両手協調性", group="motion_quality",
-                raw_values={**raw, "insufficient_data": True},
+                raw_values=raw,
                 score=-1.0,  # N/Aフラグ
                 ratio_to_expert=None,
                 evaluation_mode="insufficient_data",
@@ -105,9 +115,14 @@ class MetricScorer:
             mode = "relative"
         else:
             # Layer 1: coordination_value (0-1) → 0-100
+            # bimanual_correlationでもholding_stabilityでも同じスケール
             score = coord * 100.0
             ratio = None
             mode = "absolute"
+
+        # 評価手法を記録（フロントで表示切替に使用）
+        if eval_method == "holding_stability":
+            mode = f"{mode}_holding"
 
         return MetricResult(
             metric_id="A3", metric_name="bimanual_coordination",
@@ -136,8 +151,8 @@ class MetricScorer:
                 score = max(0.0, min(100.0, (2.0 - ratio) * 100.0))
             mode = "relative"
         else:
-            # Layer 1: ratio 0%→100点, 30%以上→0点
-            score = max(0.0, min(100.0, (1.0 - lost_ratio / 0.30) * 100.0))
+            # Layer 1: ratio 0%→100点, max_idle_ratio以上→0点
+            score = max(0.0, min(100.0, (1.0 - lost_ratio / self.b1_max_idle_ratio) * 100.0))
             ratio = None
             mode = "absolute"
 
@@ -164,8 +179,8 @@ class MetricScorer:
             score = max(0.0, min(100.0, (2.0 - ratio) * 100.0))
             mode = "relative"
         else:
-            # Layer 1: 暫定60回/分上限
-            ratio_val = min(mpm / 60.0, 1.0)
+            # Layer 1: max_mpm上限
+            ratio_val = min(mpm / self.b2_max_mpm, 1.0)
             score = (1.0 - ratio_val) * 100.0
             ratio = None
             mode = "absolute"
@@ -198,9 +213,9 @@ class MetricScorer:
         else:
             # Layer 1: 暫定の一方向評価
             if hull_area > 100:
-                max_area = 500000.0  # ピクセル座標
+                max_area = self.b3_max_area_pixel
             else:
-                max_area = 0.10      # 正規化座標
+                max_area = self.b3_max_area_normalized
             r = min(hull_area / max_area, 1.0) if max_area > 0 else 0
             score = (1.0 - r) * 100.0
             ratio = None

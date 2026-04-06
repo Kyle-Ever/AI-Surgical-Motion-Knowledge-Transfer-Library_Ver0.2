@@ -13,6 +13,7 @@ from .preprocessor import preprocess_skeleton_data
 from .motion_quality_calculator import MotionQualityCalculator
 from .waste_detector import WasteDetector
 from .metric_scorer import MetricScorer
+from .metrics_config import MetricsConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,25 +21,25 @@ logger = logging.getLogger(__name__)
 class SixMetricsService:
     """6指標統合計算サービス"""
 
-    # Group A 重み
-    WEIGHT_A1 = 0.40  # 動作経済性（最も判別力が高い）
-    WEIGHT_A2 = 0.35  # 動作滑らかさ
-    WEIGHT_A3 = 0.25  # 両手協調性
-
-    # Group B 重み
-    WEIGHT_B1 = 0.40  # ロスタイム（時間コスト直結）
-    WEIGHT_B2 = 0.30  # 動作回数
-    WEIGHT_B3 = 0.30  # 作業空間偏差
-
-    # 総合
-    WEIGHT_GROUP_A = 0.50
-    WEIGHT_GROUP_B = 0.50
-
     def __init__(self, fps: float = 30.0):
         self.fps = fps
-        self.motion_quality = MotionQualityCalculator(fps)
-        self.waste_detector = WasteDetector(fps)
-        self.scorer = MetricScorer()
+
+        # 設定をロード（スナップショットとして保持）
+        cfg = MetricsConfigManager().get_config()
+        self._config_snapshot = cfg
+        w = cfg["weights"]
+        self.WEIGHT_A1 = w["a1"]
+        self.WEIGHT_A2 = w["a2"]
+        self.WEIGHT_A3 = w["a3"]
+        self.WEIGHT_B1 = w["b1"]
+        self.WEIGHT_B2 = w["b2"]
+        self.WEIGHT_B3 = w["b3"]
+        self.WEIGHT_GROUP_A = w["group_a"]
+        self.WEIGHT_GROUP_B = w["group_b"]
+
+        self.motion_quality = MotionQualityCalculator(fps, cfg)
+        self.waste_detector = WasteDetector(fps, cfg)
+        self.scorer = MetricScorer(cfg)
 
     def calculate(
         self,
@@ -114,6 +115,7 @@ class SixMetricsService:
             overall_score=round(overall, 1),
             evaluation_mode=mode,
             expert_baseline_used=expert_baseline is not None,
+            applied_config=self._config_snapshot,
         )
 
     def calculate_timeline(

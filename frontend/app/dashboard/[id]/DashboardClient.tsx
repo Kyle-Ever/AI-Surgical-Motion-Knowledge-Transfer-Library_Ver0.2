@@ -126,6 +126,10 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
   const [evaluationTab, setEvaluationTab] = useState<'absolute' | 'relative'>('absolute')
   const [dualVideoMode, setDualVideoMode] = useState(false)  // 横並びモード
   const [refVideoUrl, setRefVideoUrl] = useState<string | null>(null)
+  const [refSkeletonData, setRefSkeletonData] = useState<any[]>([])
+  const [refToolData, setRefToolData] = useState<any[]>([])
+  const [refVideoType, setRefVideoType] = useState<string | undefined>(undefined)
+  const [refSixMetricsAbsolute, setRefSixMetricsAbsolute] = useState<any>(null)
   const [refVideoLoading, setRefVideoLoading] = useState(false)
 
   // APIから解析結果を取得
@@ -251,6 +255,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
       setSixMetrics(sixMetricsAbsolute)
       setEvaluationTab('absolute')
       setRefVideoUrl(null)
+      setRefSixMetricsAbsolute(null)
       setDualVideoMode(false)
       return
     }
@@ -268,21 +273,27 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
         // 基準の解析結果を取得
         const { data: refAnalysis } = await api.get(`/analysis/${refModel.analysis_id}`)
 
-        // 基準動画URLを設定
+        // 基準動画URL・骨格データを設定
         if (refAnalysis?.video_id) {
           setRefVideoUrl(`${API_BASE_URL}/videos/${refAnalysis.video_id}/stream`)
         }
+        setRefSkeletonData(refAnalysis?.skeleton_data || [])
+        setRefToolData(refAnalysis?.instrument_data || [])
+        setRefVideoType(refAnalysis?.video_type)
 
-        // 基準の6指標生値を取得（既存 or オンデマンド計算）
-        let refSixMetrics = refAnalysis?.motion_analysis?.six_metrics
-        if (!refSixMetrics && refModel.analysis_id) {
-          // six_metricsがない場合はAPIでオンデマンド計算
-          try {
-            const { data: smData } = await api.get(`/scoring/six-metrics/${refModel.analysis_id}`)
-            refSixMetrics = smData
-          } catch (e) {
-            console.error('Failed to calculate six_metrics for reference:', e)
-          }
+        // 基準の6指標を現在の設定で再計算（ロジック変更が基準にも反映されるように）
+        let refSixMetrics = null
+        try {
+          const { data: smData } = await api.get(`/scoring/six-metrics/${refModel.analysis_id}?recalculate=true`)
+          refSixMetrics = smData
+        } catch (e) {
+          console.error('Failed to calculate six_metrics for reference:', e)
+          // フォールバック: 保存済みデータを使用
+          refSixMetrics = refAnalysis?.motion_analysis?.six_metrics
+        }
+
+        if (refSixMetrics) {
+          setRefSixMetricsAbsolute(refSixMetrics)
         }
 
         if (refSixMetrics && sixMetricsAbsolute) {
@@ -461,11 +472,11 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
             <div className="bg-white rounded-lg shadow-sm p-3">
               <div className="text-xs font-medium text-purple-600 mb-1">エキスパート（基準）</div>
               {refVideoUrl ? (
-                <video
-                  src={refVideoUrl}
-                  className="w-full aspect-video bg-black rounded object-contain"
-                  controls
-                  muted
+                <VideoPlayer
+                  videoUrl={refVideoUrl}
+                  skeletonData={refSkeletonData}
+                  toolData={refToolData}
+                  videoType={refVideoType}
                 />
               ) : (
                 <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center text-sm text-gray-400">
@@ -553,8 +564,16 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
             b2: sixMetrics?.waste_detection?.metrics?.movement_count?.score || 0,
             b3: sixMetrics?.waste_detection?.metrics?.working_volume?.score || 0,
           }}
+          expertScores={refSixMetricsAbsolute ? {
+            a1: refSixMetricsAbsolute?.motion_quality?.metrics?.economy_of_motion?.score || 0,
+            a2: refSixMetricsAbsolute?.motion_quality?.metrics?.smoothness?.score || 0,
+            a3: refSixMetricsAbsolute?.motion_quality?.metrics?.bimanual_coordination?.score || 0,
+            b1: refSixMetricsAbsolute?.waste_detection?.metrics?.lost_time?.score || 0,
+            b2: refSixMetricsAbsolute?.waste_detection?.metrics?.movement_count?.score || 0,
+            b3: refSixMetricsAbsolute?.waste_detection?.metrics?.working_volume?.score || 0,
+          } : null}
         />
-        <FeedbackPanel comparisonId={comparisonId} />
+        <FeedbackPanel sixMetrics={sixMetrics} />
       </div>
 
       {/* アクショ��ボタン */}
