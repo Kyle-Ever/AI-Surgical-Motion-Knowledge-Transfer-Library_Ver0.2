@@ -53,6 +53,29 @@ DEFAULTS: Dict[str, Any] = {
         "freq_cutoff_hz": 20.0,
         "amplitude_threshold": 0.05,
     },
+    "event_detection": {
+        "version": "v0.3-chunk",
+        # --- 固定長チャンク分割 ---
+        "chunk_sec": 3.0,                    # 1 チャンクの長さ (手技学的に意味がある最短単位)
+        # --- チャンク内指標の相対ランキング閾値 ---
+        # 各指標について「全チャンクのうち下位 N 位」を notable / hot として発火
+        "a1_path_median_ratio_notable": 1.3, # 全体中央値 × この倍率以上の path/s で notable
+        "a1_path_median_ratio_hot": 1.7,
+        "a2_sparc_percentile_notable": 25,   # SPARC がこの百分位数以下で notable (小さいほど悪い)
+        "a2_sparc_percentile_hot": 10,
+        "a3_low_corr_notable": 0.2,          # 相関がこの値以下で notable
+        "a3_low_corr_hot": 0.0,
+        "b1_notable_min_sec": 3.0,           # 既存のロスタイム (変更なし)
+        "b1_hot_min_sec": 8.0,
+        "b2_mpm_median_ratio_notable": 1.3,
+        "b2_mpm_median_ratio_hot": 1.7,
+        "b3_hull_median_ratio_notable": 1.5,
+        "b3_hull_median_ratio_hot": 2.0,
+        # --- イベントの集約・上限 ---
+        "merge_adjacent": True,              # 隣接する同一指標チャンクは 1 イベントにマージ
+        "max_events_per_analysis": 15,
+        "max_per_indicator": 5,
+    },
 }
 
 CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs" / "metrics_config.json"

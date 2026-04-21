@@ -32,7 +32,7 @@ from .metrics_calculator import MetricsCalculator
 from .frame_extraction_service import FrameExtractionService, ExtractionConfig, ExtractionResult
 from .realtime_metrics_service import RealtimeMetricsService
 from .waste_metrics_calculator import WasteMetricsCalculator
-from .metrics import SixMetricsService
+from .metrics import EventDetector, SixMetricsService
 
 logger = logging.getLogger(__name__)
 
@@ -521,6 +521,22 @@ class AnalysisServiceV2:
         analysis_result.scores = scores
         analysis_result.total_frames = self.video_info.get('total_frames', 0)
         analysis_result.status = AnalysisStatus.COMPLETED
+
+        # Review Deck 用イベント検出 (fail-soft: 失敗しても解析全体は成功扱い)
+        try:
+            fps = float(self.video_info.get('fps', 30.0)) or 30.0
+            detector = EventDetector(fps=fps)
+            events = detector.detect(analysis_result.id, skeleton_data)
+            analysis_result.events = convert_numpy_types(events)
+            analysis_result.events_version = detector.version
+            logger.info(
+                f"[ANALYSIS] Review Deck events: {len(events)} events "
+                f"(version={detector.version})"
+            )
+        except Exception as evt_err:
+            logger.warning(f"[ANALYSIS] Event detection failed: {evt_err}")
+            analysis_result.events = None
+            analysis_result.events_version = None
         # JST時刻で保存
         jst = pytz.timezone('Asia/Tokyo')
         analysis_result.completed_at = datetime.now(jst).replace(tzinfo=None)

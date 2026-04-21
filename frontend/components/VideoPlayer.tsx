@@ -52,6 +52,12 @@ interface VideoPlayerProps {
   autoPlay?: boolean
   videoType?: string
   onTimeUpdate?: (currentTime: number) => void
+  /**
+   * 外部からの「この秒数にジャンプせよ」シグナル。
+   * `token` が変わる度に `time` へ seek する (同じ時刻でも token を変えれば再シーク)。
+   * Review Deck の Event List / Timeline クリック連動で使用。
+   */
+  seekSignal?: { time: number; token: number }
 }
 
 export default function VideoPlayer({
@@ -62,7 +68,8 @@ export default function VideoPlayer({
   height = 360,
   autoPlay = false,
   videoType,
-  onTimeUpdate
+  onTimeUpdate,
+  seekSignal,
 }: VideoPlayerProps) {
   // Check if instrument data exists and video type supports instruments
   const hasInstrumentData = (videoType === 'internal' ||
@@ -539,6 +546,17 @@ export default function VideoPlayer({
       drawOverlayAtTime(videoRef.current.currentTime)
     }
   }, [skeletonData, toolData, drawOverlayAtTime])
+
+  // 外部 seek シグナル (Review Deck の Event クリック連動)
+  const lastSeekTokenRef = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    if (!seekSignal || !videoRef.current) return
+    if (lastSeekTokenRef.current === seekSignal.token) return
+    lastSeekTokenRef.current = seekSignal.token
+    const t = Math.max(0, Math.min(seekSignal.time, videoRef.current.duration || seekSignal.time))
+    videoRef.current.currentTime = t
+    drawOverlayAtTime(t)
+  }, [seekSignal, drawOverlayAtTime])
 
   // 表示設定が変更されたら再描画
   useEffect(() => {

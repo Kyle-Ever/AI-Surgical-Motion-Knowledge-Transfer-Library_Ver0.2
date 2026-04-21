@@ -17,6 +17,12 @@ from app.schemas.analysis import (
 )
 # from app.services.analysis_service import AnalysisService  # DEPRECATED: V2サービスを使用
 from app.schemas.common import ErrorResponse
+from app.schemas.review_event import (
+    ReviewEvent,
+    ReviewEventsResponse,
+    TimelineResponse,
+    TimelineSample,
+)
 
 router = APIRouter()
 
@@ -570,6 +576,104 @@ async def export_analysis(
         headers={
             "Content-Disposition": f"attachment; filename=analysis_{analysis_id}.csv"
         }
+    )
+
+
+@router.get(
+    "/{analysis_id}/events",
+    response_model=ReviewEventsResponse,
+    summary="Review Deck: 気づきイベント一覧",
+    responses={
+        404: {"description": "Analysis not found", "model": ErrorResponse},
+    },
+)
+async def get_review_events(
+    analysis_id: str,
+    db: Session = Depends(get_db),
+):
+    """Review Deck 用の気づきイベント (6指標別の気になる瞬間) を返す。
+
+    - events カラムが null (旧解析) の場合は has_events=false と空配列を返す
+    - フロントエンドは has_events=false のときに「再解析が必要」UI を出す
+    """
+    analysis = db.query(AnalysisResult).filter(AnalysisResult.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    raw_events = analysis.events
+    has_events = raw_events is not None
+
+    events: list = []
+    if raw_events:
+        # DB 保存時は list[dict]。古いデータで str が入っていたら JSON decode
+        if isinstance(raw_events, str):
+            import json as _json
+            try:
+                raw_events = _json.loads(raw_events)
+            except Exception:
+                raw_events = []
+        for item in raw_events:
+            try:
+                events.append(ReviewEvent.model_validate(item))
+            except Exception:
+                continue
+
+    generated_at = None
+    if analysis.completed_at is not None:
+        generated_at = analysis.completed_at.isoformat()
+
+    return ReviewEventsResponse(
+        analysis_id=analysis.id,
+        has_events=has_events,
+        events=events,
+        generated_at=generated_at,
+        thresholds_version=analysis.events_version,
+    )
+
+
+@router.get(
+    "/{analysis_id}/timeline",
+    response_model=TimelineResponse,
+    summary="Review Deck: 6指標の累積スコア時系列",
+    responses={
+        404: {"description": "Analysis not found", "model": ErrorResponse},
+        409: {"description": "Skeleton data not available", "model": ErrorResponse},
+    },
+)
+async def get_metrics_timeline(
+    analysis_id: str,
+    interval_sec: float = 0.5,
+    db: Session = Depends(get_db),
+):
+    """SixMetricsService.calculate_timeline の出力を公開するエンドポイント。
+
+    Review Deck のマルチトラックタイムラインがポーリングせず一度で読み込む。
+    """
+    analysis = db.query(AnalysisResult).filter(AnalysisResult.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    skeleton = analysis.skeleton_data
+    if not skeleton:
+        raise HTTPException(status_code=409, detail="Skeleton data not available for this analysis")
+
+    if interval_sec <= 0:
+        raise HTTPException(status_code=400, detail="interval_sec must be > 0")
+
+    # SixMetricsService は fps を取るが、preprocessor 側で実効 fps を再計算するので概算で OK
+    from app.services.metrics import SixMetricsService
+
+    try:
+        svc = SixMetricsService(fps=30.0)
+        raw_timeline = svc.calculate_timeline(skeleton, interval_sec=interval_sec)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Timeline calculation failed: {exc}")
+
+    samples = [TimelineSample(**row) for row in raw_timeline]
+    return TimelineResponse(
+        analysis_id=analysis.id,
+        interval_sec=interval_sec,
+        samples=samples,
     )
 
 

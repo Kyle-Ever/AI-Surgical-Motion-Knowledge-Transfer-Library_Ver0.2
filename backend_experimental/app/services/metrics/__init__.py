@@ -13,7 +13,14 @@ Group B: ムダ検出 (Waste Detection) — どこで時間を失っているか
   B3: 作業空間偏差 (Working Volume Deviation)
 """
 
+from .event_detector import EventDetector
 from .six_metrics_service import SixMetricsService
 from .types import MetricResult, ExpertBaseline, SixMetricsResult
 
-__all__ = ["SixMetricsService", "MetricResult", "ExpertBaseline", "SixMetricsResult"]
+__all__ = [
+    "SixMetricsService",
+    "MetricResult",
+    "ExpertBaseline",
+    "SixMetricsResult",
+    "EventDetector",
+]

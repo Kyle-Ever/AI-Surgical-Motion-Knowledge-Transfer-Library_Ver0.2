@@ -53,6 +53,12 @@ class AnalysisResult(Base):
     last_error_frame = Column(Integer, nullable=True)  # 最後にエラーが発生したフレーム番号
     warnings = Column(JSON, nullable=True)  # [{"frame": 100, "message": "..."}, ...]
 
+    # Review Deck 向けの気づきイベント（event_detector 出力）
+    # [{"id": "...", "timestamp": 7.42, "indicator": "B1", "severity": "hot", ...}, ...]
+    # null のままの解析は旧形式として has_events=false 扱い
+    events = Column(JSON, nullable=True)
+    events_version = Column(String(64), nullable=True)  # event_detector 設定バージョン
+
     created_at = Column(DateTime, default=get_jst_now)
     completed_at = Column(DateTime, nullable=True)
     

@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Download, Activity, Target, Move, Wrench, AlertCircle, CheckCircle } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Download, Activity, Target, Move, Wrench, AlertCircle, CheckCircle, LayoutGrid, Film } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import GazeDashboardClient from '@/components/GazeDashboardClient'
 import { api, API_BASE_URL } from '@/lib/api'
+import { cn } from '@/lib/utils'
+
+type ViewMode = 'dashboard' | 'review-deck'
 
 // 相対評価のスコアをフロントで構築
 function buildRelativeMetrics(learnerMetrics: any, expertMetrics: any): any {
@@ -91,6 +94,9 @@ const MetricsRadarChart = dynamic(() => import('@/components/metrics/MetricsRada
 const LostTimeTimeline = dynamic(() => import('@/components/metrics/LostTimeTimeline'), { ssr: false })
 const ComparisonSettingsPanel = dynamic(() => import('@/components/metrics/ComparisonSettingsPanel'), { ssr: false })
 
+// Review Deck
+const ReviewDeckView = dynamic(() => import('@/components/review-deck/ReviewDeckView'), { ssr: false })
+
 interface DashboardClientProps {
   analysisId: string
 }
@@ -110,6 +116,10 @@ interface MetricsData {
 
 export default function DashboardClient({ analysisId }: DashboardClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialView: ViewMode =
+    searchParams?.get('view') === 'review-deck' ? 'review-deck' : 'dashboard'
+  const [viewMode, setViewMode] = useState<ViewMode>(initialView)
   const [analysisData, setAnalysisData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -359,6 +369,26 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
     }
   }
 
+  // View モード切替 (?view=review-deck を URL に反映)
+  const handleViewChange = (next: ViewMode) => {
+    setViewMode(next)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      if (next === 'dashboard') {
+        url.searchParams.delete('view')
+      } else {
+        url.searchParams.set('view', next)
+      }
+      window.history.replaceState(null, '', url.toString())
+    }
+  }
+
+  // Review Deck 用の動画長さ: 6 指標の raw_values から取るのが最も信頼できる
+  const totalVideoDuration =
+    sixMetrics?.waste_detection?.metrics?.lost_time?.raw_values?.total_duration_seconds
+    || analysisData?.motion_analysis?.six_metrics?.waste_detection?.metrics?.lost_time?.raw_values?.total_duration_seconds
+    || 0
+
   const handleExport = async () => {
     try {
       const response = await api.get(`/analysis/${analysisId}/export`, {
@@ -442,6 +472,57 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
         </button>
       </div>
 
+      {/* View 切替タブ */}
+      <div className="mb-4 border-b border-gray-200">
+        <nav className="flex -mb-px gap-4" role="tablist" aria-label="表示モード">
+          <button
+            role="tab"
+            aria-selected={viewMode === 'dashboard'}
+            onClick={() => handleViewChange('dashboard')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 transition-colors',
+              viewMode === 'dashboard'
+                ? 'border-blue-600 text-blue-700 font-semibold'
+                : 'border-transparent text-gray-500 hover:text-gray-800'
+            )}
+          >
+            <LayoutGrid className="w-4 h-4" />
+            ダッシュボード
+          </button>
+          <button
+            role="tab"
+            aria-selected={viewMode === 'review-deck'}
+            onClick={() => handleViewChange('review-deck')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 transition-colors',
+              viewMode === 'review-deck'
+                ? 'border-blue-600 text-blue-700 font-semibold'
+                : 'border-transparent text-gray-500 hover:text-gray-800'
+            )}
+          >
+            <Film className="w-4 h-4" />
+            フィードバック
+            <span className="ml-1 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+              NEW
+            </span>
+          </button>
+        </nav>
+      </div>
+
+      {viewMode === 'review-deck' && (
+        <ReviewDeckView
+          analysisId={analysisId}
+          videoId={analysisData?.video_id}
+          videoType={analysisData?.video_type}
+          skeletonData={analysisData?.skeleton_data || []}
+          toolData={analysisData?.instrument_data || []}
+          totalDuration={totalVideoDuration}
+          currentVideoTime={currentVideoTime}
+          onTimeUpdate={setCurrentVideoTime}
+        />
+      )}
+
+      {viewMode === 'dashboard' && <>
       {/* Row 1: 動画プレーヤー + 比較設定 */}
       {dualVideoMode ? (
         /* === 横並びモード === */
@@ -576,7 +657,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
         <FeedbackPanel sixMetrics={sixMetrics} />
       </div>
 
-      {/* アクショ��ボタン */}
+      {/* アクションボタン */}
       <div className="flex justify-center space-x-4 mb-8">
         <button
           onClick={() => router.push('/library')}
@@ -591,6 +672,7 @@ export default function DashboardClient({ analysisId }: DashboardClientProps) {
           新しい動画を解析
         </button>
       </div>
+      </>}
     </div>
   )
 }

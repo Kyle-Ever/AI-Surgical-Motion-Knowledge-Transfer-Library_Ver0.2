@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.error_handler import setup_exception_handlers
 from app.api.routes import videos, analysis, annotation, library, scoring, instrument_tracking, segmentation, admin
 from app.models import Base, engine
+from app.models.migrations import apply_additive_migrations
 
 # ロギング設定
 logging.basicConfig(level=logging.INFO)
@@ -76,6 +77,8 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up...")
     # データベーステーブルを作成
     Base.metadata.create_all(bind=engine)
+    # 既存テーブルへのカラム追加（Review Deck events カラム等）
+    apply_additive_migrations(engine)
     yield
     # シャットダウン時
     logger.info("Shutting down...")
